@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PocketKirana - Cart</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#2a1700",
+                      "on-surface-variant": "#3d4a3d",
+                      "on-primary-fixed": "#002109",
+                      "inverse-on-surface": "#eaf1ff",
+                      "primary-fixed": "#6bff8f",
+                      "secondary": "#416900",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "surface-container-high": "#dee9fc",
+                      "secondary-fixed-dim": "#91db2a",
+                      "secondary-container": "#acf847",
+                      "surface-container-low": "#eff4ff",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed": "#acf847",
+                      "surface-dim": "#d0dbed",
+                      "inverse-primary": "#4ae176",
+                      "surface": "#f8f9ff",
+                      "on-tertiary-container": "#5c3800",
+                      "on-error-container": "#93000a",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "inverse-surface": "#27313f",
+                      "surface-bright": "#f8f9ff",
+                      "tertiary-fixed": "#ffddb8",
+                      "surface-container": "#e6eeff",
+                      "on-secondary-container": "#457000",
+                      "surface-variant": "#d9e3f6",
+                      "on-primary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "error": "#ba1a1a",
+                      "surface-container-highest": "#d9e3f6",
+                      "primary-fixed-dim": "#4ae176",
+                      "primary": "#006e2f",
+                      "outline": "#6d7b6c",
+                      "on-secondary-fixed-variant": "#304f00",
+                      "on-primary-container": "#004b1e",
+                      "tertiary": "#855300",
+                      "outline-variant": "#bccbb9",
+                      "primary-container": "#22c55e",
+                      "on-secondary-fixed": "#102000",
+                      "surface-tint": "#006e2f",
+                      "error-container": "#ffdad6",
+                      "on-error": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "tertiary-container": "#ef9900",
+                      "on-primary-fixed-variant": "#005321",
+                      "on-background": "#121c2a",
+                      "on-surface": "#121c2a",
+                      "background": "#f8f9ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-desktop": "32px",
+                      "sm": "8px",
+                      "xl": "32px",
+                      "2xl": "48px",
+                      "base": "4px",
+                      "xs": "4px",
+                      "container-max": "1280px",
+                      "md": "16px",
+                      "gutter": "16px",
+                      "lg": "24px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "price-sm-mrp": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "label-lg": [
+                              "Inter"
+                      ],
+                      "price-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "price-sm-mrp": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "price-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopNavBar (Hidden on Mobile, Visible on Desktop) -->
+<header class="hidden md:flex bg-surface shadow-sm docked full-width top-0 z-50">
+<div class="flex items-center justify-between px-margin-desktop py-md w-full max-w-container-max mx-auto">
+<div class="font-display-lg text-display-lg font-bold text-primary">
+                PocketKirana
+            </div>
+<nav class="flex items-center gap-lg">
+<a class="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors" href="#">Location</a>
+<a class="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors" href="#">Account</a>
+<a class="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors" href="#">Orders</a>
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-body-md text-body-md hover:text-primary transition-colors" href="#">Cart</a>
+</nav>
+<div class="flex items-center gap-md">
+<button class="text-primary scale-95 active:transition-transform hover:bg-surface-container-low p-sm rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">location_on</span>
+</button>
+<button class="text-primary scale-95 active:transition-transform hover:bg-surface-container-low p-sm rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_circle</span>
+</button>
+<button class="text-primary scale-95 active:transition-transform hover:bg-surface-container-low p-sm rounded-full bg-surface-container-high">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-lg pb-32 md:pb-xl flex flex-col md:flex-row gap-xl">
+<!-- Cart Items Section -->
+<section class="flex-grow flex flex-col gap-lg w-full md:w-2/3">
+<div class="flex items-center justify-between border-b border-outline-variant pb-sm">
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Your Cart (3 items)</h1>
+<div class="flex items-center gap-xs text-primary bg-secondary-container px-sm py-xs rounded-full">
+<span class="material-symbols-outlined text-label-lg" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<span class="font-label-lg text-label-lg text-on-secondary-container">Delivery in 15 mins</span>
+</div>
+</div>
+<!-- Item List -->
+<div class="flex flex-col gap-md">
+<!-- Cart Item 1 -->
+<div class="flex items-center bg-surface-container-lowest rounded-xl p-md shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant">
+<img class="w-24 h-24 object-cover rounded-lg bg-surface-container-high flex-shrink-0" data-alt="A high-quality, brightly lit studio shot of a 5kg bag of premium whole wheat atta (flour) sitting on a pristine white surface. The packaging is modern with subtle green and gold accents. The lighting is soft and natural, casting a very gentle shadow to the right, highlighting the product's texture and premium feel. Modern retail photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmqxYlv13Ic7LWcxGN2BlVCmYDamAuMlw7Yd6F5sD6IXlLnNdjC29Ah6JZ5_EgeFzQLNV8RMjwPzlh2Lji43C3-iUkZAoZ7ahryuVaeN-06xToPDzJBAZuGvOk81dE-a51IvFcIPrmPS9TW99rGegZsevejW1chhXUOcK7C2g2Tq8iY7zpw2WnqsyKauH39nd4sHjomqwvzi4oi9HTLRrdBEsMbPI9roucsgw6APcCMfe_Ynn-4lE13A"/>
+<div class="flex flex-col flex-grow ml-md">
+<h3 class="font-headline-md text-headline-md text-on-surface">Premium Whole Wheat Atta</h3>
+<span class="font-body-md text-body-md text-on-surface-variant mt-xs">5 kg</span>
+<div class="flex items-center mt-sm">
+<span class="font-price-lg text-price-lg text-on-surface">₹249</span>
+<span class="font-price-sm-mrp text-price-sm-mrp text-outline line-through ml-sm">₹299</span>
+</div>
+</div>
+<div class="flex flex-col items-end justify-between h-full py-xs gap-md">
+<button aria-label="Remove item" class="text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined">delete</span>
+</button>
+<div class="flex items-center bg-primary text-on-primary rounded-xl overflow-hidden shadow-sm">
+<button class="px-sm py-xs hover:bg-primary-container hover:text-on-primary-container transition-colors font-bold text-lg leading-none">-</button>
+<span class="font-label-lg text-label-lg px-sm font-bold">1</span>
+<button class="px-sm py-xs hover:bg-primary-container hover:text-on-primary-container transition-colors font-bold text-lg leading-none">+</button>
+</div>
+</div>
+</div>
+<!-- Cart Item 2 -->
+<div class="flex items-center bg-surface-container-lowest rounded-xl p-md shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant">
+<img class="w-24 h-24 object-cover rounded-lg bg-surface-container-high flex-shrink-0" data-alt="A crisp, well-lit studio photograph of a 1-liter carton of fresh milk. The carton design is clean and minimalist with blue and white tones. It stands upright on a spotless surface against a very subtle light gray background. The lighting emphasizes freshness and purity, suitable for a modern e-commerce grocery platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnLMv-8U3SPu-mWCyfUK5Fyl_hVG52sOGfAldND_x4Tr96vg_uWlspNyUKB-J7yP081TQeuxjMsZkLd2MvhzevB4TH02Xsbf-sCkGZpxsjmA1CP4hyFt_nuHL5c7fx2i32epchYnwaZFJZQoNAza0n7Ghea4lgQlz2pJfzfEHY3DPsZia6XuHC-6UfSdPo4sOdNkO68T6Kdpgpz1ZrQgGgFSoaGYXy9zD_NLEOabUwWU51zQASqLNQOQ"/>
+<div class="flex flex-col flex-grow ml-md">
+<h3 class="font-headline-md text-headline-md text-on-surface">Fresh Farm Milk</h3>
+<span class="font-body-md text-body-md text-on-surface-variant mt-xs">1 L</span>
+<div class="flex items-center mt-sm">
+<span class="font-price-lg text-price-lg text-on-surface">₹65</span>
+</div>
+</div>
+<div class="flex flex-col items-end justify-between h-full py-xs gap-md">
+<button aria-label="Remove item" class="text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined">delete</span>
+</button>
+<div class="flex items-center bg-primary text-on-primary rounded-xl overflow-hidden shadow-sm">
+<button class="px-sm py-xs hover:bg-primary-container hover:text-on-primary-container transition-colors font-bold text-lg leading-none">-</button>
+<span class="font-label-lg text-label-lg px-sm font-bold">2</span>
+<button class="px-sm py-xs hover:bg-primary-container hover:text-on-primary-container transition-colors font-bold text-lg leading-none">+</button>
+</div>
+</div>
+</div>
+<!-- Cart Item 3 -->
+<div class="flex items-center bg-surface-container-lowest rounded-xl p-md shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant">
+<img class="w-24 h-24 object-cover rounded-lg bg-surface-container-high flex-shrink-0" data-alt="A vibrant, high-resolution image of a bunch of ripe, yellow bananas. The bananas are perfect, with no blemishes, resting on a clean white studio background. The lighting is bright and even, highlighting the fresh, natural yellow color of the fruit. This image conveys health, freshness, and high quality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAl1LBPX_UCjEOdTb5vJ6aIQ00iRpHIT0A9xkpHfSIqFIfblqeBBbMDcAh6VaVTPX5y6ozvptc-6Eghsb4j_OQ4TXXDUNWtlrScNBlwbaotiR9WEF5WFUYQoggYXmLYLE6Fqb7dtz4Gw356OuzHpwIa7mRHDPvBzcPYi_bplRdk_F2DTpzEu0R28e7FPO4TjUzbvUErKrByWK6N401EG_o1eAIw51Nggd2F7VdtilfBsYDvIrBzqD8pw"/>
+<div class="flex flex-col flex-grow ml-md">
+<h3 class="font-headline-md text-headline-md text-on-surface">Robusta Bananas</h3>
+<span class="font-body-md text-body-md text-on-surface-variant mt-xs">1/2 kg (Approx. 4-5 pcs)</span>
+<div class="flex items-center mt-sm">
+<span class="font-price-lg text-price-lg text-on-surface">₹45</span>
+<span class="font-price-sm-mrp text-price-sm-mrp text-outline line-through ml-sm">₹55</span>
+</div>
+</div>
+<div class="flex flex-col items-end justify-between h-full py-xs gap-md">
+<button aria-label="Remove item" class="text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined">delete</span>
+</button>
+<div class="flex items-center bg-primary text-on-primary rounded-xl overflow-hidden shadow-sm">
+<button class="px-sm py-xs hover:bg-primary-container hover:text-on-primary-container transition-colors font-bold text-lg leading-none">-</button>
+<span class="font-label-lg text-label-lg px-sm font-bold">1</span>
+<button class="px-sm py-xs hover:bg-primary-container hover:text-on-primary-container transition-colors font-bold text-lg leading-none">+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Save for Later Section -->
+<div class="mt-lg pt-lg border-t border-outline-variant">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-md">Saved for Later</h2>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-md">
+<!-- Saved Item 1 -->
+<div class="flex items-center bg-surface-container-low rounded-xl p-sm border border-outline-variant/50">
+<img class="w-16 h-16 object-cover rounded bg-surface-container flex-shrink-0" data-alt="A small, clear jar of organic honey with a minimalist label, sitting on a white background. The honey is a rich amber color, catching the light beautifully. The studio lighting emphasizes the premium nature of the product, creating a warm, inviting glow within the jar. Modern, clean aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgAu_VHqyCY9QE0iOVjpgpU6CQHZA0eInlEcn7XHS3TELRrEQDnZfEjm-2te4tOtuI2NOylYCPMGrPolEGgcRU-X9znjKBG5InHCl6zpXsu1wM-LkErkz_-92hCZhRlqWkE-5jWgH5OQ_rcIxovfESPqckonZBdrtFpFauGwq26IM6Nje15Y7H-YDrgBnyfmEZYh0Hfe2olw4ewlg_Lf_oGTSQWyGJmi-NOlyg71-A1g90DIHVwUE1pw"/>
+<div class="flex flex-col flex-grow ml-sm">
+<h4 class="font-label-lg text-label-lg text-on-surface">Organic Honey</h4>
+<span class="font-price-sm-mrp text-price-sm-mrp text-primary font-bold">₹150</span>
+</div>
+<button class="px-sm py-xs bg-white border border-outline-variant rounded-lg text-on-surface font-label-md text-label-md hover:bg-surface-variant transition-colors ml-xs">Move to Cart</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Order Summary Sidebar -->
+<aside class="w-full md:w-1/3 flex flex-col gap-md sticky top-[100px] self-start">
+<!-- Coupon Section -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant">
+<h3 class="font-label-lg text-label-lg text-on-surface mb-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary text-xl">local_offer</span>
+                    Offers &amp; Promos
+                </h3>
+<div class="flex gap-sm">
+<input class="flex-grow bg-surface border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Enter coupon code" type="text"/>
+<button class="bg-surface-variant text-on-surface-variant font-label-lg text-label-lg px-md py-xs rounded-lg hover:bg-primary hover:text-on-primary transition-colors">Apply</button>
+</div>
+</div>
+<!-- Summary Box -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant flex flex-col gap-sm">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-xs border-b border-outline-variant pb-sm">Bill Details</h3>
+<div class="flex justify-between items-center font-body-md text-body-md text-on-surface-variant">
+<span>Item Total</span>
+<span class="text-on-surface">₹424</span>
+</div>
+<div class="flex justify-between items-center font-body-md text-body-md text-secondary">
+<span>Discount (FreshDeal)</span>
+<span>- ₹50</span>
+</div>
+<div class="flex justify-between items-center font-body-md text-body-md text-on-surface-variant">
+<span>Delivery Fee</span>
+<span class="text-on-surface">₹15</span>
+</div>
+<div class="flex justify-between items-center font-body-md text-body-md text-on-surface-variant">
+<span>Taxes &amp; Charges</span>
+<span class="text-on-surface">₹22</span>
+</div>
+<div class="border-t border-outline-variant mt-xs pt-sm flex justify-between items-center font-headline-md text-headline-md text-on-surface">
+<span>To Pay</span>
+<span>₹411</span>
+</div>
+<p class="font-label-md text-label-md text-secondary mt-xs text-right bg-secondary-container/30 py-xs px-sm rounded">You save ₹110 on this order!</p>
+</div>
+<!-- Checkout Button Container -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant mt-xs flex flex-col gap-sm">
+<div class="flex items-start gap-sm text-on-surface-variant bg-surface p-sm rounded-lg border border-outline-variant/30">
+<span class="material-symbols-outlined text-primary mt-[2px]">home_pin</span>
+<div>
+<p class="font-label-lg text-label-lg text-on-surface">Delivering to Home</p>
+<p class="font-body-md text-body-md text-sm mt-[2px] truncate w-[200px]">123, Green Park Enclave, Block B, New Delhi</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-headline-md text-headline-md py-md rounded-xl shadow-md hover:bg-primary-container hover:text-on-primary-container transition-colors flex items-center justify-center gap-sm">
+                    Proceed to Checkout
+                    <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</aside>
+</main>
+<!-- BottomNavBar (Visible on Mobile, Hidden on Desktop) -->
+<nav class="md:hidden bg-surface/90 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.05)] docked full-width bottom-0 rounded-t-xl fixed w-full z-50 flex justify-around items-center px-4 py-2 pb-6 border-t border-outline-variant/20">
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">home</span>
+<span class="mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">grid_view</span>
+<span class="mt-1">Categories</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">search</span>
+<span class="mt-1">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">receipt_long</span>
+<span class="mt-1">Orders</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary font-bold after:content-[''] after:w-1 after:h-1 after:bg-primary after:rounded-full after:mt-1 font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+<span class="mt-1">Cart</span>
+</a>
+</nav>
+</body></html>

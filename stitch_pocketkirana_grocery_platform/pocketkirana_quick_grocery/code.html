@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PocketKirana - Mobile Homepage</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#2a1700",
+                      "on-surface-variant": "#3d4a3d",
+                      "on-primary-fixed": "#002109",
+                      "inverse-on-surface": "#eaf1ff",
+                      "primary-fixed": "#6bff8f",
+                      "secondary": "#416900",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "surface-container-high": "#dee9fc",
+                      "secondary-fixed-dim": "#91db2a",
+                      "secondary-container": "#acf847",
+                      "surface-container-low": "#eff4ff",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed": "#acf847",
+                      "surface-dim": "#d0dbed",
+                      "inverse-primary": "#4ae176",
+                      "surface": "#f8f9ff",
+                      "on-tertiary-container": "#5c3800",
+                      "on-error-container": "#93000a",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "inverse-surface": "#27313f",
+                      "surface-bright": "#f8f9ff",
+                      "tertiary-fixed": "#ffddb8",
+                      "surface-container": "#e6eeff",
+                      "on-secondary-container": "#457000",
+                      "surface-variant": "#d9e3f6",
+                      "on-primary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "error": "#ba1a1a",
+                      "surface-container-highest": "#d9e3f6",
+                      "primary-fixed-dim": "#4ae176",
+                      "primary": "#006e2f",
+                      "outline": "#6d7b6c",
+                      "on-secondary-fixed-variant": "#304f00",
+                      "on-primary-container": "#004b1e",
+                      "tertiary": "#855300",
+                      "outline-variant": "#bccbb9",
+                      "primary-container": "#22c55e",
+                      "on-secondary-fixed": "#102000",
+                      "surface-tint": "#006e2f",
+                      "error-container": "#ffdad6",
+                      "on-error": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "tertiary-container": "#ef9900",
+                      "on-primary-fixed-variant": "#005321",
+                      "on-background": "#121c2a",
+                      "on-surface": "#121c2a",
+                      "background": "#f8f9ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-desktop": "32px",
+                      "sm": "8px",
+                      "xl": "32px",
+                      "2xl": "48px",
+                      "base": "4px",
+                      "xs": "4px",
+                      "container-max": "1280px",
+                      "md": "16px",
+                      "gutter": "16px",
+                      "lg": "24px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "price-sm-mrp": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "label-lg": [
+                              "Inter"
+                      ],
+                      "price-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "price-sm-mrp": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "price-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Custom scrollbar for horizontal scrolling */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+      </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-2xl md:pb-0 font-body-md">
+<!-- TopNavBar (Web) - Hidden on mobile -->
+<header class="hidden md:flex flex-col bg-surface shadow-sm sticky top-0 z-50">
+<div class="flex items-center justify-between px-margin-desktop py-md w-full max-w-container-max mx-auto">
+<div class="flex items-center gap-md">
+<span class="font-display-lg text-display-lg font-bold text-primary">PocketKirana</span>
+</div>
+<div class="flex-1 max-w-2xl mx-lg relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full h-14 pl-12 pr-12 rounded-full border border-outline-variant bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-body-lg text-body-lg" placeholder="Search for groceries..." type="text"/>
+<span class="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 text-primary font-bold">mic</span>
+</div>
+<nav class="flex items-center gap-lg">
+<button class="flex flex-col items-center gap-xs hover:text-primary transition-colors text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<span>Location</span>
+</button>
+<button class="flex flex-col items-center gap-xs hover:text-primary transition-colors text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+<span>Account</span>
+</button>
+<button class="flex flex-col items-center gap-xs hover:text-primary transition-colors text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+<span>Orders</span>
+</button>
+<button class="flex flex-col items-center gap-xs hover:text-primary transition-colors text-on-surface-variant font-body-md text-body-md relative">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+<span>Cart</span>
+<span class="absolute -top-1 -right-2 bg-error text-on-error rounded-full w-5 h-5 flex items-center justify-center font-label-md text-label-md">3</span>
+</button>
+</nav>
+</div>
+</header>
+<!-- Mobile Header (Sticky) -->
+<header class="md:hidden sticky top-0 z-50 bg-surface shadow-[0_4px_20px_rgba(0,0,0,0.05)] px-margin-mobile py-sm space-y-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<div class="bg-surface-container-high rounded-full p-2 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-weight="fill" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant">Delivering to</p>
+<p class="font-label-lg text-label-lg text-on-surface font-bold flex items-center gap-xs">
+                        Home - HSR Layout <span class="material-symbols-outlined text-sm">expand_more</span>
+</p>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-full p-2 flex items-center justify-center relative">
+<span class="material-symbols-outlined text-on-surface-variant">account_circle</span>
+</div>
+</div>
+<div class="relative mt-sm">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full h-12 pl-10 pr-10 rounded-full border border-outline-variant bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary font-body-md text-body-md shadow-sm" placeholder="Search 'Fresh Mangoes'" type="text"/>
+<span class="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 text-primary">mic</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="w-full max-w-container-max mx-auto md:px-margin-desktop md:grid md:grid-cols-12 md:gap-lg md:py-lg">
+<!-- Side Nav (Web) - Hidden on mobile -->
+<aside class="hidden md:flex flex-col col-span-3 bg-surface-container-low border-r border-outline-variant h-[calc(100vh-100px)] rounded-r-2xl sticky top-[100px] overflow-y-auto hide-scrollbar">
+<div class="p-lg">
+<h2 class="font-headline-md text-headline-md text-primary font-bold">Shop by Category</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Everything you need, delivered fresh.</p>
+</div>
+<nav class="flex flex-col gap-sm px-md pb-xl">
+<a class="flex items-center gap-md bg-secondary-container text-on-secondary-container rounded-xl px-md py-sm font-label-lg text-label-lg font-bold" href="#">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">eco</span>
+                    Fruits &amp; Vegetables
+                </a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm font-label-lg text-label-lg transition-colors" href="#">
+<span class="material-symbols-outlined">egg</span>
+                    Dairy &amp; Breakfast
+                </a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm font-label-lg text-label-lg transition-colors" href="#">
+<span class="material-symbols-outlined">fastfood</span>
+                    Snacks &amp; Munchies
+                </a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm font-label-lg text-label-lg transition-colors" href="#">
+<span class="material-symbols-outlined">local_drink</span>
+                    Cold Drinks &amp; Juices
+                </a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm font-label-lg text-label-lg transition-colors" href="#">
+<span class="material-symbols-outlined">timer</span>
+                    Instant Food
+                </a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm font-label-lg text-label-lg transition-colors" href="#">
+<span class="material-symbols-outlined">cleaning_services</span>
+                    Cleaning Essentials
+                </a>
+</nav>
+</aside>
+<!-- Main Feed -->
+<div class="col-span-9 space-y-lg px-margin-mobile md:px-0 py-md md:py-0">
+<!-- Hero Banner -->
+<section class="relative w-full aspect-[2/1] md:aspect-[3/1] rounded-3xl overflow-hidden bg-surface-container flex items-center p-lg shadow-sm">
+<div class="absolute inset-0 z-0">
+<img class="w-full h-full object-cover opacity-80" data-alt="A vibrant, high-quality photograph of fresh, dewy organic fruits like mangoes, berries, and oranges beautifully arranged on a rustic wooden table. The scene is brightly lit with natural sunlight creating a fresh, premium grocery retail aesthetic. Soft green leafy background adds depth and a modern light-mode feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3-5xgRcq7NDhCcRogC_bUNXV-6w38iScwGgDsBzKJkEanBVCCMbRCHzNbxdyS0boYblogrlaST6hr5qHFypWApLnRXyQeSzFY3FYCdRG3Iomo5g03oWjXE5zpmRMYdzh31_wPsClF_Kpr0nJe2FVKgZHk2wRQhLwXQmbgEB7YJMYkcQt8sNFagIiKe3PehVVyvE7g04ugyfD1Ib3UAuiKaHxP5wJne1BXVPnFsuX7fx8tFcEkNkfaAw"/>
+</div>
+<div class="relative z-10 max-w-[60%] space-y-sm">
+<span class="bg-primary-container text-on-primary-container font-label-md text-label-md px-2 py-1 rounded-full inline-block font-bold">Offer of the Day</span>
+<h2 class="font-display-lg text-display-lg font-bold text-on-surface">Fresh Farm Mangoes</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Up to 30% off on all seasonal fruits.</p>
+<button class="bg-primary text-on-primary font-label-lg text-label-lg px-6 py-2 rounded-full font-bold shadow-md active:scale-95 transition-transform mt-sm">Shop Now</button>
+</div>
+</section>
+<!-- Quick Categories Grid (Mobile Bento style) -->
+<section>
+<div class="flex items-center justify-between mb-sm">
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">Explore Categories</h3>
+<a class="font-label-lg text-label-lg text-primary flex items-center" href="#">See all <span class="material-symbols-outlined text-sm">chevron_right</span></a>
+</div>
+<div class="grid grid-cols-4 md:grid-cols-6 gap-sm">
+<!-- Cat 1 -->
+<div class="flex flex-col items-center gap-xs cursor-pointer group">
+<div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container-low rounded-2xl flex items-center justify-center overflow-hidden border border-outline-variant/30 group-hover:border-primary/50 transition-colors shadow-sm">
+<img class="w-3/4 h-3/4 object-contain drop-shadow-sm" data-alt="A clean, minimalist 3D rendering of fresh vegetables including a tomato and bell pepper, floating against a soft white background. High-key lighting, bright and modern aesthetic suitable for a premium grocery app category icon." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBF_-9E3Tda5JfHqOFcnnmZSFTMtbU4PsLtuQq1sBpNFygKr1gXDB48amFXcrEtp91qj-eAyzznYG0qs9J56vZrnjbM521tZbTuWOoKGPgPjqY3Cwe8y7bfh9jx8hLxJllZP4uEc4LhB9JDNB1DOgIwUXgDrrgsrjZiu8FK4bE4vU0G8JiBXR-X7qceGSXD6TuSxRoN-z96fxyPwuidDR8hNjBTfd6t_CadPyrTnOPVwcSPggL53cmozw"/>
+</div>
+<span class="font-label-md text-label-md text-center text-on-surface group-hover:text-primary transition-colors">Veggies</span>
+</div>
+<!-- Cat 2 -->
+<div class="flex flex-col items-center gap-xs cursor-pointer group">
+<div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container-low rounded-2xl flex items-center justify-center overflow-hidden border border-outline-variant/30 group-hover:border-primary/50 transition-colors shadow-sm">
+<img class="w-3/4 h-3/4 object-contain drop-shadow-sm" data-alt="A clean, minimalist 3D rendering of fresh dairy products including a milk bottle and cheese, floating against a soft white background. High-key lighting, bright and modern aesthetic suitable for a premium grocery app category icon." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAj99L-NaamU3OrfNOUIGZfLsAdNJl10HDTEtSh0MwiZnSmF63WkINRHYpm3McuoMIvEI_AaHdyuh3BZwEb0a3vDLZxHP0VOfeR8ICNCwZyHmg-U8nG9LUxiFz0tAQyWf0UkYFPP4SRdxeDq19uXNQIx3W9yeHqPkifXvO3H37efJgh0b4igdUD2bhjgqQHvfv1C1dCPAsHV0k7BEF9DzVk2jRK_h7tA5csRwPlTZ05CaMwps8u2oiAqQ"/>
+</div>
+<span class="font-label-md text-label-md text-center text-on-surface group-hover:text-primary transition-colors">Dairy</span>
+</div>
+<!-- Cat 3 -->
+<div class="flex flex-col items-center gap-xs cursor-pointer group">
+<div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container-low rounded-2xl flex items-center justify-center overflow-hidden border border-outline-variant/30 group-hover:border-primary/50 transition-colors shadow-sm">
+<img class="w-3/4 h-3/4 object-contain drop-shadow-sm" data-alt="A clean, minimalist 3D rendering of a bowl of fresh assorted fruits, floating against a soft white background. High-key lighting, bright and modern aesthetic suitable for a premium grocery app category icon." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrnENMXKFRoYOcy50siN7PXEl-LzcAVxDZiKUqW9AFJuLbcYONpcODOySs4L0nuPLmTmmgyaSEU3eMG7-05Aymhuxk1ur5zxCmt5jlNQ5o1CxvkgZgGaPWgYBkEM6bh9Me2ZV8W22BPUvHXmlwzYCPsnjdin4vyVupqdNXFjN321pl2gXrszR0pfrKwsoz_blj-Ef4YDk4YHnjzSye1dUc3dGfrMDZjOvAPJxkcs4HfOHDMsgiMAQimg"/>
+</div>
+<span class="font-label-md text-label-md text-center text-on-surface group-hover:text-primary transition-colors">Fruits</span>
+</div>
+<!-- Cat 4 -->
+<div class="flex flex-col items-center gap-xs cursor-pointer group">
+<div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container-low rounded-2xl flex items-center justify-center overflow-hidden border border-outline-variant/30 group-hover:border-primary/50 transition-colors shadow-sm">
+<img class="w-3/4 h-3/4 object-contain drop-shadow-sm" data-alt="A clean, minimalist 3D rendering of baked bread and croissants, floating against a soft white background. High-key lighting, bright and modern aesthetic suitable for a premium grocery app category icon." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxNbh9dJZ1HnKifRQMZX-tLwm1KT9EvSWugcGEdwpuqlgIkz3dIH0w9RfUVGCqH6NcKwtU_efxcpf1Lts-BFvUl9SlhZ43d_whG_zfdbcKvuhZFKBdIdZgy3-obgeqMCFdLnzfcNIIBl8_Lh1Nk0wpe1H2QPBAvw_lSMTJByIhkFNvmVW91uLX5DmM5fVLmaKw_2kX8cAdmKGP3HXBJCcfNkXkjA5Use9H48RVJsxMb9fZg9ZnRnkMwg"/>
+</div>
+<span class="font-label-md text-label-md text-center text-on-surface group-hover:text-primary transition-colors">Bakery</span>
+</div>
+<!-- Cat 5 (Hidden on tiny screens, shows on slightly larger mobile) -->
+<div class="hidden md:flex flex-col items-center gap-xs cursor-pointer group">
+<div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container-low rounded-2xl flex items-center justify-center overflow-hidden border border-outline-variant/30 group-hover:border-primary/50 transition-colors shadow-sm">
+<img class="w-3/4 h-3/4 object-contain drop-shadow-sm" data-alt="A clean, minimalist 3D rendering of packaged snacks like chips and biscuits, floating against a soft white background. High-key lighting, bright and modern aesthetic suitable for a premium grocery app category icon." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaCsWbSjpIgL0y16TIECRI0ZOHsuH2pMpqdj_CB0YsWuAadfSORirob7Blz5wUlfkpwXakcuEoL06yGTXGx3bVW9h090u2Cda90ZdKmIuVhH5rZ9tEl8WE5riZV866vMlFLhGXml42JDVzMUWTWtUmpXjewa5vR25kaK2D17EjfTdo_2LGVENuaYjSUxhN5KrO64lQwbwg1Y5inFxDKcTW9estJ3cIPH6C3Wfd1a1n2eUVo2iWQBmZzA"/>
+</div>
+<span class="font-label-md text-label-md text-center text-on-surface group-hover:text-primary transition-colors">Snacks</span>
+</div>
+<!-- Cat 6 -->
+<div class="hidden md:flex flex-col items-center gap-xs cursor-pointer group">
+<div class="w-16 h-16 md:w-20 md:h-20 bg-surface-container-low rounded-2xl flex items-center justify-center overflow-hidden border border-outline-variant/30 group-hover:border-primary/50 transition-colors shadow-sm">
+<img class="w-3/4 h-3/4 object-contain drop-shadow-sm" data-alt="A clean, minimalist 3D rendering of cold beverage cans and bottles, floating against a soft white background. High-key lighting, bright and modern aesthetic suitable for a premium grocery app category icon." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQy4gjhI4aXbkohq4l9xTmxnfWTmvc9GiWUBnOjFgCkQczIoItQiuUs1zc5DEc78wa_Uunk4Q7MICk-1P4EopCuOyhWRlK3shnMCrFAHjASaT9jsPj33SqKi6N89Lyh3-nA3Hwf7yOQ5dI6y-d0-nPPQHjYYKI0FPR7S7uwJVilaVMxkQK9a4TBRK1xmTLD4Apapux4awlGqjVom_CbqnwWVyolwBIkYPdmdW63vEGznkrdgHC0K6tyw"/>
+</div>
+<span class="font-label-md text-label-md text-center text-on-surface group-hover:text-primary transition-colors">Drinks</span>
+</div>
+</div>
+</section>
+<!-- Today's Deals (Horizontal Scroll on Mobile, Grid on Desktop) -->
+<section>
+<div class="flex items-center justify-between mb-sm">
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">Today's Deals</h3>
+</div>
+<div class="flex overflow-x-auto gap-md pb-4 hide-scrollbar md:grid md:grid-cols-3 xl:grid-cols-4 md:overflow-visible">
+<!-- Product Card 1 -->
+<div class="min-w-[160px] md:min-w-0 bg-surface-container-lowest rounded-2xl p-sm shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant/20 flex flex-col hover:shadow-lg transition-shadow relative">
+<span class="absolute top-2 left-2 bg-error-container text-on-error-container font-label-md text-label-md px-2 py-0.5 rounded-full z-10">-20%</span>
+<div class="aspect-square bg-surface-container-low rounded-xl mb-sm flex items-center justify-center overflow-hidden p-2">
+<img class="w-full h-full object-contain" data-alt="A high-quality product photo of a bunch of fresh, bright yellow bananas isolated on a soft white background. Clear studio lighting highlighting the texture and freshness, perfect for a modern grocery e-commerce platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfhQ9SQ5BIe32VJyU5OKN5SEqwNFh_pioJg-TkAPhCqnP1qmYThlzLi4GgPz0TQVFm3U9EhAReLijTKdYcgFoMXTasn_KI2HCVkq66nAqDL-drSf7TA8zxVvo5PkwSWMLEs9XAEyHcBRCv3KsVXKVAEcS2pPbnF6DzHXoSBkI929rfNZCoLQZE-Of2LVnOUvJUJ8AfryoFZ4S0RUJ9AsTawXwdq2lraUOgHVfGNMo_LtzjcDwXGPlfIA"/>
+</div>
+<div class="flex-1 flex flex-col">
+<h4 class="font-label-lg text-label-lg text-on-surface font-semibold line-clamp-2 leading-tight">Robusta Bananas - Fresh</h4>
+<span class="font-label-md text-label-md text-on-surface-variant mt-1">1 kg</span>
+<div class="mt-auto pt-sm flex items-end justify-between">
+<div>
+<span class="font-price-sm-mrp text-price-sm-mrp text-outline line-through block">₹100</span>
+<span class="font-price-lg text-price-lg text-on-surface block">₹80</span>
+</div>
+<button class="w-10 h-10 bg-surface-container border border-outline-variant rounded-full flex items-center justify-center text-primary hover:bg-secondary-container hover:text-on-secondary-container transition-colors active:scale-95">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="min-w-[160px] md:min-w-0 bg-surface-container-lowest rounded-2xl p-sm shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant/20 flex flex-col hover:shadow-lg transition-shadow relative">
+<div class="aspect-square bg-surface-container-low rounded-xl mb-sm flex items-center justify-center overflow-hidden p-2">
+<img class="w-full h-full object-contain" data-alt="A high-quality product photo of a fresh, crusty loaf of whole wheat bread isolated on a soft white background. Clear studio lighting highlighting the texture and freshness, perfect for a modern grocery e-commerce platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCueCuSrWDNjRnC36sxxN-nsWG-aZiYHhs26mx_W9hwWo2Iph60cCS2PS-aoAVxA-YplDzf9B4z-Y7UveITSr7pWWEvbw7YMt3enKXHM7vIahxWCGKURzjrTyQwcHIfCjTGbavXsyeGdbzk9JyxOiGIYbeY0R_tjRnhtjlZtpRV6v_gUnRgk2a-oreinojNO_Mku66mEzIN2MuYWWMA1Tc862znXJOc3POjdi6GOPH5aNezH63o2qxHbQ"/>
+</div>
+<div class="flex-1 flex flex-col">
+<h4 class="font-label-lg text-label-lg text-on-surface font-semibold line-clamp-2 leading-tight">Whole Wheat Bread</h4>
+<span class="font-label-md text-label-md text-on-surface-variant mt-1">400 g</span>
+<div class="mt-auto pt-sm flex items-end justify-between">
+<div>
+<span class="font-price-sm-mrp text-price-sm-mrp text-outline line-through block opacity-0">₹0</span> <!-- Spacer for alignment -->
+<span class="font-price-lg text-price-lg text-on-surface block">₹45</span>
+</div>
+<button class="w-10 h-10 bg-surface-container border border-outline-variant rounded-full flex items-center justify-center text-primary hover:bg-secondary-container hover:text-on-secondary-container transition-colors active:scale-95">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 3 (In Cart State) -->
+<div class="min-w-[160px] md:min-w-0 bg-surface-container-lowest rounded-2xl p-sm shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant/20 flex flex-col hover:shadow-lg transition-shadow relative border-primary/30">
+<div class="aspect-square bg-surface-container-low rounded-xl mb-sm flex items-center justify-center overflow-hidden p-2">
+<img class="w-full h-full object-contain" data-alt="A high-quality product photo of fresh, bright red tomatoes still on the vine, isolated on a soft white background. Clear studio lighting highlighting the texture and freshness, perfect for a modern grocery e-commerce platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgyJ9GjMypVXz5GTzI_-fLtr9brtC_kKU6Px5svf-9eW8iELSTzWuEA0Ce7K0A8M3ItNQsjG3SAS1xXreKIwqQciyOFcPVhVm3WNW88HkFTaHeZYYQFcQFKNwXtvOGTHIAkPlUIQ_rL110t5COq-xRUwyisU7WlUdKtn41y0kuL6RN5XVW7N7728nHJvVUsZaPYmPvFeR0R7TFqfOk5rj9AaBC5UCIP8xI-EX0IsyMSznmX3viXCFtbw"/>
+</div>
+<div class="flex-1 flex flex-col">
+<h4 class="font-label-lg text-label-lg text-on-surface font-semibold line-clamp-2 leading-tight">Fresh Tomatoes</h4>
+<span class="font-label-md text-label-md text-on-surface-variant mt-1">500 g</span>
+<div class="mt-auto pt-sm flex items-end justify-between">
+<div>
+<span class="font-price-lg text-price-lg text-on-surface block">₹30</span>
+</div>
+<!-- Quantity Controller -->
+<div class="flex items-center bg-primary rounded-full px-2 py-1 shadow-sm">
+<button class="text-on-primary w-6 h-6 flex items-center justify-center active:opacity-70"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="text-on-primary font-label-md font-bold mx-1 min-w-[1ch] text-center">2</span>
+<button class="text-on-primary w-6 h-6 flex items-center justify-center active:opacity-70"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="min-w-[160px] md:min-w-0 bg-surface-container-lowest rounded-2xl p-sm shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant/20 flex flex-col hover:shadow-lg transition-shadow relative">
+<span class="absolute top-2 left-2 bg-error-container text-on-error-container font-label-md text-label-md px-2 py-0.5 rounded-full z-10">-10%</span>
+<div class="aspect-square bg-surface-container-low rounded-xl mb-sm flex items-center justify-center overflow-hidden p-2">
+<img class="w-full h-full object-contain" data-alt="A high-quality product photo of a branded packet of whole almonds isolated on a soft white background. Clear studio lighting highlighting the premium packaging, perfect for a modern grocery e-commerce platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcbF5hcLqRXyw8Gv0Wa3hAfiUZQ3RdNB3SQJNQmrSHjtS7cv0lwSnXG5y_nen65dsD2hsGps_NGJuk5BSPXP_EJepmM3Tcf9eS_wD4dwYbJ_9BiIb83FGHN1Fny6g3J6f8dWcLTaM-XzGLNcc_tqC6FBZKopXOkrcDEHioBLLftSAT06wJYbaN7Ib0KEAz9jP0M-spO39U_uCCS4zKm4OipwzAHh7A-kxRh1oYGfGmFZD18t7Ek1RKpg"/>
+</div>
+<div class="flex-1 flex flex-col">
+<h4 class="font-label-lg text-label-lg text-on-surface font-semibold line-clamp-2 leading-tight">Premium Almonds</h4>
+<span class="font-label-md text-label-md text-on-surface-variant mt-1">250 g</span>
+<div class="mt-auto pt-sm flex items-end justify-between">
+<div>
+<span class="font-price-sm-mrp text-price-sm-mrp text-outline line-through block">₹300</span>
+<span class="font-price-lg text-price-lg text-on-surface block">₹270</span>
+</div>
+<button class="w-10 h-10 bg-surface-container border border-outline-variant rounded-full flex items-center justify-center text-primary hover:bg-secondary-container hover:text-on-secondary-container transition-colors active:scale-95">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Spacer for bottom nav on mobile -->
+<div class="h-10 md:hidden"></div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface/80 dark:bg-inverse-surface/80 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-bold after:content-[''] after:w-1 after:h-1 after:bg-primary after:rounded-full after:mt-1 font-label-md text-label-md transition-all duration-200 ease-in-out active:bg-surface-container-high p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">home</span>
+            Home
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant font-label-md text-label-md transition-all duration-200 ease-in-out active:bg-surface-container-high p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+            Categories
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant font-label-md text-label-md transition-all duration-200 ease-in-out active:bg-surface-container-high p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined">search</span>
+            Search
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant font-label-md text-label-md transition-all duration-200 ease-in-out active:bg-surface-container-high p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+            Orders
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant font-label-md text-label-md transition-all duration-200 ease-in-out active:bg-surface-container-high p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined">person</span>
+            Account
+        </a>
+</nav>
+</body></html>

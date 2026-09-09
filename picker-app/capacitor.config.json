@@ -1,0 +1,14 @@
+{
+  "appId": "com.pocketkirana.picker",
+  "appName": "Pocket Kirana Picker",
+  "webDir": "out",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

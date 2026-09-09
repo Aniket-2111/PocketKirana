@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PocketKirana - Order Tracking</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#2a1700",
+                      "on-surface-variant": "#3d4a3d",
+                      "on-primary-fixed": "#002109",
+                      "inverse-on-surface": "#eaf1ff",
+                      "primary-fixed": "#6bff8f",
+                      "secondary": "#416900",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "surface-container-high": "#dee9fc",
+                      "secondary-fixed-dim": "#91db2a",
+                      "secondary-container": "#acf847",
+                      "surface-container-low": "#eff4ff",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed": "#acf847",
+                      "surface-dim": "#d0dbed",
+                      "inverse-primary": "#4ae176",
+                      "surface": "#f8f9ff",
+                      "on-tertiary-container": "#5c3800",
+                      "on-error-container": "#93000a",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "inverse-surface": "#27313f",
+                      "surface-bright": "#f8f9ff",
+                      "tertiary-fixed": "#ffddb8",
+                      "surface-container": "#e6eeff",
+                      "on-secondary-container": "#457000",
+                      "surface-variant": "#d9e3f6",
+                      "on-primary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "error": "#ba1a1a",
+                      "surface-container-highest": "#d9e3f6",
+                      "primary-fixed-dim": "#4ae176",
+                      "primary": "#006e2f",
+                      "outline": "#6d7b6c",
+                      "on-secondary-fixed-variant": "#304f00",
+                      "on-primary-container": "#004b1e",
+                      "tertiary": "#855300",
+                      "outline-variant": "#bccbb9",
+                      "primary-container": "#22c55e",
+                      "on-secondary-fixed": "#102000",
+                      "surface-tint": "#006e2f",
+                      "error-container": "#ffdad6",
+                      "on-error": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "tertiary-container": "#ef9900",
+                      "on-primary-fixed-variant": "#005321",
+                      "on-background": "#121c2a",
+                      "on-surface": "#121c2a",
+                      "background": "#f8f9ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-desktop": "32px",
+                      "sm": "8px",
+                      "xl": "32px",
+                      "2xl": "48px",
+                      "base": "4px",
+                      "xs": "4px",
+                      "container-max": "1280px",
+                      "md": "16px",
+                      "gutter": "16px",
+                      "lg": "24px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "price-sm-mrp": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "label-lg": [
+                              "Inter"
+                      ],
+                      "price-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "price-sm-mrp": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "price-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-24 md:pb-0">
+<!-- TopNavBar (Web Only) -->
+<nav class="hidden md:flex bg-surface shadow-sm docked full-width top-0 z-50">
+<div class="flex items-center justify-between px-margin-desktop py-md w-full max-w-container-max mx-auto">
+<div class="font-display-lg text-display-lg font-bold text-primary tracking-tight">PocketKirana</div>
+<div class="flex items-center gap-lg">
+<a class="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors scale-95 active:transition-transform" href="#">Location</a>
+<a class="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors scale-95 active:transition-transform" href="#">Account</a>
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-body-md text-body-md hover:text-primary transition-colors scale-95 active:transition-transform" href="#">Orders</a>
+<a class="text-on-surface-variant font-body-md text-body-md hover:text-primary transition-colors scale-95 active:transition-transform" href="#">Cart</a>
+</div>
+<div class="flex items-center gap-md text-primary">
+<span class="material-symbols-outlined cursor-pointer" data-icon="location_on">location_on</span>
+<span class="material-symbols-outlined cursor-pointer" data-icon="account_circle">account_circle</span>
+<span class="material-symbols-outlined cursor-pointer" data-icon="shopping_bag">shopping_bag</span>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-lg">
+<!-- Header -->
+<div class="flex items-center justify-between mb-lg">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-background mb-xs">Track Order</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Order #PK-9824-77</p>
+</div>
+<button class="bg-secondary-container text-on-secondary-container px-md py-sm rounded-full font-label-lg text-label-lg flex items-center gap-sm hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="support_agent">support_agent</span>
+                Support
+            </button>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+<!-- Left Column: Map & Delivery Info -->
+<div class="lg:col-span-2 space-y-lg">
+<!-- Map Area -->
+<div class="bg-surface rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden relative h-[400px]">
+<div class="w-full h-full bg-cover bg-center absolute inset-0" data-alt="A clean, minimalist 3D map view showing a delivery route in an urban setting. The map uses a light color palette with soft white, gray, and pale green tones. A vibrant green line indicates the path from a store to a house. The style is modern, bright, and reminiscent of high-end corporate delivery apps, conveying speed and reliability." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAnZc6Mz6A6kZY2DjfLhW5AIpLWSxouKJVEosmTCCl9Vnyyj7wrp0qaVtmyfVhQnQZwTWyIGnbvnp3CdU5XzTYVwKkbrJ-l7ZMzx7x6rC98YDbGkcKoKxDSKqfbP2o-9ZabWHNF3mX_Dgpp_O6kWjwPMuKan3wnAu0gKQiK9LxEypBjR8akmxmWHDb3tt4VOYrWJEZYj3T8Fb2l8mfRECLZlT-tleHsxQ5biX-KRm1E93eY-2ex0VJZwA')"></div>
+<!-- ETA Overlay -->
+<div class="absolute top-md left-md bg-surface/90 backdrop-blur-md rounded-lg p-md shadow-sm border border-outline-variant/30">
+<p class="font-label-md text-label-md text-on-surface-variant mb-xs">Arriving in</p>
+<p class="font-display-lg text-display-lg text-primary">12 <span class="font-headline-md text-headline-md">min</span></p>
+</div>
+</div>
+<!-- Delivery Partner Info -->
+<div class="bg-surface rounded-xl p-md shadow-[0_4px_20px_rgba(0,0,0,0.05)] flex flex-col md:flex-row items-center justify-between gap-md">
+<div class="flex items-center gap-md w-full md:w-auto">
+<div class="w-16 h-16 rounded-full overflow-hidden shrink-0 border-2 border-primary-container">
+<img class="w-full h-full object-cover" data-alt="A close up portrait of a friendly Indian delivery driver wearing a green cap and polo shirt. He is smiling warmly against a soft, bright, out-of-focus background. The lighting is high-key and natural, conveying trust, freshness, and modern corporate reliability." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBI8FGfoWbit3ZySPiH547_AM6-JzqLObCWSvVpvX4GVadG1EuX3itM7xF7ZZTxZ3vwnoj9ydqjFKIz_q7lb3T7BBHIxTtGKUuTEDpk60Kmpt7I8MXF-N6JQTcYzltrSHJbo7tgJOwtTCJcV8BYSqp6o3hhq4KpqNMg5x4yl23hQ015hCgBIRC23fKmsHdx06hH0zJq1AvKRw-LT14jtCMbs3QWggV_whMEr7C-hnI-V2wHtCYE5Gq6Sw"/>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-background">Rahul Sharma</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Delivery Partner • 4.9 ★</p>
+</div>
+</div>
+<div class="flex gap-md w-full md:w-auto">
+<button class="flex-1 md:flex-none border border-outline rounded-lg px-md py-sm font-label-lg text-label-lg text-on-background hover:bg-surface-container-low transition-colors flex justify-center items-center gap-sm">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+                            Message
+                        </button>
+<button class="flex-1 md:flex-none bg-primary-container text-on-primary rounded-lg px-md py-sm font-label-lg text-label-lg hover:opacity-90 transition-opacity flex justify-center items-center gap-sm shadow-sm">
+<span class="material-symbols-outlined" data-icon="call">call</span>
+                            Call
+                        </button>
+</div>
+</div>
+</div>
+<!-- Right Column: Status Timeline & Summary -->
+<div class="space-y-lg">
+<!-- Status Timeline -->
+<div class="bg-surface rounded-xl p-lg shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+<h2 class="font-headline-md text-headline-md text-on-background mb-lg">Order Status</h2>
+<div class="relative pl-6 space-y-xl">
+<!-- Connecting Line -->
+<div class="absolute left-[11px] top-2 bottom-6 w-0.5 bg-outline-variant"></div>
+<div class="absolute left-[11px] top-2 h-[60%] w-0.5 bg-primary"></div>
+<!-- Step 1: Confirmed -->
+<div class="relative">
+<div class="absolute -left-6 bg-primary w-6 h-6 rounded-full border-4 border-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-[12px]" data-icon="check" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div class="ml-4">
+<h4 class="font-label-lg text-label-lg text-on-background">Order Confirmed</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">10:42 AM</p>
+</div>
+</div>
+<!-- Step 2: Packing -->
+<div class="relative">
+<div class="absolute -left-6 bg-primary w-6 h-6 rounded-full border-4 border-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-[12px]" data-icon="check" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div class="ml-4">
+<h4 class="font-label-lg text-label-lg text-on-background">Packing your items</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">10:55 AM</p>
+</div>
+</div>
+<!-- Step 3: Out for Delivery (Active) -->
+<div class="relative">
+<div class="absolute -left-6 bg-surface w-6 h-6 rounded-full border-4 border-primary shadow-[0_0_0_4px_rgba(34,197,94,0.2)]"></div>
+<div class="ml-4">
+<h4 class="font-label-lg text-label-lg text-primary font-bold">Out for Delivery</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Rahul is on the way</p>
+</div>
+</div>
+<!-- Step 4: Delivered -->
+<div class="relative">
+<div class="absolute -left-6 bg-surface w-6 h-6 rounded-full border-4 border-outline-variant"></div>
+<div class="ml-4 opacity-50">
+<h4 class="font-label-lg text-label-lg text-on-background">Delivered</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Estimated 11:30 AM</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Order Summary Toggle -->
+<div class="bg-surface rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden">
+<button class="w-full flex items-center justify-between p-md text-left focus:outline-none hover:bg-surface-container-low transition-colors" onclick="document.getElementById('order-details').classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-180')">
+<span class="font-headline-md text-headline-md text-on-background">Order Summary (4 items)</span>
+<span class="material-symbols-outlined chevron transition-transform duration-200 text-on-surface-variant" data-icon="expand_more">expand_more</span>
+</button>
+<div class="hidden p-md border-t border-outline-variant/30" id="order-details">
+<ul class="space-y-sm mb-md">
+<li class="flex justify-between font-body-md text-body-md text-on-background">
+<span>Fresh Farm Milk 1L x 2</span>
+<span class="font-price-sm-mrp text-price-sm-mrp">₹120</span>
+</li>
+<li class="flex justify-between font-body-md text-body-md text-on-background">
+<span>Organic Bananas 500g</span>
+<span class="font-price-sm-mrp text-price-sm-mrp">₹45</span>
+</li>
+<li class="flex justify-between font-body-md text-body-md text-on-background">
+<span>Whole Wheat Bread</span>
+<span class="font-price-sm-mrp text-price-sm-mrp">₹55</span>
+</li>
+</ul>
+<div class="pt-sm border-t border-outline-variant/30 flex justify-between items-center">
+<span class="font-label-lg text-label-lg text-on-background">Total Paid</span>
+<span class="font-price-lg text-price-lg text-primary">₹220</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface/80 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl transition-all duration-200 ease-in-out">
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high w-16 h-12 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+            Home
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high w-16 h-12 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="grid_view">grid_view</span>
+            Categories
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high w-16 h-12 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="search">search</span>
+            Search
+        </a>
+<a class="flex flex-col items-center justify-center text-primary font-bold after:content-[''] after:w-1 after:h-1 after:bg-primary after:rounded-full after:mt-1 font-label-md text-label-md active:bg-surface-container-high w-16 h-12 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="receipt_long" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+            Orders
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant font-label-md text-label-md active:bg-surface-container-high w-16 h-12 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+            Account
+        </a>
+</nav>
+</body></html>

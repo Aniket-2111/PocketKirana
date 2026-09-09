@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PocketKirana - Inventory</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for a premium feel */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d0dbed; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #bccbb9; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error": "#ba1a1a",
+                      "on-primary-fixed": "#002109",
+                      "surface-container-highest": "#d9e3f6",
+                      "tertiary-container": "#ef9900",
+                      "on-secondary-fixed": "#102000",
+                      "on-tertiary-container": "#5c3800",
+                      "surface-container-high": "#dee9fc",
+                      "secondary-container": "#acf847",
+                      "on-secondary-fixed-variant": "#304f00",
+                      "primary-fixed-dim": "#4ae176",
+                      "on-secondary": "#ffffff",
+                      "on-surface-variant": "#3d4a3d",
+                      "on-error-container": "#93000a",
+                      "primary": "#006e2f",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "secondary": "#416900",
+                      "outline": "#6d7b6c",
+                      "surface-tint": "#006e2f",
+                      "on-error": "#ffffff",
+                      "secondary-fixed-dim": "#91db2a",
+                      "on-tertiary-fixed": "#2a1700",
+                      "on-secondary-container": "#457000",
+                      "primary-container": "#22c55e",
+                      "tertiary-fixed": "#ffddb8",
+                      "on-tertiary": "#ffffff",
+                      "surface-bright": "#f8f9ff",
+                      "background": "#f8f9ff",
+                      "inverse-on-surface": "#eaf1ff",
+                      "surface-container": "#e6eeff",
+                      "inverse-surface": "#27313f",
+                      "tertiary": "#855300",
+                      "on-surface": "#121c2a",
+                      "surface": "#f8f9ff",
+                      "primary-fixed": "#6bff8f",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "inverse-primary": "#4ae176",
+                      "surface-container-low": "#eff4ff",
+                      "surface-variant": "#d9e3f6",
+                      "on-primary": "#ffffff",
+                      "surface-dim": "#d0dbed",
+                      "secondary-fixed": "#acf847",
+                      "surface-container-lowest": "#ffffff",
+                      "outline-variant": "#bccbb9",
+                      "on-primary-container": "#004b1e",
+                      "on-primary-fixed-variant": "#005321",
+                      "on-background": "#121c2a",
+                      "error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xl": "32px",
+                      "2xl": "48px",
+                      "xs": "4px",
+                      "gutter": "16px",
+                      "md": "16px",
+                      "base": "4px",
+                      "lg": "24px",
+                      "sm": "8px",
+                      "margin-mobile": "16px",
+                      "margin-desktop": "32px",
+                      "container-max": "1280px"
+              },
+              "fontFamily": {
+                      "price-lg": ["Inter"],
+                      "price-sm-mrp": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "display-lg": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "label-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "label-lg": ["Inter"],
+                      "body-md": ["Inter"]
+              },
+              "fontSize": {
+                      "price-lg": ["18px", { "lineHeight": "24px", "fontWeight": "700" }],
+                      "price-sm-mrp": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                      "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                      "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                      "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                      "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                      "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                      "label-lg": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+                      "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+              }
+            }
+          }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md h-screen overflow-hidden flex">
+<!-- Shared Component: SideNavBar -->
+<nav class="h-screen w-64 fixed left-0 top-0 bg-surface-container-lowest dark:bg-inverse-surface shadow-sm flex flex-col h-full py-lg z-50">
+<!-- Brand/Header -->
+<div class="px-lg pb-lg mb-sm border-b border-outline-variant/30 flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-bold">P</div>
+<div>
+<h1 class="text-headline-lg font-headline-lg text-primary dark:text-primary-fixed-dim tracking-tight leading-none">PocketKirana</h1>
+<p class="text-label-md font-label-md text-on-surface-variant mt-1">Admin Console</p>
+</div>
+</div>
+<!-- Main Tabs -->
+<div class="flex-1 overflow-y-auto px-md py-sm flex flex-col gap-xs">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="dashboard">dashboard</span>
+<span class="text-label-lg font-label-lg">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="shopping_cart">shopping_cart</span>
+<span class="text-label-lg font-label-lg">Orders</span>
+</a>
+<!-- Active Tab -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-primary dark:text-primary-fixed-dim font-bold border-r-4 border-primary bg-surface-container-high/50 relative overflow-hidden" href="#">
+<span class="material-symbols-outlined text-primary" data-icon="inventory_2" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="text-label-lg font-label-lg">Inventory</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="group">group</span>
+<span class="text-label-lg font-label-lg">Customers</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="local_shipping">local_shipping</span>
+<span class="text-label-lg font-label-lg">Delivery Partners</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors" data-icon="analytics">analytics</span>
+<span class="text-label-lg font-label-lg">Analytics</span>
+</a>
+</div>
+<!-- Footer Tabs -->
+<div class="px-md pt-md border-t border-outline-variant/30 flex flex-col gap-xs mt-auto">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined text-outline" data-icon="settings">settings</span>
+<span class="text-label-lg font-label-lg">Settings</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-error hover:bg-error-container transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="text-label-lg font-label-lg">Logout</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-64 flex flex-col h-full bg-surface-bright relative">
+<!-- Shared Component: TopNavBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-surface-container-lowest dark:bg-inverse-surface border-b border-outline-variant flex justify-between items-center h-16 px-gutter transition-all">
+<!-- Search Bar (on_left as per JSON config) -->
+<div class="flex-1 max-w-md relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full h-10 pl-10 pr-4 bg-surface-container-low border border-transparent rounded-full text-body-md font-body-md text-on-surface focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-all placeholder:text-outline" placeholder="Search inventory..." type="text"/>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-sm">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-highest transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border border-surface-container-lowest"></span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<div class="ml-sm pl-sm border-l border-outline-variant flex items-center gap-sm cursor-pointer hover:opacity-80 transition-opacity">
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline-variant">
+<img alt="Admin Avatar" class="w-full h-full object-cover" data-alt="A small, professional avatar photo of a well-dressed administrative user, set against a bright, minimalist studio background. The lighting is soft and flattering, fitting a clean, high-end corporate identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvXZXndOWy7DKevZ04d359W8LaFLK3UDGaWlHXI9CfWn5Q4DCU471pgmtHUKgrZ0DCn_fAaGZp9w19k55n1zAMikzIZjzO-MJFo67mbaI8SgKLRLex1Ng9US9hQULl9vGNoo5W7lHyiyqUJOtXOmvOfz0sg-eosx3PRk3mzQ-05NBOqJ5Xq1AS4bxD3Jh0Sx2QV_DWIWkkd6hITrO5qPrYWqJFT5KblwM_pgqqipHuK-jhHzZqxj2XXg"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Content Canvas -->
+<main class="flex-1 mt-16 p-margin-desktop overflow-y-auto">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-md mb-lg">
+<div>
+<h2 class="text-display-lg font-display-lg text-on-surface">Product Catalog</h2>
+<p class="text-body-lg font-body-lg text-on-surface-variant mt-1">Manage your grocery inventory, pricing, and stock levels.</p>
+</div>
+<button class="bg-primary-container hover:bg-primary hover:text-on-primary text-on-primary-container px-lg py-3 rounded-full flex items-center gap-sm font-label-lg text-label-lg transition-all shadow-[0px_4px_20px_rgba(34,197,94,0.2)] hover:shadow-[0px_10px_30px_rgba(0,110,47,0.3)] hover:-translate-y-0.5">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+                    Add New Product
+                </button>
+</div>
+<!-- Filters & Tools Bar -->
+<div class="bg-surface-container-lowest rounded-xl p-xs border border-outline-variant shadow-sm mb-md flex flex-wrap items-center gap-xs">
+<button class="px-md py-2 rounded-lg bg-surface-container-high text-on-surface font-label-lg text-label-lg flex items-center gap-xs">
+                    All Categories
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+<button class="px-md py-2 rounded-lg hover:bg-surface-container-high text-on-surface-variant font-label-lg text-label-lg transition-colors">Staples</button>
+<button class="px-md py-2 rounded-lg hover:bg-surface-container-high text-on-surface-variant font-label-lg text-label-lg transition-colors">Dairy &amp; Eggs</button>
+<button class="px-md py-2 rounded-lg hover:bg-surface-container-high text-on-surface-variant font-label-lg text-label-lg transition-colors">Fresh Produce</button>
+<div class="flex-1"></div>
+<div class="flex items-center bg-surface-container-low rounded-lg p-xs">
+<button class="w-8 h-8 rounded text-primary bg-surface-container-lowest shadow-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]" data-weight="fill">view_list</span>
+</button>
+<button class="w-8 h-8 rounded text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+</button>
+</div>
+<button class="px-md py-2 rounded-lg border border-outline-variant hover:bg-surface-container-highest text-on-surface font-label-lg text-label-lg flex items-center gap-xs transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                    More Filters
+                </button>
+</div>
+<!-- Data List (Bento-style Rows) -->
+<div class="flex flex-col gap-xs">
+<!-- Header Row -->
+<div class="flex items-center px-lg py-sm text-label-md font-label-md text-on-surface-variant uppercase tracking-wider">
+<div class="w-12">Img</div>
+<div class="flex-1 min-w-[200px]">Product Details</div>
+<div class="w-32 hidden md:block">Category</div>
+<div class="w-24 text-right">Price</div>
+<div class="w-32 text-center">Stock</div>
+<div class="w-20 text-center">Status</div>
+<div class="w-12 text-right"></div>
+</div>
+<!-- Product Row 1 (In Stock) -->
+<div class="flex items-center px-md py-sm bg-surface-container-lowest border border-outline-variant rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all group">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high overflow-hidden shrink-0 border border-outline-variant/30 flex items-center justify-center p-1">
+<img alt="Aashirvaad Atta" class="w-full h-full object-contain mix-blend-multiply" data-alt="A high-quality studio product photograph of a premium Indian wheat flour packaging bag (Aashirvaad Atta), placed on a pristine white minimalist surface. Soft, diffused, high-key lighting creates a bright, fresh, light-mode corporate aesthetic. The focus is sharp, highlighting the brand colors and texture against a clean background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoKkoQVg0_gYEJJsdeeP8wjkaxiESNyitkHArhJ2cU8C4acpyXPrOkrTcR2vP_F62cjTKMRDpOYQddkiGjQHRhq3nDAXw-nx7ggYPNWmobG0SaPBKp-nieZAEnAS1gaoPvQK8ZlWcv7e-Wdr69gA5aUz4CTXnU4o0h2IP_9dQ3GJTB3GqVnAB860etGzekpE0E9gIoy8h0isE4DHiaFtM7TWXH3ysdH3g5Y4ek_XG_7dATwmxDTUiyzA"/>
+</div>
+<div class="flex-1 min-w-[200px] pl-md">
+<h4 class="text-headline-md font-headline-md text-on-surface truncate">Aashirvaad Select Premium Sharbati Atta</h4>
+<p class="text-body-md font-body-md text-on-surface-variant">5 kg Bag • ID: PRD-1042</p>
+</div>
+<div class="w-32 hidden md:flex items-center">
+<span class="px-2 py-1 rounded bg-surface-container-low text-on-surface-variant text-label-md font-label-md">Staples</span>
+</div>
+<div class="w-24 text-right">
+<div class="text-price-lg font-price-lg text-on-surface">₹265</div>
+<div class="text-price-sm-mrp font-price-sm-mrp text-outline line-through">₹290</div>
+</div>
+<div class="w-32 flex justify-center">
+<div class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full flex items-center gap-1 text-label-sm font-medium">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+                            In Stock
+                        </div>
+</div>
+<div class="w-20 flex justify-center">
+<!-- Toggle Switch -->
+<button class="w-11 h-6 bg-primary rounded-full relative transition-colors focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:ring-offset-1">
+<span class="absolute left-1 top-1 w-4 h-4 bg-on-primary rounded-full translate-x-5 transition-transform shadow-sm"></span>
+</button>
+</div>
+<div class="w-12 text-right">
+<button class="w-8 h-8 rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-primary flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+<!-- Product Row 2 (Low Stock) -->
+<div class="flex items-center px-md py-sm bg-surface-container-lowest border border-outline-variant rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all group">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high overflow-hidden shrink-0 border border-outline-variant/30 flex items-center justify-center p-1">
+<img alt="Amul Taaza Milk" class="w-full h-full object-contain mix-blend-multiply" data-alt="A clean, modern product shot of a recognizable Indian Amul milk carton, styled on a bright, airy countertop. The lighting is natural and even, reflecting a modern corporate retail aesthetic focused on freshness and speed. The color palette emphasizes clean whites and subtle natural tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHWgjk4aK3o5UIY_F1CUjf5A1m2kFS7hRv_pnkqcmCRVoQwh9PC6x8d5-O-ZajEIoa2JttmcWN3PWYjgU4yiDKdduyJcJQ7MfIqQs0kWXzHgMeoIsX-KHkHPy8k8uNgjpIdfxGqSJKDBs7kohxJz8PWZeR365sqmhxlJIxyNf72P-MXjHl0yXh49bCDnUOs94tnLCyxqhZA89jkNFgHtCNRvMVIu0o6q1NC1jeBatPcRgQky1R-G-3oA"/>
+</div>
+<div class="flex-1 min-w-[200px] pl-md">
+<h4 class="text-headline-md font-headline-md text-on-surface truncate">Amul Taaza Toned Fresh Milk</h4>
+<p class="text-body-md font-body-md text-on-surface-variant">1 L Pouch • ID: PRD-2099</p>
+</div>
+<div class="w-32 hidden md:flex items-center">
+<span class="px-2 py-1 rounded bg-surface-container-low text-on-surface-variant text-label-md font-label-md">Dairy</span>
+</div>
+<div class="w-24 text-right">
+<div class="text-price-lg font-price-lg text-on-surface">₹72</div>
+<div class="text-price-sm-mrp font-price-sm-mrp text-outline opacity-0">₹0</div> <!-- Hidden placeholder for alignment -->
+</div>
+<div class="w-32 flex justify-center">
+<div class="bg-[#fef9c3] text-[#854d0e] px-3 py-1 rounded-full flex items-center gap-1 text-label-sm font-medium"> <!-- Using slightly custom colors here for specific semantic warning state as requested by standard patterns, but mostly relying on theme where possible -->
+<span class="w-2 h-2 rounded-full bg-[#eab308]"></span>
+                            Low (12)
+                        </div>
+</div>
+<div class="w-20 flex justify-center">
+<button class="w-11 h-6 bg-primary rounded-full relative transition-colors focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:ring-offset-1">
+<span class="absolute left-1 top-1 w-4 h-4 bg-on-primary rounded-full translate-x-5 transition-transform shadow-sm"></span>
+</button>
+</div>
+<div class="w-12 text-right">
+<button class="w-8 h-8 rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-primary flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+<!-- Product Row 3 (Out of Stock & Inactive) -->
+<div class="flex items-center px-md py-sm bg-surface-container-lowest/50 border border-outline-variant/50 rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all group opacity-75">
+<div class="w-12 h-12 rounded-lg bg-surface-container-highest overflow-hidden shrink-0 border border-outline-variant/30 flex items-center justify-center p-1 grayscale">
+<img alt="Fresh Tomatoes" class="w-full h-full object-contain mix-blend-multiply" data-alt="Vibrant, fresh organic tomatoes arranged neatly in a minimal, high-end retail display context. The lighting is crisp and bright, characteristic of a premium light-mode e-commerce platform. The image is captured with a shallow depth of field, emphasizing the fresh produce." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCq0rhSLn-4PUV0AWWIqxzkS9St_5zPHkiGE17vkDMTje36qUkBnMoi-_buXEBsGoPCqGddY6nMAp4TYs0S718vndQtsFubuB-irmQg9fPNFtdxcaW3NMgGsfOxyxpfn29brVNCJuPJ_XwyDy8KBVrGwjJbVAqVr1LUfx5H6qePwq6VxFkdt86L5G8xbE6L8DlyleXP6Fye51KPjegYQPTLbvNnBQnzggSv77OzY74TrfDgXGQSp4bYIw"/>
+</div>
+<div class="flex-1 min-w-[200px] pl-md">
+<h4 class="text-headline-md font-headline-md text-on-surface truncate text-outline">Organic Hybrid Tomatoes</h4>
+<p class="text-body-md font-body-md text-outline">1 kg • ID: PRD-3001</p>
+</div>
+<div class="w-32 hidden md:flex items-center">
+<span class="px-2 py-1 rounded bg-surface-container-low text-outline text-label-md font-label-md">Produce</span>
+</div>
+<div class="w-24 text-right">
+<div class="text-price-lg font-price-lg text-outline">₹45</div>
+<div class="text-price-sm-mrp font-price-sm-mrp text-outline/50 line-through">₹60</div>
+</div>
+<div class="w-32 flex justify-center">
+<div class="bg-error-container text-on-error-container px-3 py-1 rounded-full flex items-center gap-1 text-label-sm font-medium">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+                            Out of Stock
+                        </div>
+</div>
+<div class="w-20 flex justify-center">
+<!-- Toggle Switch Inactive -->
+<button class="w-11 h-6 bg-surface-variant border border-outline-variant rounded-full relative transition-colors focus:outline-none focus:ring-2 focus:ring-primary-fixed focus:ring-offset-1">
+<span class="absolute left-1 top-1 w-4 h-4 bg-outline rounded-full translate-x-0 transition-transform shadow-sm"></span>
+</button>
+</div>
+<div class="w-12 text-right">
+<button class="w-8 h-8 rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-primary flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Pagination/Footer Spacer -->
+<div class="mt-lg pb-xl flex items-center justify-between text-body-md font-body-md text-on-surface-variant border-t border-outline-variant/30 pt-md">
+<span>Showing 1-3 of 2,451 products</span>
+<div class="flex gap-1">
+<button class="w-8 h-8 rounded-lg flex items-center justify-center border border-outline-variant hover:bg-surface-container-highest disabled:opacity-50"><span class="material-symbols-outlined text-[18px]">chevron_left</span></button>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center bg-primary text-on-primary">1</button>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center border border-transparent hover:bg-surface-container-highest">2</button>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center border border-transparent hover:bg-surface-container-highest">3</button>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center border border-outline-variant hover:bg-surface-container-highest"><span class="material-symbols-outlined text-[18px]">chevron_right</span></button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

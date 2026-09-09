@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PocketKirana - New Delivery Request</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error": "#ba1a1a",
+                      "on-primary-fixed": "#002109",
+                      "surface-container-highest": "#d9e3f6",
+                      "tertiary-container": "#ef9900",
+                      "on-secondary-fixed": "#102000",
+                      "on-tertiary-container": "#5c3800",
+                      "surface-container-high": "#dee9fc",
+                      "secondary-container": "#acf847",
+                      "on-secondary-fixed-variant": "#304f00",
+                      "primary-fixed-dim": "#4ae176",
+                      "on-secondary": "#ffffff",
+                      "on-surface-variant": "#3d4a3d",
+                      "on-error-container": "#93000a",
+                      "primary": "#006e2f",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "secondary": "#416900",
+                      "outline": "#6d7b6c",
+                      "surface-tint": "#006e2f",
+                      "on-error": "#ffffff",
+                      "secondary-fixed-dim": "#91db2a",
+                      "on-tertiary-fixed": "#2a1700",
+                      "on-secondary-container": "#457000",
+                      "primary-container": "#22c55e",
+                      "tertiary-fixed": "#ffddb8",
+                      "on-tertiary": "#ffffff",
+                      "surface-bright": "#f8f9ff",
+                      "background": "#f8f9ff",
+                      "inverse-on-surface": "#eaf1ff",
+                      "surface-container": "#e6eeff",
+                      "inverse-surface": "#27313f",
+                      "tertiary": "#855300",
+                      "on-surface": "#121c2a",
+                      "surface": "#f8f9ff",
+                      "primary-fixed": "#6bff8f",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "inverse-primary": "#4ae176",
+                      "surface-container-low": "#eff4ff",
+                      "surface-variant": "#d9e3f6",
+                      "on-primary": "#ffffff",
+                      "surface-dim": "#d0dbed",
+                      "secondary-fixed": "#acf847",
+                      "surface-container-lowest": "#ffffff",
+                      "outline-variant": "#bccbb9",
+                      "on-primary-container": "#004b1e",
+                      "on-primary-fixed-variant": "#005321",
+                      "on-background": "#121c2a",
+                      "error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xl": "32px",
+                      "2xl": "48px",
+                      "xs": "4px",
+                      "gutter": "16px",
+                      "md": "16px",
+                      "base": "4px",
+                      "lg": "24px",
+                      "sm": "8px",
+                      "margin-mobile": "16px",
+                      "margin-desktop": "32px",
+                      "container-max": "1280px"
+              },
+              "fontFamily": {
+                      "price-lg": ["Inter"],
+                      "price-sm-mrp": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "display-lg": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "label-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "label-lg": ["Inter"],
+                      "body-md": ["Inter"]
+              },
+              "fontSize": {
+                      "price-lg": ["18px", {"lineHeight": "24px", "fontWeight": "700"}],
+                      "price-sm-mrp": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                      "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-lg": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.surface');
+            color: theme('colors.on-surface');
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .pulse-ring {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .5; transform: scale(1.05); }
+        }
+        
+        .progress-circle {
+            transition: stroke-dashoffset 1s linear;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col items-center justify-center bg-inverse-on-surface">
+<!-- Mobile Device Container -->
+<main class="w-full max-w-[400px] h-screen sm:h-[800px] bg-surface relative overflow-hidden sm:rounded-xl sm:shadow-2xl flex flex-col sm:my-8">
+<!-- Map Background Context -->
+<div class="absolute inset-0 z-0">
+<div class="w-full h-1/2 bg-surface-container-high relative overflow-hidden">
+<img class="w-full h-full object-cover opacity-60 mix-blend-multiply" data-alt="A stylized, modern light-mode map view of HSR Layout, Bangalore. Soft, diffused lighting highlights the street grid in pale grey and white, with gentle green accents indicating parks. The map has a clean, minimalist UI aesthetic, resembling a high-end navigation app. Small, subtle 3D pins could be suggested." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqX2mozOaN9RKYYGs0MCqRvMC08CvMHwlT58d1AsMCjqCBXOnhmwF5qK0vnVqVMnMnmxGvwp_CdRHknJHW-SQbP1wbbTtOjbhn10mN_vBpStKGbskADa3t7qeDGwT1cJ82O3lYEOh1IkCgs67HodeBTxJ25625W3vF7BmmEyF0gsRelR67fMX4VEbCtLRC7g9ouHfRoLmehuqM_odRwVTSHDK8QO0Pd-g1CzrQqQFHFwxfIuv9h-nUBg"/>
+<!-- Map Overlay Gradient -->
+<div class="absolute inset-0 bg-gradient-to-b from-transparent via-surface/80 to-surface"></div>
+<!-- Pulsing Location Marker -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center">
+<div class="relative w-16 h-16 flex items-center justify-center">
+<div class="absolute inset-0 bg-primary/20 rounded-full pulse-ring"></div>
+<div class="w-4 h-4 bg-primary rounded-full border-2 border-surface shadow-md"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Foreground Content -->
+<div class="relative z-10 flex flex-col h-full p-gutter">
+<!-- Header (Brand & Timer) -->
+<header class="flex justify-between items-center mt-4">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-on-primary text-sm" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+</div>
+<span class="font-headline-md text-headline-md text-primary tracking-tight">PocketKirana</span>
+</div>
+<!-- Circular Timer -->
+<div class="relative w-12 h-12 flex items-center justify-center">
+<svg class="transform -rotate-90 w-12 h-12" viewbox="0 0 36 36">
+<!-- Background Circle -->
+<path class="text-error-container" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+<!-- Progress Circle -->
+<path class="text-error progress-circle" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" id="timerPath" stroke="currentColor" stroke-dasharray="100, 100" stroke-dashoffset="25" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<span class="absolute font-label-lg text-label-lg text-error" id="timerText">0:25</span>
+</div>
+</header>
+<div class="flex-grow flex flex-col justify-end pb-4">
+<!-- Floating Alert Banner -->
+<div class="self-center bg-primary-container text-on-primary-container font-label-md text-label-md px-4 py-2 rounded-full mb-6 shadow-md flex items-center gap-2 animate-bounce">
+<span class="material-symbols-outlined text-[16px]">notifications_active</span>
+                    New Delivery Request
+                </div>
+<!-- Main Request Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] p-md border border-outline-variant/30 backdrop-blur-xl">
+<!-- Earnings Highlight -->
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Estimated Earnings</p>
+<p class="font-display-lg text-display-lg text-primary mt-1">₹45</p>
+</div>
+<div class="bg-surface-container text-on-surface font-label-md text-label-md px-3 py-1 rounded-full border border-outline-variant/50">
+                            ID #12345
+                        </div>
+</div>
+<!-- Details Grid -->
+<div class="grid grid-cols-2 gap-4 mb-6">
+<!-- Location -->
+<div class="flex items-start gap-3 p-3 bg-surface-container-low rounded-lg border border-outline-variant/20">
+<div class="w-8 h-8 rounded-full bg-secondary-container/50 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary text-[18px]">location_on</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant">Pickup Area</p>
+<p class="font-label-lg text-label-lg text-on-surface mt-0.5">HSR Layout</p>
+</div>
+</div>
+<!-- Distance -->
+<div class="flex items-start gap-3 p-3 bg-surface-container-low rounded-lg border border-outline-variant/20">
+<div class="w-8 h-8 rounded-full bg-tertiary-container/30 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-tertiary text-[18px]">route</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant">Distance</p>
+<p class="font-label-lg text-label-lg text-on-surface mt-0.5">2.4 km</p>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex gap-4 mt-2">
+<button class="flex-1 py-4 px-6 rounded-xl border border-outline text-on-surface font-label-lg text-label-lg hover:bg-surface-container-high transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">close</span>
+                            Reject
+                        </button>
+<button class="flex-[2] py-4 px-6 rounded-xl bg-primary-container text-on-primary-container font-label-lg text-label-lg shadow-lg hover:shadow-xl hover:bg-primary transition-all flex items-center justify-center gap-2 pulse-ring">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            Accept
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple timer logic for visual effect
+        let timeLeft = 25;
+        const timerText = document.getElementById('timerText');
+        const timerPath = document.getElementById('timerPath');
+        const totalDuration = 30; // Assuming it started at 30s
+
+        const interval = setInterval(() => {
+            if (timeLeft <= 0) {
+                clearInterval(interval);
+                return;
+            }
+            timeLeft--;
+            
+            // Format time
+            const seconds = timeLeft.toString().padStart(2, '0');
+            timerText.innerText = `0:${seconds}`;
+            
+            // Calculate progress (0 to 100)
+            // Stroke dashoffset goes from 0 (full) to 100 (empty)
+            const percentage = ((totalDuration - timeLeft) / totalDuration) * 100;
+            timerPath.style.strokeDashoffset = percentage;
+            
+            // Change color if running low
+            if(timeLeft <= 10) {
+                 timerPath.classList.remove('text-primary');
+                 timerPath.classList.add('text-error');
+                 timerText.classList.remove('text-primary');
+                 timerText.classList.add('text-error');
+                 timerText.classList.add('animate-pulse');
+            }
+
+        }, 1000);
+    </script>
+</body></html>

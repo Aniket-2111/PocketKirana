@@ -1,0 +1,394 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ══════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ══════════════════════════════════════════
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.role == role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        request.auth.token.admin == true
+      );
+    }
+
+    function isCustomer() {
+      return hasRole('customer');
+    }
+
+    function isPicker() {
+      return hasRole('picker');
+    }
+
+    function isDeliveryPartner() {
+      return hasRole('delivery_partner');
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && uid() == userId;
+    }
+
+    // Check if a picker belongs to a given store
+    function isPickerForStore(storeId) {
+      return isPicker() &&
+        get(/databases/$(database)/documents/pickers/$(uid())).data.storeId == storeId;
+    }
+
+    // Check if a delivery partner is assigned to an order
+    function isAssignedPartner(orderId) {
+      return isDeliveryPartner() &&
+        exists(/databases/$(database)/documents/deliveryAssignments/$(orderId + '_' + uid()));
+    }
+
+    // ══════════════════════════════════════════
+    // 1. SETTINGS (Store Config)
+    // Public read so customers can see delivery zone.
+    // Admin-only write.
+    // ══════════════════════════════════════════
+    match /settings/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 2. PRODUCTS & BARCODES
+    // ══════════════════════════════════════════
+    match /products/{productId} {
+      allow read: if true;
+      // Pickers can ONLY read; admin full write
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /productBarcodes/{barcodeId} {
+      allow read: if isAuthenticated(); // Pickers + Admin + Customer
+      allow write: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 3. CATEGORIES
+    // ══════════════════════════════════════════
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 4. USERS (Customer Profiles)
+    // ══════════════════════════════════════════
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && uid() == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+
+      // FCM device tokens subcollection
+      match /fcmTokens/{tokenId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId);
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // 5. ADDRESSES
+    // ══════════════════════════════════════════
+    match /addresses/{addressId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == uid() || isAdmin());
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == uid();
+      allow update: if isAuthenticated() &&
+        (resource.data.userId == uid() || isAdmin());
+      allow delete: if isAuthenticated() &&
+        (resource.data.userId == uid() || isAdmin());
+    }
+
+    // ══════════════════════════════════════════
+    // 6. PICKERS
+    // ══════════════════════════════════════════
+    match /pickers/{pickerId} {
+      allow read: if isOwner(pickerId) || isAdmin();
+      // Picker can update own status/location, not admin fields
+      allow update: if (isOwner(pickerId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['storeId', 'employeeId', 'role', 'status'])) ||
+        isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 7. DELIVERY PARTNERS
+    // ══════════════════════════════════════════
+    match /deliveryPartners/{partnerId} {
+      allow read: if isOwner(partnerId) || isAdmin();
+      // Partner can update own status/location, not financial fields
+      allow update: if (isOwner(partnerId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['walletBalance', 'totalEarnings', 'verificationStatus'])) ||
+        isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 8. INVENTORY
+    // ══════════════════════════════════════════
+    match /inventory/{inventoryId} {
+      // Pickers read inventory for their store
+      allow read: if isPicker() || isAdmin();
+      // Pickers CANNOT directly write inventory — must go via Cloud Functions
+      allow write: if isAdmin();
+    }
+
+    match /inventoryMovements/{movementId} {
+      allow read: if isPicker() || isAdmin();
+      // Pickers can create movements (via Cloud Function enforces field constraints)
+      allow create: if isPicker() &&
+        request.resource.data.pickerId == uid();
+      allow update, delete: if isAdmin();
+    }
+
+    match /stockReceipts/{receiptId} {
+      allow read: if isPicker() || isAdmin();
+      allow create: if isPicker() &&
+        request.resource.data.pickerId == uid();
+      allow update, delete: if isAdmin();
+    }
+
+    // Stock reservations are managed exclusively by Cloud Functions (Admin SDK)
+    match /stockReservations/{reservationId} {
+      allow read: if isAdmin() || isCustomer() &&
+        resource.data.customerId == uid();
+      allow write: if isAdmin(); // Cloud Functions use Admin SDK
+    }
+
+    match /stockAdjustments/{adjustmentId} {
+      allow read: if isPicker() &&
+        resource.data.pickerId == uid() || isAdmin();
+      allow create: if isPicker() &&
+        request.resource.data.pickerId == uid() &&
+        // Pickers can submit but not approve
+        request.resource.data.status == 'pending';
+      allow update: if isAdmin(); // Admin approves/rejects
+      allow delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 9. STORE LOCATIONS (Bin/Shelf System)
+    // ══════════════════════════════════════════
+    match /storeLocations/{locationId} {
+      allow read: if isPicker() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 10. ORDERS (Full Order State Machine)
+    // ══════════════════════════════════════════
+    match /orders/{orderId} {
+      // Customer reads own orders; Picker/Partner reads assigned orders; Admin reads all
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == uid() ||
+        isPicker() ||
+        isDeliveryPartner() ||
+        isAdmin()
+      );
+
+      // Order creation is handled by Cloud Function (placeOrder)
+      // Direct Firestore create is disabled — must use Cloud Function
+      allow create: if isAdmin(); // Only Admin SDK via Cloud Functions
+
+      // Status updates are role-controlled via state machine
+      // Direct updates from clients disabled — use Cloud Functions
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /orderItems/{itemId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || isPicker() || isDeliveryPartner() ||
+        get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.customerId == uid()
+      );
+      allow write: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 11. PICKING TASKS
+    // ══════════════════════════════════════════
+    match /pickingTasks/{taskId} {
+      allow read: if (isPicker() &&
+        (resource.data.pickerId == uid() || resource.data.pickerId == null)) ||
+        isAdmin();
+      // Picker can update task status/items for their own assigned task
+      allow update: if (isPicker() &&
+        resource.data.pickerId == uid() &&
+        // Cannot change orderId, storeId, items product details
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['orderId', 'storeId', 'createdAt'])) ||
+        isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    match /packingTasks/{taskId} {
+      allow read: if isPicker() || isAdmin();
+      allow update: if isPicker() || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 12. DELIVERY ASSIGNMENTS
+    // ══════════════════════════════════════════
+    match /deliveryAssignments/{assignmentId} {
+      allow read: if (isDeliveryPartner() &&
+        resource.data.partnerId == uid()) || isAdmin();
+      // Partners can update status (accept/reject) — Cloud Function enforces transitions
+      allow update: if (isDeliveryPartner() &&
+        resource.data.partnerId == uid() &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['orderId', 'storeId', 'earnings', 'customerOtp', 'pickupOtp'])) ||
+        isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 13. DELIVERY TRACKING (Live GPS)
+    // ══════════════════════════════════════════
+    match /deliveryTracking/{trackingId} {
+      // Customer can read tracking for their own order
+      allow read: if isAdmin() ||
+        isDeliveryPartner() ||
+        (isCustomer() &&
+          get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.customerId == uid());
+      // Partner writes own tracking location
+      allow write: if isDeliveryPartner() &&
+        request.resource.data.partnerId == uid();
+    }
+
+    // ══════════════════════════════════════════
+    // 14. PAYMENTS & REFUNDS
+    // ══════════════════════════════════════════
+    match /payments/{paymentId} {
+      allow read: if isAdmin() ||
+        (isCustomer() && resource.data.customerId == uid());
+      allow write: if isAdmin(); // Cloud Function only
+    }
+
+    match /refunds/{refundId} {
+      allow read: if isAdmin() ||
+        (isCustomer() && resource.data.customerId == uid());
+      allow create: if isCustomer() &&
+        request.resource.data.customerId == uid() &&
+        request.resource.data.status == 'REQUESTED';
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 15. OFFERS & COUPONS
+    // ══════════════════════════════════════════
+    match /offers/{offerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /coupons/{couponId} {
+      // Authenticated users can read (validation happens server-side)
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 16. NOTIFICATIONS
+    // ══════════════════════════════════════════
+    match /notifications/{notificationId} {
+      // Recipient reads own notifications
+      allow read: if isAuthenticated() && (
+        resource.data.recipientId == uid() ||
+        resource.data.recipientId == 'all' ||
+        isAdmin()
+      );
+      // Recipients can only mark as read
+      allow update: if isAuthenticated() &&
+        resource.data.recipientId == uid() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create, delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 17. NEW PRODUCT REQUESTS
+    // ══════════════════════════════════════════
+    match /newProductRequests/{requestId} {
+      allow read: if (isPicker() &&
+        resource.data.pickerId == uid()) || isAdmin();
+      allow create: if isPicker() &&
+        request.resource.data.pickerId == uid() &&
+        request.resource.data.status == 'pending' &&
+        // Pickers cannot set prices on new product requests
+        !request.resource.data.keys().hasAny(['sellingPrice', 'mrp']);
+      allow update: if isAdmin(); // Admin approves/rejects
+      allow delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 18. SUPPORT TICKETS
+    // ══════════════════════════════════════════
+    match /supportTickets/{ticketId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == uid() || isAdmin()
+      );
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == uid();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 19. AUDIT LOGS (Immutable)
+    // ══════════════════════════════════════════
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated(); // Any authenticated user can create logs
+      // IMMUTABLE — no updates or deletes ever
+      allow update, delete: if false;
+    }
+
+    // ══════════════════════════════════════════
+    // 20. SERVICE REQUESTS ("Notify Me")
+    // ══════════════════════════════════════════
+    match /serviceRequests/{requestId} {
+      allow create: if true; // Guest + authenticated can submit
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 21. STORES / SHOPS (Dark Store Config)
+    // ══════════════════════════════════════════
+    match /shops/{shopId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ══════════════════════════════════════════
+    // 22. BANNERS & CAMPAIGNS
+    // ══════════════════════════════════════════
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "pocketkirana",
+    "production": "pocketkirana"
+  }
+}

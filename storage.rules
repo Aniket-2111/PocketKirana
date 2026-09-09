@@ -1,0 +1,85 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.role == role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        request.auth.token.admin == true
+      );
+    }
+
+    function isPicker() {
+      return isAuthenticated() && request.auth.token.role == 'picker';
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // 1. Product images — Admin upload, public read
+    match /products/{productId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 2. Category images — Admin upload, public read
+    match /categories/{categoryId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 3. Banner images — Admin upload, public read
+    match /banners/{bannerId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 4. User profile photos — Owner upload, public read
+    match /users/{userId}/profile/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // 5. Picker barcode scan photos (for new product requests)
+    match /picker/{pickerId}/scans/{allPaths=**} {
+      allow read: if isAdmin() || isOwner(pickerId);
+      allow create: if isPicker() && isOwner(pickerId)
+        && request.resource.size < 5 * 1024 * 1024  // Max 5MB
+        && request.resource.contentType.matches('image/.*');
+      allow update, delete: if isAdmin();
+    }
+
+    // 6. Proof of delivery photos
+    match /deliveries/{assignmentId}/{allPaths=**} {
+      allow read: if isAdmin() || hasRole('delivery_partner');
+      allow create: if hasRole('delivery_partner')
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow update, delete: if isAdmin();
+    }
+
+    // 7. Stock receipt documents
+    match /receipts/{receiptId}/{allPaths=**} {
+      allow read: if isAdmin() || isPicker();
+      allow create: if isPicker()
+        && request.resource.size < 10 * 1024 * 1024;
+      allow update, delete: if isAdmin();
+    }
+
+    // 8. Store configuration assets
+    match /store/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

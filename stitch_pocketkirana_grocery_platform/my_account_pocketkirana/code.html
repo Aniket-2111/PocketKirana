@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Customer Dashboard - PocketKirana</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#2a1700",
+                    "on-surface-variant": "#3d4a3d",
+                    "on-primary-fixed": "#002109",
+                    "inverse-on-surface": "#eaf1ff",
+                    "primary-fixed": "#6bff8f",
+                    "secondary": "#416900",
+                    "tertiary-fixed-dim": "#ffb95f",
+                    "surface-container-high": "#dee9fc",
+                    "secondary-fixed-dim": "#91db2a",
+                    "secondary-container": "#acf847",
+                    "surface-container-low": "#eff4ff",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed": "#acf847",
+                    "surface-dim": "#d0dbed",
+                    "inverse-primary": "#4ae176",
+                    "surface": "#f8f9ff",
+                    "on-tertiary-container": "#5c3800",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-fixed-variant": "#653e00",
+                    "inverse-surface": "#27313f",
+                    "surface-bright": "#f8f9ff",
+                    "tertiary-fixed": "#ffddb8",
+                    "surface-container": "#e6eeff",
+                    "on-secondary-container": "#457000",
+                    "surface-variant": "#d9e3f6",
+                    "on-primary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "error": "#ba1a1a",
+                    "surface-container-highest": "#d9e3f6",
+                    "primary-fixed-dim": "#4ae176",
+                    "primary": "#006e2f",
+                    "outline": "#6d7b6c",
+                    "on-secondary-fixed-variant": "#304f00",
+                    "on-primary-container": "#004b1e",
+                    "tertiary": "#855300",
+                    "outline-variant": "#bccbb9",
+                    "primary-container": "#22c55e",
+                    "on-secondary-fixed": "#102000",
+                    "surface-tint": "#006e2f",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#ef9900",
+                    "on-primary-fixed-variant": "#005321",
+                    "on-background": "#121c2a",
+                    "on-surface": "#121c2a",
+                    "background": "#f8f9ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "32px",
+                    "sm": "8px",
+                    "xl": "32px",
+                    "2xl": "48px",
+                    "base": "4px",
+                    "xs": "4px",
+                    "container-max": "1280px",
+                    "md": "16px",
+                    "gutter": "16px",
+                    "lg": "24px",
+                    "margin-mobile": "16px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "price-sm-mrp": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "label-lg": ["Inter"],
+                    "price-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "price-sm-mrp": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-lg": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "price-lg": ["18px", {"lineHeight": "24px", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-inverse-surface shadow-sm dark:shadow-none docked full-width top-0 z-40">
+<div class="flex items-center justify-between px-margin-desktop py-md w-full max-w-container-max mx-auto">
+<div class="flex items-center gap-md">
+<a class="font-display-lg text-display-lg font-bold text-primary dark:text-primary-fixed-dim" href="#">PocketKirana</a>
+</div>
+<nav class="hidden md:flex items-center gap-lg">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors font-body-md text-body-md scale-95 active:transition-transform" href="#">Location</a>
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-body-md text-body-md scale-95 active:transition-transform" href="#">Account</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors font-body-md text-body-md scale-95 active:transition-transform" href="#">Orders</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors font-body-md text-body-md scale-95 active:transition-transform" href="#">Cart</a>
+</nav>
+<div class="flex items-center gap-sm">
+<button class="p-2 rounded-full hover:bg-surface-variant transition-colors text-primary dark:text-primary-fixed-dim">
+<span class="material-symbols-outlined" data-icon="location_on">location_on</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-variant transition-colors text-primary dark:text-primary-fixed-dim">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-variant transition-colors text-primary dark:text-primary-fixed-dim">
+<span class="material-symbols-outlined" data-icon="shopping_bag">shopping_bag</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow flex flex-col md:flex-row max-w-container-max mx-auto w-full pt-lg pb-2xl px-margin-mobile md:px-margin-desktop gap-xl">
+<!-- Sidebar Navigation (Custom for Dashboard) -->
+<aside class="w-full md:w-64 flex-shrink-0 flex flex-col gap-sm">
+<!-- User Profile Summary Bento -->
+<div class="bg-surface-container-low rounded-xl p-md flex flex-col items-center gap-sm shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant mb-md">
+<div class="w-20 h-20 rounded-full overflow-hidden border-2 border-primary-container">
+<img class="w-full h-full object-cover" data-alt="A portrait of a happy, modern urban Indian professional smiling subtly, high-key lighting, soft white and green aesthetic, minimalist corporate photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCi54CgDWzXuohYM-IhLGkKtj_ZX-8q0Z08z-u53dLm62xRWoe1_74j9OWmMn8xzuzh72t3zgEbdwhfNfNC7Nh02odRzkJmT_BzKUfR1ePLhq4DZn13BteIdR4DaH4fxv9-XaA9mHnn98eqHmBzjIiFa0-RjQ8dKs_h687B2fvnuy5J4Hy-CeZrHKwDycBZ8ClQxL3DxTy5F_pxaBr_BKaZVU30NLae64SjxqC7LynZE-beSMnq4p7__w"/>
+</div>
+<div class="text-center">
+<h2 class="font-headline-md text-headline-md text-on-surface">Rahul Sharma</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">rahul.sharma@example.com</p>
+<p class="font-label-md text-label-md text-on-surface-variant">+91 98765 43210</p>
+</div>
+</div>
+<!-- Links -->
+<nav class="flex flex-col gap-xs">
+<a class="flex items-center gap-md bg-secondary-container text-on-secondary-container rounded-xl px-md py-sm font-bold transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long" data-weight="fill">receipt_long</span>
+<span class="font-label-lg text-label-lg">My Orders</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="location_on">location_on</span>
+<span class="font-label-lg text-label-lg">Saved Addresses</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+<span class="font-label-lg text-label-lg">Wishlist</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-lg text-label-lg">Payments</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="local_offer">local_offer</span>
+<span class="font-label-lg text-label-lg">Coupons</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-high rounded-xl px-md py-sm transition-colors mt-auto pt-lg" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-label-lg text-label-lg">Help &amp; Support</span>
+</a>
+</nav>
+</aside>
+<!-- Dashboard Content Canvas -->
+<section class="flex-grow flex flex-col gap-lg">
+<h1 class="font-display-lg text-display-lg text-on-background">Recent Orders</h1>
+<div class="flex flex-col gap-md">
+<!-- Order Card 1 -->
+<div class="bg-surface rounded-xl p-lg shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant flex flex-col gap-md transition-shadow hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+<div class="flex justify-between items-start border-b border-surface-variant pb-md">
+<div>
+<p class="font-label-lg text-label-lg text-on-surface-variant">Order #PK-2024-8932</p>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Placed on 12 Oct 2024, 09:30 AM</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full font-label-md text-label-md font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle">check_circle</span> Delivered
+                            </span>
+</div>
+</div>
+<div class="flex flex-col md:flex-row gap-md justify-between items-center">
+<div class="flex items-center gap-sm overflow-hidden">
+<!-- Mini item thumbnails -->
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center p-1 border border-outline-variant">
+<img class="w-full h-full object-cover rounded-md" data-alt="A small, perfectly lit studio shot of fresh green bell peppers in a pristine white environment, high-end retail aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTLHv_bN6yOdF32BqxKWBvvclurmhRtZuVR5xaHdCjTned5ctEde7ESpu6OsrGxXqoWLkzo18KhTdQ3Cho7jxDAFYTXyIGmRQneKe3tzxI0a6BKe58mLTpxHiAbbH7UbZES2urba7PQ_XmnMmh-2Ex5gEbVybT0NIZEb7VyAq3TnKUJZOz6CFQ3vXeAPpZ5c5yt_xT6IWdjjQ14hTszLq7vPh4jXwBuGPk5SypEq2QA2FQu6O-roFyLA"/>
+</div>
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center p-1 border border-outline-variant">
+<img class="w-full h-full object-cover rounded-md" data-alt="A small, perfectly lit studio shot of a loaf of premium multigrain bread in a pristine white environment, high-end retail aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAadaFtCm6m9BFb6T0GoJZ3xtR6Y35YZW81bRgq39Cjh-CKl8fudyPmoQMh89ZV2sdLU9fulXf1vBgJsFgVlMbmem3E1MPQ22HIRiE4toRYI1t5fmD2vZyJadoiAzYLXZTMSJT5DnH7lkeHNpMZbVAJ7gajry2IXLObVcy3NzLcCWLYLkL9W2z2xGppcTNtqrA5DYYW7IVfPglw5_TdQEdJn1rDC7zNRbLSQ5KRjOGBpeFVR2hj1ci5tg"/>
+</div>
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant font-label-md text-label-md">
+                                +3
+                            </div>
+<p class="font-body-md text-body-md text-on-surface ml-2">Fresh Produce, Bakery &amp; More</p>
+</div>
+<div class="flex flex-col items-end md:items-center gap-sm w-full md:w-auto">
+<p class="font-price-lg text-price-lg text-on-background">₹1,250.00</p>
+<button class="w-full md:w-auto bg-primary-container text-on-primary rounded-xl px-lg py-sm font-label-lg text-label-lg font-bold hover:bg-primary transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="replay">replay</span>
+                                Reorder
+                            </button>
+</div>
+</div>
+</div>
+<!-- Order Card 2 -->
+<div class="bg-surface rounded-xl p-lg shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-outline-variant flex flex-col gap-md transition-shadow hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
+<div class="flex justify-between items-start border-b border-surface-variant pb-md">
+<div>
+<p class="font-label-lg text-label-lg text-on-surface-variant">Order #PK-2024-8810</p>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Placed on 05 Oct 2024, 06:15 PM</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="bg-surface-variant text-on-surface-variant px-3 py-1 rounded-full font-label-md text-label-md font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]" data-icon="inventory_2">inventory_2</span> Processing
+                            </span>
+</div>
+</div>
+<div class="flex flex-col md:flex-row gap-md justify-between items-center">
+<div class="flex items-center gap-sm overflow-hidden">
+<!-- Mini item thumbnails -->
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center p-1 border border-outline-variant">
+<img class="w-full h-full object-cover rounded-md" data-alt="A small, perfectly lit studio shot of cleaning supplies, a green spray bottle, in a pristine white environment, high-end retail aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDp0x30kEUcv6kfe43jU6RfUXVFP0tlrfwjSYcSxOmrOTv5tM6oYJzvjUmOgrzkjXzek3845O7rlSNBpZ9SiGH3RskQzEDy4TexpNHDd4kBg6vNMMOIu0hXkS2uJ91YwWSOI10CfR89McuJ-lwk9pW9AUWIsNaNNvQZZ2hqoZcrW7og1sfbxd6IiF0lpB28JAwLypcYLxR1j-rNaG5lysxFUCaDnrWfh9h5fsxY0Rw1HoIVpjJGuj1rtw"/>
+</div>
+<p class="font-body-md text-body-md text-on-surface ml-2">Cleaning Essentials</p>
+</div>
+<div class="flex flex-col items-end md:items-center gap-sm w-full md:w-auto">
+<p class="font-price-lg text-price-lg text-on-background">₹450.00</p>
+<button class="w-full md:w-auto border border-outline text-on-background rounded-xl px-lg py-sm font-label-lg text-label-lg font-bold hover:bg-surface-variant transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="visibility">visibility</span>
+                                View Details
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden bg-surface/80 dark:bg-inverse-surface/80 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.05)] docked full-width bottom-0 rounded-t-xl fixed z-50 flex justify-around items-center px-4 py-2 transition-all duration-200 ease-in-out">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant font-label-md text-label-md active:bg-surface-container-high dark:active:bg-surface-container-highest p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+            Home
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant font-label-md text-label-md active:bg-surface-container-high dark:active:bg-surface-container-highest p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="grid_view">grid_view</span>
+            Categories
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant font-label-md text-label-md active:bg-surface-container-high dark:active:bg-surface-container-highest p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="search">search</span>
+            Search
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant font-label-md text-label-md active:bg-surface-container-high dark:active:bg-surface-container-highest p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="receipt_long">receipt_long</span>
+            Orders
+        </a>
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-bold after:content-[''] after:w-1 after:h-1 after:bg-primary after:rounded-full after:mt-1 font-label-md text-label-md active:bg-surface-container-high dark:active:bg-surface-container-highest p-2 rounded-lg" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person" data-weight="fill">person</span>
+            Account
+        </a>
+</nav>
+</body></html>
