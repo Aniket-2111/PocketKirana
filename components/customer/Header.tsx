@@ -95,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
       {/* ── MAIN HEADER (Logo, Location, Search, Actions) ── */}
       <div className="border-b border-slate-100 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
-          <div className="flex items-center justify-between gap-4 sm:gap-6">
+          <div className="flex items-center justify-between gap-4 sm:gap-6 gap-y-3 flex-wrap lg:flex-nowrap">
             
             {/* Logo & Delivering Location */}
             <div className="flex items-center gap-4 lg:gap-6 shrink-0">
@@ -105,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
                   PK
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-2xl font-black tracking-tight text-[#075C3C] leading-none">
+                  <span className="text-lg sm:text-2xl font-black tracking-tight text-[#075C3C] leading-none">
                     Pocket<span className="text-[#0B8F5A]">Kirana</span>
                   </span>
                   <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mt-0.5">
@@ -138,8 +138,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
               </button>
             </div>
 
-            {/* Centered Wide Search Input (Matching Reference Search Bar) */}
-            <div className="flex-1 max-w-2xl relative" ref={searchRef}>
+            {/* Centered Wide Search Input (own row below lg, inline on desktop) */}
+            <div className="relative order-last w-full lg:order-none lg:w-auto lg:flex-1 lg:max-w-2xl min-w-0" ref={searchRef}>
               <form onSubmit={handleSearchSubmit} className="relative flex items-center">
                 <div className="relative flex-1">
                   <input
