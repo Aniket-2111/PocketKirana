@@ -49,6 +49,9 @@ export const NotificationSimulator: React.FC = () => {
     showToast(`Simulated ${recipientType.toUpperCase()} notification: "${title}"`, 'success');
   };
 
+  // Dev/demo tool: never render for production users.
+  if (process.env.NODE_ENV === 'production') return null;
+
   return (
     <div className="fixed bottom-4 left-4 z-50 font-sans">
       {/* Floating Pill Button */}
