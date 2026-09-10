@@ -227,7 +227,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
             {/* Product Title — always 2 lines worth of space */}
             <h3
               onClick={() => onOpenDetail ? onOpenDetail(product) : undefined}
-              className="font-extrabold text-xs text-slate-900 leading-snug line-clamp-2 h-[30px] group-hover:text-[#0B8F5A] transition-colors"
+              className="font-extrabold text-sm text-slate-900 leading-snug line-clamp-2 h-[39px] group-hover:text-[#0B8F5A] transition-colors"
             >
               {product.name}
             </h3>
