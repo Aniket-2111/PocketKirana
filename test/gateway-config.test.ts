@@ -13,6 +13,11 @@ const PHONEPE_VARS = ['PHONEPE_MERCHANT_ID', 'PHONEPE_SALT_KEY', 'PHONEPE_SALT_I
 const RZP_VARS = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'] as const;
 const MODE_VARS = ['PHONEPE_SIMULATION_MODE', 'RAZORPAY_SIMULATION_MODE', 'VERCEL_ENV', 'NODE_ENV'] as const;
 
+// NODE_ENV is typed read-only by Next.js; tests need to simulate it.
+const setEnv = (k: string, v: string | undefined) => {
+  (process.env as Record<string, string | undefined>)[k] = v;
+};
+
 beforeEach(() => {
   for (const k of [...PHONEPE_VARS, ...RZP_VARS, ...MODE_VARS]) delete process.env[k];
 });
@@ -65,9 +70,9 @@ describe('isSimulationMode', () => {
 
   it('is hard-refused in production deployments', () => {
     process.env.PHONEPE_SIMULATION_MODE = 'true';
-    process.env.NODE_ENV = 'production';
+    setEnv('NODE_ENV', 'production');
     expect(isSimulationMode()).toBe(false);
-    process.env.NODE_ENV = undefined as unknown as string;
+    setEnv('NODE_ENV', undefined);
     process.env.VERCEL_ENV = 'production';
     expect(isSimulationMode()).toBe(false);
   });
@@ -91,7 +96,7 @@ describe('isRazorpaySimulationMode', () => {
     expect(isRazorpaySimulationMode()).toBe(false);
     process.env.RAZORPAY_SIMULATION_MODE = 'true';
     expect(isRazorpaySimulationMode()).toBe(true);
-    process.env.NODE_ENV = 'production';
+    setEnv('NODE_ENV', 'production');
     expect(isRazorpaySimulationMode()).toBe(false);
   });
 });
