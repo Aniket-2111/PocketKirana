@@ -69,7 +69,7 @@ export const CategoryGrid: React.FC = () => {
 
               {/* Item Count Subtitle (Matching Reference "12 items") */}
               <span className="text-[10px] text-slate-400 font-semibold -mt-1">
-                {itemCount > 0 ? `${itemCount} items` : 'Fresh In Stock'}
+                {itemCount > 0 ? `${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Fresh In Stock'}
               </span>
             </Link>
           );
