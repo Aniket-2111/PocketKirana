@@ -1,71 +1,86 @@
-import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { getPhonePeConfig, isSimulationMode } from '@/lib/phonepeConfig';
+import { ensurePickingTaskForOrder } from '@/lib/firebaseServices';
+import { corsResponse, OPTIONS, authenticateRequest } from '../shared';
 
-// PhonePe Sandbox / Production Base URLs
-const SANDBOX_URL = 'https://api-preprod.phonepe.com/apis/pg-sandbox';
-const PROD_URL = 'https://api.phonepe.com/apis/hermes';
+export { OPTIONS };
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { merchantTransactionId, orderId, isMockSuccess } = body;
 
-    if (!merchantTransactionId || !orderId) {
-      return NextResponse.json(
-        { success: false, error: 'Missing verification parameters' },
+    if (!merchantTransactionId) {
+      return corsResponse(
+        { success: false, error: 'Missing merchantTransactionId parameter' },
         { status: 400 }
       );
     }
 
-    const merchantId = process.env.PHONEPE_MERCHANT_ID || 'PGUATPAYOUT';
-    const saltKey = process.env.PHONEPE_SALT_KEY;
-    const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
-    const env = process.env.PHONEPE_ENV || 'sandbox';
+    // ── 0. AUTHENTICATION (fail closed when middleware is enabled) ──
+    const auth = await authenticateRequest();
+    if ('error' in auth) {
+      return corsResponse({ success: false, error: auth.error }, { status: auth.status });
+    }
 
-    // ── 1. SIMULATION FALLBACK ─────────────────────────────────────
-    const isSimulation = !saltKey || saltKey === 'mock_salt_key' || merchantTransactionId.includes('MOCK');
+    const config = getPhonePeConfig();
+    const simulation = isSimulationMode();
 
-    if (isSimulation) {
-      const mockSuccess = isMockSuccess !== false; // Default to success unless explicitly false
-      const isMockOrder = String(orderId).includes('test_phonepe_');
+    // Mock transaction ids may ONLY be verified while simulation mode is on.
+    const isMockOrder = String(orderId || '').includes('test_phonepe_');
+
+    if (isMockOrder && !simulation) {
+      return corsResponse({ success: false, error: 'Invalid transaction reference' }, { status: 400 });
+    }
+
+    // ── 1. SIMULATION (explicit opt-in only) ───────────────────────
+    if (simulation) {
+      const mockSuccess = isMockSuccess !== false;
 
       if (!mockSuccess) {
-        if (isFirebaseConfigured() && db && !isMockOrder) {
+        if (isFirebaseConfigured() && db && !isMockOrder && orderId) {
           const paymentRef = doc(db, 'payments', `pay_pk_${merchantTransactionId}`);
-          await setDoc(paymentRef, { status: 'failed', failureReason: 'Mock simulation checkout failure' }, { merge: true });
+          await setDoc(paymentRef, { status: 'failed', failureReason: 'Mock checkout failure' }, { merge: true });
         }
-        return NextResponse.json({
+        return corsResponse({
           success: true,
           data: { verified: false, status: 'FAILED', isSimulation: true }
         });
       }
 
-      if (isFirebaseConfigured() && db && !isMockOrder) {
+      if (isFirebaseConfigured() && db && !isMockOrder && orderId) {
         const orderRef = doc(db, 'orders', orderId);
-        const paymentRef = doc(db, 'payments', `pay_pk_${merchantTransactionId}`);
-
         const orderSnap = await getDoc(orderRef);
-        if (orderSnap.exists()) {
-          const orderData = orderSnap.data();
-          if (orderData.paymentStatus !== 'paid') {
-            await updateDoc(orderRef, {
-              paymentStatus: 'paid',
-              orderStatus: 'STOCK_RESERVED',
-              updatedAt: new Date().toISOString()
-            });
 
-            await setDoc(paymentRef, {
-              status: 'completed',
-              paidAt: new Date().toISOString(),
-              gatewayPaymentId: `txn_sim_ph_${Date.now()}`
-            }, { merge: true });
-          }
+        if (orderSnap.exists() && orderSnap.data().paymentStatus !== 'paid') {
+          const orderData = orderSnap.data();
+          const txnId = `txn_sim_ph_${Date.now()}`;
+
+          await updateDoc(orderRef, {
+            paymentStatus: 'paid',
+            orderStatus: 'CONFIRMED',
+            updatedAt: new Date().toISOString(),
+            paymentDetails: {
+              transactionId: txnId,
+              method: 'phonepe',
+              amount: orderData.total,
+              verifiedAt: new Date().toISOString()
+            }
+          });
+
+          await setDoc(
+            doc(db, 'payments', `pay_pk_${merchantTransactionId}`),
+            { status: 'completed', paidAt: new Date().toISOString(), gatewayPaymentId: txnId },
+            { merge: true }
+          );
+
+          await ensurePickingTaskForOrder(orderId, orderData as any);
         }
       }
 
-      return NextResponse.json({
+      return corsResponse({
         success: true,
         data: {
           verified: true,
@@ -76,95 +91,138 @@ export async function POST(request: Request) {
       });
     }
 
-    if (!isFirebaseConfigured() || !db) {
-      return NextResponse.json({ success: false, error: 'Firebase is not connected' }, { status: 500 });
+    // ── 2. REAL GATEWAY ────────────────────────────────────────────
+    if (!config) {
+      console.error(
+        '[PhonePe Verify] Gateway not configured (PHONEPE_MERCHANT_ID / PHONEPE_SALT_KEY missing). Set credentials or PHONEPE_SIMULATION_MODE=true for local dev.'
+      );
+      return corsResponse(
+        { success: false, error: 'Payment gateway is not configured. Please contact support.' },
+        { status: 503 }
+      );
     }
 
-    // ── 2. PHONEPE STATUS QUERY SIGNATURE ──────────────────────────
-    // Formula: SHA256("/pg/v1/status/{merchantId}/{merchantTransactionId}" + saltKey) + "###" + saltIndex
-    const endpoint = `/pg/v1/status/${merchantId}/${merchantTransactionId}`;
+    if (!isFirebaseConfigured() || !db) {
+      return corsResponse({ success: false, error: 'Database is not connected' }, { status: 500 });
+    }
+
+    // Status query signature: SHA256("/pg/v1/status/{merchantId}/{txnId}" + saltKey) + "###" + saltIndex
+    const endpoint = `/pg/v1/status/${config.merchantId}/${merchantTransactionId}`;
     const hash = crypto
       .createHash('sha256')
-      .update(endpoint + saltKey)
+      .update(endpoint + config.saltKey)
       .digest('hex');
-    const xVerifyHeader = `${hash}###${saltIndex}`;
 
-    const phonepeApiUrl = `${env === 'production' ? PROD_URL : SANDBOX_URL}${endpoint}`;
-
-    const apiResponse = await fetch(phonepeApiUrl, {
+    const apiResponse = await fetch(`${config.baseUrl}${endpoint}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'X-VERIFY': xVerifyHeader,
-        'X-MERCHANT-ID': merchantId
+        'X-VERIFY': `${hash}###${config.saltIndex}`,
+        'X-MERCHANT-ID': config.merchantId
       }
     });
 
-    const apiJson = await apiResponse.json();
+    // Gateway can return empty/non-JSON bodies on hiccups or unknown txns —
+    // parse defensively so users see "pending", never a 500 crash.
+    let apiJson: any = null;
+    try {
+      apiJson = await apiResponse.json();
+    } catch {
+      console.error('[PhonePe Status Check] Non-JSON gateway response', { httpStatus: apiResponse.status });
+    }
 
-    if (!apiJson.success || !apiJson.data) {
-      console.error('[PhonePe Status Check Failure]', apiJson);
-      return NextResponse.json({
+    if (!apiJson || !apiJson.success || !apiJson.data) {
+      console.error('[PhonePe Status Check Failure]', { httpStatus: apiResponse.status, body: apiJson });
+      return corsResponse({
         success: true,
-        data: { verified: false, status: 'UNKNOWN_ERROR', responseCode: apiJson.code }
+        data: {
+          verified: false,
+          status: apiJson?.code || 'PAYMENT_PENDING',
+          responseCode: apiJson?.code
+        }
       });
     }
 
     const phonepeStatus = apiJson.data.responseCode; // SUCCESS, PAYMENT_ERROR, etc.
     const isPaid = phonepeStatus === 'SUCCESS';
 
-    const orderRef = doc(db, 'orders', orderId);
+    // Resolve which order this transaction belongs to (payment doc is authoritative)
     const paymentRef = doc(db, 'payments', `pay_pk_${merchantTransactionId}`);
+    const paymentSnap = await getDoc(paymentRef);
+    const resolvedOrderId = paymentSnap.exists() ? paymentSnap.data().orderId || orderId : orderId;
 
-    const orderSnap = await getDoc(orderRef);
-    if (!orderSnap.exists()) {
-      return NextResponse.json({ success: false, error: 'Associated order not found' }, { status: 404 });
-    }
-
-    // Double-check amount validation (PhonePe returns amount in paise)
-    const phonepeAmountInPaise = apiJson.data.amount;
-    const orderData = orderSnap.data();
-    const expectedAmountInPaise = Math.round(orderData.total * 100);
-
-    if (isPaid && phonepeAmountInPaise !== expectedAmountInPaise) {
-      console.warn('[PhonePe Amount Mismatch]', { phonepeAmountInPaise, expectedAmountInPaise });
-      await setDoc(paymentRef, {
-        status: 'failed',
-        failureReason: `Amount mismatch: expected ${expectedAmountInPaise} paise, got ${phonepeAmountInPaise} paise`
-      }, { merge: true });
-      return NextResponse.json({
+    if (!resolvedOrderId) {
+      return corsResponse({
         success: true,
-        data: { verified: false, status: 'AMOUNT_MISMATCH' }
+        data: {
+          verified: isPaid,
+          status: phonepeStatus,
+          transactionId: apiJson.data.transactionId || '',
+          isSimulation: false
+        }
       });
     }
 
-    // ── 3. IDEMPOTENT DB UPDATE ON SUCCESS ──────────────────────────
-    if (isPaid) {
-      if (orderData.paymentStatus !== 'paid') {
-        await updateDoc(orderRef, {
-          paymentStatus: 'paid',
-          orderStatus: 'STOCK_RESERVED',
-          updatedAt: new Date().toISOString()
-        });
+    const orderRef = doc(db, 'orders', resolvedOrderId);
+    const orderSnap = await getDoc(orderRef);
 
-        await setDoc(paymentRef, {
-          status: 'completed',
-          paidAt: new Date().toISOString(),
-          gatewayPaymentId: apiJson.data.transactionId || ''
-        }, { merge: true });
+    if (orderSnap.exists()) {
+      const orderData = orderSnap.data();
+      const expectedAmountInPaise = Math.round(orderData.total * 100);
+
+      if (isPaid && apiJson.data.amount && apiJson.data.amount !== expectedAmountInPaise) {
+        console.warn('[PhonePe Amount Mismatch]', {
+          phonepeAmountInPaise: apiJson.data.amount,
+          expectedAmountInPaise
+        });
+        await setDoc(
+          paymentRef,
+          { status: 'failed', failureReason: `Amount mismatch: expected ${expectedAmountInPaise} paise, got ${apiJson.data.amount} paise` },
+          { merge: true }
+        );
+        return corsResponse({ success: true, data: { verified: false, status: 'AMOUNT_MISMATCH' } });
       }
-    } else {
-      // Mark as failed if PhonePe confirmed failed payment
-      const isFailed = phonepeStatus === 'PAYMENT_ERROR' || phonepeStatus === 'TIMED_OUT';
-      if (isFailed) {
-        await setDoc(paymentRef, {
-          status: 'failed',
-          failureReason: apiJson.message || 'Payment failed on gateway'
-        }, { merge: true });
+
+      // ── 3. IDEMPOTENT DB UPDATE ──────────────────────────────────
+      if (isPaid) {
+        if (orderData.paymentStatus !== 'paid') {
+          await updateDoc(orderRef, {
+            paymentStatus: 'paid',
+            orderStatus: 'CONFIRMED',
+            updatedAt: new Date().toISOString(),
+            paymentDetails: {
+              transactionId: apiJson.data.transactionId || merchantTransactionId,
+              method: 'phonepe',
+              amount: orderData.total,
+              paidAt: new Date().toISOString(),
+              phonepeResponseCode: phonepeStatus
+            }
+          });
+
+          await setDoc(
+            paymentRef,
+            {
+              status: 'completed',
+              paidAt: new Date().toISOString(),
+              gatewayPaymentId: apiJson.data.transactionId || '',
+              amount: orderData.total
+            },
+            { merge: true }
+          );
+
+          // Send order to Picker Queue
+          await ensurePickingTaskForOrder(resolvedOrderId, orderData as any);
+        }
+      } else if (['PAYMENT_ERROR', 'TIMED_OUT', 'PAYMENT_DECLINED'].includes(phonepeStatus)) {
+        await setDoc(
+          paymentRef,
+          { status: 'failed', failureReason: apiJson.message || 'Payment failed on PhonePe gateway' },
+          { merge: true }
+        );
       }
     }
 
-    return NextResponse.json({
+    return corsResponse({
       success: true,
       data: {
         verified: isPaid,
@@ -173,10 +231,9 @@ export async function POST(request: Request) {
         isSimulation: false
       }
     });
-
   } catch (error: any) {
     console.error('[PhonePe Verify Order Exception]', error);
-    return NextResponse.json(
+    return corsResponse(
       { success: false, error: error.message || 'Server verification failed' },
       { status: 500 }
     );

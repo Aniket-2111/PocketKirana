@@ -85,7 +85,8 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
         </div>
       </nav>
 
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
+      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} onOpenAuth={() => { setCartOpen(false); setAuthOpen(true); }} />
+
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
       <ToastContainer />
       <NotificationSimulator />

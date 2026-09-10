@@ -64,7 +64,8 @@ export default function PickerDashboard() {
     const key = o.orderNumber || o.id;
     if (!key) return;
     const statusUpper = (o.orderStatus || '').toUpperCase();
-    if (!finishedOrderStatuses.includes(statusUpper) && !taskMap.has(key)) {
+    const isEligible = o.paymentMethod === 'cod' || o.paymentStatus === 'paid' || o.paymentStatus === 'completed';
+    if (isEligible && !finishedOrderStatuses.includes(statusUpper) && !taskMap.has(key)) {
       taskMap.set(key, {
         id: `task-${o.id}`,
         orderId: o.id,

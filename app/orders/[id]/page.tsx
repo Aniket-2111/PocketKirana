@@ -57,7 +57,7 @@ export default function OrderTrackingPage() {
     return orders.length > 0 ? orders[0] : null;
   }, [liveOrder, orders, orderId]);
   const orderNumber = order?.orderNumber || orderId || 'PK102938';
-  const orderStatus = order?.orderStatus || 'PLACED';
+  const orderStatus = order?.orderStatus || 'CREATED';
 
   const placedDateStr = isMounted
     ? (order?.placedAt ? new Date(order.placedAt).toLocaleString() : 'Recently')

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
+import { getRazorpayConfig, isRazorpaySimulationMode } from '@/lib/razorpayConfig';
 
 export async function POST(request: Request) {
   try {
@@ -13,17 +14,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_PocketKiranaKey';
-    const keySecret = process.env.RAZORPAY_SECRET_KEY || 'pocketkirana_secret_test_key';
-
-    // If using simulation defaults
-    if (keyId === 'rzp_test_PocketKiranaKey') {
+    // Simulation ONLY when explicitly enabled via RAZORPAY_SIMULATION_MODE=true
+    // (never implicitly from missing credentials — fail closed instead).
+    if (isRazorpaySimulationMode()) {
       const razorpayOrderId = `order_rzp_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
       return NextResponse.json({
         success: true,
         data: {
           razorpayOrderId,
-          keyId,
+          keyId: 'sim',
           amount: Math.round(amount * 100),
           currency: 'INR',
           isSimulation: true
@@ -31,9 +30,19 @@ export async function POST(request: Request) {
       });
     }
 
+    // Real gateway credentials are mandatory beyond this point
+    const config = getRazorpayConfig();
+    if (!config) {
+      console.error('[Razorpay Create] Missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET — refusing to create order. Set credentials or RAZORPAY_SIMULATION_MODE=true for local dev.');
+      return NextResponse.json(
+        { success: false, error: 'Payment gateway is not configured. Please contact support.' },
+        { status: 503 }
+      );
+    }
+
     const instance = new Razorpay({
-      key_id: keyId,
-      key_secret: keySecret,
+      key_id: config.keyId,
+      key_secret: config.keySecret,
     });
 
     const options = {
@@ -48,7 +57,7 @@ export async function POST(request: Request) {
       success: true,
       data: {
         razorpayOrderId: order.id,
-        keyId,
+        keyId: config.keyId,
         amount: order.amount,
         currency: order.currency,
         isSimulation: false

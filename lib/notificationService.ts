@@ -216,9 +216,31 @@ export async function fetchNotificationsFS(
       results.push({ id: docSnap.id, ...(docSnap.data() as Record<string, unknown>) } as unknown as Notification);
     });
     return results;
-  } catch (err) {
-    console.warn('Error fetching Firestore notifications:', err);
-    return [];
+  } catch (err: any) {
+    // If composite index is missing or building, fall back to simple query and sort in memory
+    try {
+      const notifsRef = collection(db, NOTIFICATIONS_COLLECTION);
+      // Preserve the per-recipient filter in the fallback path. Without it, the
+      // fallback (used when the composite index is missing/building) returns
+      // every notification of this recipientType — including other users'.
+      const baseConstraints = [
+        where('recipientType', '==', recipientType),
+        ...(recipientType !== 'admin' && recipientId
+          ? [where('recipientId', 'in', [recipientId, 'all'])]
+          : []),
+      ];
+      const fallbackQuery = query(notifsRef, ...baseConstraints, limit(50));
+
+      const fallbackSnap = await getDocs(fallbackQuery);
+      const fallbackResults: Notification[] = [];
+      fallbackSnap.forEach((docSnap) => {
+        fallbackResults.push({ id: docSnap.id, ...(docSnap.data() as Record<string, unknown>) } as unknown as Notification);
+      });
+      return fallbackResults.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    } catch (fallbackErr) {
+      console.warn('Error fetching Firestore notifications:', err?.message || err);
+      return [];
+    }
   }
 }
 

@@ -12,12 +12,13 @@ import {
   ShieldCheck, 
   ArrowRight,
   Plus,
-  Clock,
+  Smartphone,
   Check,
   Loader2
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 import { OrderConfirmationAnimation } from '@/components/customer/OrderConfirmationAnimation';
+import { initiatePhonePePayment } from '@/lib/phonepeClient';
 import type { PaymentMethod, Order } from '@/types';
 
 export default function CheckoutPage() {
@@ -27,7 +28,8 @@ export default function CheckoutPage() {
     addresses, 
     appliedCoupon, 
     placeOrder, 
-    isLoggedIn 
+    isLoggedIn,
+    currentUser
   } = useAppStore();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>(() => {
@@ -73,13 +75,35 @@ export default function CheckoutPage() {
       // 1. Create order in Backend / Store
       const createdOrder = placeOrder(
         selectedAddressId, 
-        '10-15 mins Express Delivery', 
+        'Express Delivery', 
         paymentMethod
       );
 
       // Verify valid Order ID returned
       if (!createdOrder || !createdOrder.id) {
         throw new Error('Order creation returned invalid ID');
+      }
+
+      // If PhonePe payment selected, initiate PhonePe gateway redirect
+      if (paymentMethod === 'phonepe') {
+        const addr = addresses.find((a) => a.id === selectedAddressId) || addresses[0];
+        const res = await initiatePhonePePayment({
+          orderId: createdOrder.id,
+          amount: total,
+          mobileNumber: addr?.phone || '8698893348',
+          customerId: currentUser?.id || 'customer',
+          redirectPath: '/checkout/success/',
+        });
+
+        if (res.success && res.redirectUrl) {
+          window.location.href = res.redirectUrl;
+          return;
+        } else {
+          showToast(res.error || 'Failed to connect to PhonePe gateway', 'error');
+          setBtnState('idle');
+          isSubmittingRef.current = false;
+          return;
+        }
       }
 
       // 2. Step 1: Button Success Animation (~0.8s)
@@ -172,36 +196,32 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* ── 2. DELIVERY SPEED ESTIMATE ── */}
-        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-3xl flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <strong className="block text-xs font-black text-emerald-950">Express 10-15 Mins Delivery</strong>
-              <span className="text-[11px] text-emerald-700 font-bold block">Assigned to Nearest Pocket Kirana Hub</span>
-            </div>
-          </div>
-          <span className="bg-emerald-600 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase">
-            FAST
-          </span>
-        </div>
-
-        {/* ── 3. PAYMENT METHOD SELECTOR ── */}
+        {/* ── 2. PAYMENT METHOD SELECTOR ── */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-3 shadow-xs">
           <h3 className="font-black text-xs uppercase tracking-wider text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-3">
             <CreditCard className="w-4 h-4 text-emerald-600" />
             <span>Select Payment Method</span>
           </h3>
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {[
-              { id: 'cod', label: 'Cash on Delivery (COD)', desc: 'Pay with cash or UPI on doorstep', icon: Banknote },
-              { id: 'upi', label: 'UPI / QR / Instant Pay', desc: 'Google Pay, PhonePe, Paytm', icon: CreditCard },
-              { id: 'card', label: 'Credit / Debit Card', desc: 'Visa, MasterCard, RuPay', icon: CreditCard },
+              { 
+                id: 'cod', 
+                label: 'Cash on Delivery (COD)', 
+                desc: 'Pay with cash or UPI on doorstep', 
+                tag: null,
+                icon: Banknote 
+              },
+              { 
+                id: 'phonepe', 
+                label: 'PhonePe (UPI, Cards, Wallet)', 
+                desc: 'Pay securely via PhonePe Business Gateway', 
+                tag: 'RECOMMENDED',
+                icon: Smartphone 
+              },
             ].map((method) => {
               const isSelected = paymentMethod === method.id;
+              const isPhonePe = method.id === 'phonepe';
               const Icon = method.icon;
               return (
                 <label
@@ -209,7 +229,9 @@ export default function CheckoutPage() {
                   onClick={() => setPaymentMethod(method.id as PaymentMethod)}
                   className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                      ? isPhonePe
+                        ? 'bg-purple-50/70 border-purple-600 ring-2 ring-purple-500/20 shadow-xs'
+                        : 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
                       : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
@@ -219,14 +241,27 @@ export default function CheckoutPage() {
                       name="paymentMethod"
                       checked={isSelected}
                       onChange={() => setPaymentMethod(method.id as PaymentMethod)}
-                      className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                      className={`w-4 h-4 cursor-pointer ${isPhonePe ? 'accent-purple-600' : 'accent-emerald-600'}`}
                     />
                     <div>
-                      <strong className="block text-xs font-bold text-slate-900">{method.label}</strong>
+                      <div className="flex items-center gap-2">
+                        <strong className="block text-xs font-bold text-slate-900">{method.label}</strong>
+                        {method.tag && (
+                          <span className="text-[9px] font-black text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                            {method.tag}
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-slate-500 font-medium block">{method.desc}</span>
                     </div>
                   </div>
-                  <Icon className="w-5 h-5 text-slate-400" />
+                  {isPhonePe ? (
+                    <div className="w-8 h-8 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-xs shrink-0">
+                      <span className="font-black text-xs font-sans">पे</span>
+                    </div>
+                  ) : (
+                    <Icon className="w-5 h-5 text-slate-400 shrink-0" />
+                  )}
                 </label>
               );
             })}
@@ -274,7 +309,9 @@ export default function CheckoutPage() {
             disabled={btnState !== 'idle'}
             className={`w-full py-4 rounded-2xl font-black text-sm shadow-lg flex items-center justify-center gap-2 uppercase tracking-wider transition-all duration-300 relative overflow-hidden ${
               btnState === 'idle'
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-95 cursor-pointer'
+                ? paymentMethod === 'phonepe'
+                  ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30 active:scale-95 cursor-pointer'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-95 cursor-pointer'
                 : btnState === 'loading'
                 ? 'bg-emerald-700 text-emerald-100 cursor-not-allowed shadow-emerald-700/20'
                 : 'bg-emerald-500 text-white shadow-emerald-500/50 scale-[1.02]'
@@ -283,7 +320,7 @@ export default function CheckoutPage() {
             {btnState === 'idle' && (
               <>
                 <ShieldCheck className="w-5 h-5" />
-                <span>CONFIRM ORDER (₹{total})</span>
+                <span>{paymentMethod === 'phonepe' ? `PAY WITH PHONEPE (₹${total})` : `CONFIRM ORDER (₹${total})`}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

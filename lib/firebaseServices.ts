@@ -31,9 +31,11 @@ import {
   Store,
   ServiceRequest,
   PickingTask,
+  PickingItem,
   Delivery,
   Brand
 } from '@/types';
+import { INITIAL_STORAGE_LOCATIONS } from './mockData';
 
 // Collection Names
 const COLLECTIONS = {
@@ -427,8 +429,82 @@ export async function deleteCategoryFS(id: string, reassignments?: { reassignCat
 }
 
 // ==========================================
-// ORDERS
+// BANNERS
 // ==========================================
+export async function fetchBannersFS(): Promise<Banner[]> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return [];
+  try {
+    const snap = await getDocs(collection(firestore, COLLECTIONS.BANNERS));
+    const banners: Banner[] = [];
+    snap.forEach((d) => {
+      banners.push({ id: d.id, ...d.data() } as Banner);
+    });
+    return banners;
+  } catch (err) {
+    console.warn('Error fetching banners from Firestore:', err);
+    return [];
+  }
+}
+
+export function subscribeBannersFS(callback: (banners: Banner[]) => void): () => void {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return () => {};
+  try {
+    const unsub = onSnapshot(collection(firestore, COLLECTIONS.BANNERS), (snapshot) => {
+      const banners: Banner[] = [];
+      snapshot.forEach((docSnap) => {
+        banners.push({ id: docSnap.id, ...docSnap.data() } as Banner);
+      });
+      callback(banners);
+    }, (err) => {
+      console.warn('Firestore banners subscription error:', err?.message);
+    });
+    return unsub;
+  } catch (err) {
+    return () => {};
+  }
+}
+
+export async function saveBannerFS(banner: Banner): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const docRef = doc(firestore, COLLECTIONS.BANNERS, banner.id);
+    await setDoc(docRef, banner, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Error saving banner to Firestore:', err);
+    return false;
+  }
+}
+
+export async function updateBannerFS(id: string, updates: Partial<Banner>): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const docRef = doc(firestore, COLLECTIONS.BANNERS, id);
+    await updateDoc(docRef, updates);
+    return true;
+  } catch (err) {
+    console.error('Error updating banner in Firestore:', err);
+    return false;
+  }
+}
+
+export async function deleteBannerFS(id: string): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    await deleteDoc(doc(firestore, COLLECTIONS.BANNERS, id));
+    return true;
+  } catch (err) {
+    console.error('Error deleting banner from Firestore:', err);
+    return false;
+  }
+}
+
+
 export async function fetchOrdersFS(userIdOrPhone?: string): Promise<Order[]> {
   const firestore = getFirestoreInstance();
   if (!firestore) return [];
@@ -1228,6 +1304,59 @@ export async function updateServiceRequestStatusFS(
 // ==========================================
 // PICKING TASKS FIRESTORE SYNC
 // ==========================================
+
+/**
+ * Build and persist the picking task for a paid order (idempotent — no-op if
+ * the task already exists). Used by the PhonePe verify/webhook routes to push
+ * orders into the picker queue.
+ */
+export async function ensurePickingTaskForOrder(orderId: string, orderData: Order): Promise<void> {
+  const task = buildPickingTaskForOrder(orderId, orderData);
+  try {
+    const taskRef = doc(await getDb(), COLLECTIONS.PICKING_TASKS, task.id);
+    const existing = await getDoc(taskRef);
+    if (!existing.exists()) await savePickingTaskFS(task);
+  } catch (err) {
+    console.error('Error ensuring picking task for order:', err);
+  }
+}
+
+function getDb(): Firestore {
+  const firestore = getFirestoreInstance();
+  if (!firestore) throw new Error('Firestore not configured');
+  return firestore;
+}
+
+export function buildPickingTaskForOrder(orderId: string, orderData: Order): PickingTask {
+  const items: PickingItem[] = (orderData.items || []).map((item: any) => ({
+    id: `pi-${Date.now()}-${item.productId || item.product?.id || Math.random()}`,
+    productId: item.productId || item.product?.id || '',
+    productName: item.product?.name || item.productName || item.name || 'Grocery Item',
+    sku: item.product?.sku || item.sku || '',
+    upc: item.product?.upc || item.upc || '',
+    barcode: item.product?.barcode || item.product?.sku || item.sku || '',
+    unit: item.product?.unit || item.unit || '1 unit',
+    imageUrl: item.product?.thumbnail || item.imageUrl || '',
+    quantityRequired: item.quantity || 1,
+    quantityPicked: 0,
+    storageLocation: item.product?.storageLocation || INITIAL_STORAGE_LOCATIONS[0],
+    status: 'pending'
+  }));
+
+  return {
+    id: `task-${orderId}`,
+    orderId,
+    orderNumber: orderData.orderNumber || orderId,
+    storeId: orderData.storeId || 'store-1',
+    storeName: orderData.storeName || 'PocketKirana Express DarkStore',
+    status: 'pending',
+    priority: 'NORMAL',
+    items,
+    totalItemsCount: items.length,
+    pickedItemsCount: 0,
+    createdAt: new Date().toISOString()
+  };
+}
 
 export async function savePickingTaskFS(task: PickingTask): Promise<boolean> {
   const firestore = getFirestoreInstance();

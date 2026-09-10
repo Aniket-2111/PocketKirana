@@ -137,6 +137,21 @@ export interface StorageLocation {
   zone?: 'Ambient' | 'Chilled' | 'Frozen' | 'High-Value';
 }
 
+export interface NutritionalInfo {
+  energy?: string;
+  protein?: string;
+  carbohydrates?: string;
+  totalSugar?: string;
+  addedSugar?: string;
+  totalFat?: string;
+  saturatedFat?: string;
+  unsaturatedFat?: string;
+  transFat?: string;
+  dietaryFiber?: string;
+  sodium?: string;
+  [key: string]: string | undefined;
+}
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -161,6 +176,21 @@ export interface Product {
   salePrice?: number;
   taxPercentage: number;
   thumbnail: string;
+  image?: string;
+  images?: string[];
+  shelfLife?: string;
+  foodType?: string;
+  productType?: string;
+  source?: string;
+  dietPreference?: string;
+  countryOfOrigin?: string;
+  fssaiLicense?: string;
+  manufacturer?: string;
+  storageInstructions?: string;
+  keyFeatures?: string;
+  disclaimer?: string;
+  nutritionalInfo?: NutritionalInfo;
+  category?: string;
   status: 'active' | 'out_of_stock' | 'discontinued';
   stock?: number;
   rating: number;

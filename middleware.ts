@@ -2,72 +2,71 @@
  * PocketKirana — Production Edge Security & RBAC Middleware
  *
  * Enforces:
- *  1. Server-side RBAC route gating (/admin, /picker, /delivery)
- *  2. HttpOnly `pk_session` cookie verification
- *  3. HTTP Security Headers (X-Content-Type-Options, Referrer-Policy, X-Frame-Options)
- *  4. CSRF Protection for state-changing HTTP methods (POST, PUT, PATCH, DELETE)
+ *  1. Server-side RBAC route gating (/admin, /picker, /delivery) with REAL
+ *     Firebase ID-token signature verification (RS256 + JWKS) — a forged or
+ *     unsigned token can no longer pass (cso Finding #1).
+ *  2. Inbound x-pk-* header sanitization: clients can no longer forge the
+ *     identity headers that lib/routeAuth.ts reads (cso Finding #2). The
+ *     middleware strips them, then re-injects its own ONLY after signature
+ *     verification — for /admin, /picker, /delivery AND /api routes.
+ *  3. HttpOnly session cookie verification.
+ *  4. HTTP Security Headers (X-Content-Type-Options, Referrer-Policy, X-Frame-Options).
+ *  5. CSRF Protection for state-changing HTTP methods (POST, PUT, PATCH, DELETE).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyFirebaseIdToken, decodeJwtPayload } from './lib/sessionVerify';
 
 // ── Route → Required Role Mapping ──────────────────────────────────────────
 
 const PROTECTED_ROUTES: Array<{ prefix: string; requiredRoles: string[] }> = [
-  { prefix: '/admin',    requiredRoles: ['admin'] },
-  { prefix: '/picker',   requiredRoles: ['picker', 'admin'] },
+  { prefix: '/admin', requiredRoles: ['admin'] },
+  { prefix: '/picker', requiredRoles: ['picker', 'admin'] },
   { prefix: '/delivery', requiredRoles: ['delivery_partner', 'admin'] },
 ];
 
-// ── JWT Payload Decoder (Edge-safe) ─────────────────────────────────────────
+// ── Header Sanitization (cso Finding #2) ───────────────────────────────────
+// The very first thing the middleware does is drop any x-pk-* headers that
+// arrived from the client. lib/routeAuth.ts trusts these headers, so they
+// must never survive from an untrusted origin.
 
-interface FirebaseJwtPayload {
-  uid?: string;
-  sub?: string;
-  role?: string;
-  admin?: boolean;
-  exp?: number;
-  iss?: string;
-}
-
-function decodeJwtPayload(token: string): FirebaseJwtPayload | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = payload.padEnd(payload.length + (4 - (payload.length % 4)) % 4, '=');
-    const decoded = atob(padded);
-    return JSON.parse(decoded) as FirebaseJwtPayload;
-  } catch {
-    return null;
+function sanitizeRequestHeaders(request: NextRequest): NextRequest {
+  const headers = new Headers(request.headers);
+  let mutated = false;
+  for (const name of [...headers.keys()]) {
+    if (name.toLowerCase().startsWith('x-pk-')) {
+      headers.delete(name);
+      mutated = true;
+    }
   }
-}
-
-function isTokenExpired(payload: FirebaseJwtPayload): boolean {
-  if (!payload.exp) return true;
-  return Date.now() / 1000 > payload.exp - 5;
+  if (!mutated) return request;
+  return new NextRequest(request.url, {
+    method: request.method,
+    headers,
+    body: request.body,
+    redirect: 'manual',
+  });
 }
 
 // ── Main Middleware ─────────────────────────────────────────────────────────
 
-export function middleware(request: NextRequest): NextResponse {
-  const { pathname } = request.nextUrl;
-  const method = request.method;
+export async function middleware(request: NextRequest): Promise<NextResponse> {
+  const sanitized = sanitizeRequestHeaders(request);
+  const { pathname } = sanitized.nextUrl;
+  const method = sanitized.method;
 
-  // Create base response
-  let response = NextResponse.next();
-
-  // 1. Inject Security Headers
+  // Create base response with security headers
+  const requestHeaders = new Headers(sanitized.headers);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('X-Frame-Options', 'DENY');
 
-  // 2. CSRF Check on State-Changing API Mutations
+  // CSRF Check on State-Changing API Mutations
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/')) {
-    const origin = request.headers.get('origin');
-    const host = request.headers.get('host');
+    const origin = sanitized.headers.get('origin');
+    const host = sanitized.headers.get('host');
 
-    // Allow requests originating from same host
     if (origin && host) {
       const originHost = origin.replace(/^https?:\/\//, '');
       if (originHost !== host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
@@ -79,22 +78,23 @@ export function middleware(request: NextRequest): NextResponse {
     }
   }
 
-  // 3. RBAC Route Gating
-  const match = PROTECTED_ROUTES.find((route) => pathname.startsWith(route.prefix));
-  if (!match) {
-    return response; // Not a protected route
-  }
+  const sessionToken =
+    sanitized.cookies.get('pk_session')?.value ||
+    sanitized.cookies.get('__pk_session')?.value ||
+    sanitized.cookies.get('__session')?.value;
 
-  // Dev bypass handling for local testing
-  const isProduction = process.env.NODE_ENV === 'production';
   const strictModeEnabled = process.env.NEXT_PUBLIC_AUTH_MIDDLEWARE_ENABLED === 'true';
-  const host = request.headers.get('host') || '';
+  const isProduction = process.env.NODE_ENV === 'production';
+  const host = sanitized.headers.get('host') || '';
   const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 
-  if (!isProduction && isLocalhost && !strictModeEnabled) {
+  // Dev bypass: local, non-strict, non-production ONLY. Never injects x-pk-*
+  // for /api/* (route-level auth handles API identity), only for protected pages.
+  const match = PROTECTED_ROUTES.find((route) => pathname.startsWith(route.prefix));
+  if (match && !isProduction && isLocalhost && !strictModeEnabled) {
     const devRole =
-      pathname.startsWith('/admin')    ? 'admin' :
-      pathname.startsWith('/picker')   ? 'picker' :
+      pathname.startsWith('/admin') ? 'admin' :
+      pathname.startsWith('/picker') ? 'picker' :
       pathname.startsWith('/delivery') ? 'delivery_partner' : 'customer';
 
     response.headers.set('x-pk-uid', 'dev-user');
@@ -103,45 +103,72 @@ export function middleware(request: NextRequest): NextResponse {
     return response;
   }
 
-  // Read Session token from `pk_session` or `__pk_session` cookie
-  const sessionToken =
-    request.cookies.get('pk_session')?.value ||
-    request.cookies.get('__pk_session')?.value ||
-    request.cookies.get('__session')?.value;
+  // ── Verified-token identity for protected pages AND /api routes ──────────
+  // On success, x-pk-uid/x-pk-role are injected from a SIGNATURE-VERIFIED
+  // Firebase token — these are the only x-pk-* headers routeAuth ever sees.
+  // On failure with a malformed/invalid token present: 401 for API, redirect
+  // for pages. No token: pass through (route-level auth decides for /api;
+  // protected pages redirect below).
 
-  const redirectToLogin = (reason: string) => {
-    const loginUrl = new URL('/access-denied', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    loginUrl.searchParams.set('reason', reason);
-    return NextResponse.redirect(loginUrl);
-  };
+  if (sessionToken) {
+    const verified = await verifyFirebaseIdToken(sessionToken);
 
-  if (!sessionToken) {
-    return redirectToLogin('unauthenticated');
-  }
+    if (verified) {
+      const role = verified.admin ? 'admin' : verified.role || 'customer';
+      response.headers.set('x-pk-uid', verified.uid);
+      response.headers.set('x-pk-role', role);
 
-  // If token is a JWT (Firebase or server token), decode payload
-  if (sessionToken.includes('.')) {
-    const payload = decodeJwtPayload(sessionToken);
-    if (!payload || isTokenExpired(payload)) {
-      return redirectToLogin('invalid_token');
-    }
-
-    const userRole = payload.role as string | undefined;
-    const isAdminClaim = payload.admin === true;
-
-    if (isAdminClaim || (userRole && match.requiredRoles.includes(userRole))) {
-      response.headers.set('x-pk-uid', payload.sub || payload.uid || '');
-      response.headers.set('x-pk-role', userRole || 'unknown');
+      if (match) {
+        const isAdmin = verified.admin === true || role === 'admin';
+        const userRole = verified.role || 'customer';
+        const allowed = isAdmin || match.requiredRoles.includes(userRole);
+        if (!allowed) return redirectToLogin(sanitized.url, pathname, 'insufficient_role');
+      }
       return response;
     }
-  } else {
-    // Cryptographic Session UUID token — allow session lookup to proceed
-    response.headers.set('x-pk-session-id', sessionToken);
-    return response;
+
+    // Token present but NOT verified: is it a legacy/demo token?
+    // Demo 'pks_' tokens and opaque UUID session ids are only honored when
+    // auth middleware is NOT enabled (dev/demo installs).
+    const looksJwt = sessionToken.includes('.');
+    const payload = looksJwt ? decodeJwtPayload(sessionToken) : null;
+    const isDemoToken = sessionToken.startsWith('pks_');
+
+    if (!strictModeEnabled && !isProduction) {
+      // Dev/demo mode: keep legacy behavior for non-JWT tokens.
+      if (!looksJwt) {
+        response.headers.set('x-pk-session-id', sessionToken);
+        return response;
+      }
+      // Dev JWT with valid shape: decode-only, flag as unverified (dev only).
+      if (payload && (payload.uid || payload.sub)) {
+        response.headers.set('x-pk-uid', String(payload.sub || payload.uid));
+        response.headers.set('x-pk-role', String(payload.role || 'customer'));
+        response.headers.set('x-pk-unverified', '1');
+        return response;
+      }
+    }
+
+    // Strict mode or production: invalid token = fail closed.
+    if (pathname.startsWith('/api/')) {
+      return new NextResponse(
+        JSON.stringify({ success: false, error: 'Invalid session token' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    return redirectToLogin(sanitized.url, pathname, 'invalid_token');
   }
 
-  return redirectToLogin('insufficient_role');
+  // ── No token ─────────────────────────────────────────────────────────────
+  if (match) return redirectToLogin(sanitized.url, pathname, 'unauthenticated');
+  return response; // /api with no token: route-level auth decides (fail closed there)
+}
+
+function redirectToLogin(baseUrl: string, pathname: string, reason: string): NextResponse {
+  const loginUrl = new URL('/access-denied', baseUrl);
+  loginUrl.searchParams.set('redirect', pathname);
+  loginUrl.searchParams.set('reason', reason);
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {

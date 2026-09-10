@@ -58,8 +58,9 @@ export default function TasksQueue() {
     const key = o.orderNumber || o.id;
     if (!key) return;
     const statusUpper = (o.orderStatus || '').toUpperCase();
+    const isEligible = o.paymentMethod === 'cod' || o.paymentStatus === 'paid' || o.paymentStatus === 'completed';
     const finishedStatuses = ['CANCELLED', 'DELIVERED', 'COMPLETED', 'HANDED_OVER', 'OUT_FOR_DELIVERY', 'PICKED_UP', 'READY_FOR_PICKUP'];
-    if (!finishedStatuses.includes(statusUpper) && !taskMap.has(key)) {
+    if (isEligible && !finishedStatuses.includes(statusUpper) && !taskMap.has(key)) {
       taskMap.set(key, {
         id: `task-${o.id}`,
         orderId: o.id,

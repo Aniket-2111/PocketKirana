@@ -20,6 +20,17 @@ export const OrderConfirmationAnimation: React.FC<OrderConfirmationAnimationProp
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Completely lock background scrolling and touchmove to prevent sliding/dragging on mobile
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
+    const preventTouch = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener('touchmove', preventTouch, { passive: false });
+
     // Phase 1 -> Phase 2 transition at 1.1s
     const phaseTimer = setTimeout(() => {
       setPhase('packing');
@@ -31,6 +42,9 @@ export const OrderConfirmationAnimation: React.FC<OrderConfirmationAnimationProp
     }, autoRedirectMs);
 
     return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+      document.removeEventListener('touchmove', preventTouch);
       clearTimeout(phaseTimer);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
@@ -45,13 +59,19 @@ export const OrderConfirmationAnimation: React.FC<OrderConfirmationAnimationProp
 
   return (
     <div 
-      className="fixed inset-0 z-[99999] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 select-none touch-none overscroll-none overflow-hidden animate-in fade-in duration-200"
+      style={{ touchAction: 'none', overscrollBehavior: 'none' }}
+      onTouchMove={(e) => { e.preventDefault(); e.stopPropagation(); }}
       role="dialog"
       aria-modal="true"
       aria-label="Order Confirmation Animation"
     >
-      {/* Main Container */}
-      <div className="relative w-full max-w-sm bg-white dark:bg-[#121820] rounded-[36px] p-6 text-center shadow-2xl border border-emerald-100/60 dark:border-emerald-950/60 overflow-hidden animate-pop-success">
+      {/* Main Container - Fixed, centered, no drag or slide */}
+      <div 
+        className="relative w-full max-w-sm bg-white dark:bg-[#121820] rounded-[36px] p-6 text-center shadow-2xl border border-emerald-100/60 dark:border-emerald-950/60 overflow-hidden select-none touch-none animate-pop-success"
+        style={{ touchAction: 'none', transform: 'translateZ(0)' }}
+        onTouchMove={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      >
         
         {/* Ambient Top Glow */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/15 dark:bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />

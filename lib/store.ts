@@ -84,6 +84,11 @@ import {
   deleteCategoryFS,
   fetchBrandsFS,
   subscribeBrandsFS,
+  fetchBannersFS,
+  subscribeBannersFS,
+  saveBannerFS,
+  updateBannerFS,
+  deleteBannerFS,
   subscribeStoreSettingsFS,
   fetchOrdersFS,
   subscribeOrdersFS,
@@ -423,6 +428,7 @@ export const useAppStore = create<AppState>()(
           const fsCategories = await safe(fetchCategoriesFS, []);
           const fsPartners   = await safe(fetchDeliveryPartnersFS, []);
           const fsCampaigns  = await safe(fetchCampaignsFS, []);
+          const fsBanners    = await safe(fetchBannersFS, []);
           const currUser = get().currentUser;
           const fsAddresses = currUser ? await safe(() => fetchAddressesFS(currUser.id), []) : [];
 
@@ -448,6 +454,7 @@ export const useAppStore = create<AppState>()(
             products:         enrichedProducts,
             categories:       fsCategories.length > 0 ? fsCategories : get().categories,
             brands:           mergedBrands,
+            banners:          fsBanners.length    > 0 ? fsBanners    : get().banners,
             deliveryPartners: fsPartners.length   > 0 ? fsPartners   : get().deliveryPartners,
             campaigns:        fsCampaigns.length  > 0 ? fsCampaigns  : get().campaigns,
             addresses:        fsAddresses.length  > 0 ? fsAddresses  : get().addresses,
@@ -546,6 +553,14 @@ export const useAppStore = create<AppState>()(
             }
           });
           activeSubscriptions.push(unsubSettings);
+
+          // 8. Subscribe to Banners in real-time
+          const unsubBanners = subscribeBannersFS((fsBanners) => {
+            if (fsBanners.length > 0) {
+              set({ banners: fsBanners });
+            }
+          });
+          activeSubscriptions.push(unsubBanners);
 
           // Fetch notifications based on role
           const role = get().activeRole;
@@ -1301,7 +1316,7 @@ export const useAppStore = create<AppState>()(
           tax,
           total,
           paymentMethod,
-          paymentStatus: paymentMethod === 'cod' ? 'pending' : 'completed',
+          paymentStatus: 'pending',
           orderStatus: 'STOCK_RESERVED',
           deliverySlot,
           placedAt: new Date().toISOString(),
@@ -3100,21 +3115,27 @@ export const useAppStore = create<AppState>()(
       addBanner: (bannerData) => {
         const newBanner: Banner = { ...bannerData, id: `ban-${Date.now()}` };
         set((state) => ({ banners: [newBanner, ...state.banners] }));
+        saveBannerFS(newBanner);
       },
       updateBanner: (id, bannerData) => {
         set((state) => ({
           banners: state.banners.map((b) => (b.id === id ? { ...b, ...bannerData } : b)),
         }));
+        updateBannerFS(id, bannerData);
       },
       deleteBanner: (id) => {
         set((state) => ({
           banners: state.banners.filter((b) => b.id !== id),
         }));
+        deleteBannerFS(id);
       },
       toggleBannerStatus: (id) => {
+        const target = get().banners.find((b) => b.id === id);
+        const newStatus = target ? !target.active : false;
         set((state) => ({
-          banners: state.banners.map((b) => (b.id === id ? { ...b, active: !b.active } : b)),
+          banners: state.banners.map((b) => (b.id === id ? { ...b, active: newStatus } : b)),
         }));
+        updateBannerFS(id, { active: newStatus });
       },
       addCoupon: (couponData) => {
         const newCoupon: Coupon = { ...couponData, id: `coup-${Date.now()}` };

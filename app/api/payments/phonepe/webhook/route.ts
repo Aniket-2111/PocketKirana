@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { getDoc, doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { getDoc, doc, updateDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { getPhonePeConfig } from '@/lib/phonepeConfig';
+import { ensurePickingTaskForOrder } from '@/lib/firebaseServices';
 
 export async function POST(request: Request) {
   try {
@@ -16,24 +18,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Missing signature or payload' }, { status: 400 });
     }
 
-    const saltKey = process.env.PHONEPE_SALT_KEY;
-    const saltIndex = process.env.PHONEPE_SALT_INDEX || '1';
+    const config = getPhonePeConfig();
 
-    // ── 1. SIGNATURE VALIDATION ────────────────────────────────────
-    if (saltKey) {
-      const generatedHash = crypto
-        .createHash('sha256')
-        .update(base64Response + saltKey)
-        .digest('hex');
-      const expectedVerifyHeader = `${generatedHash}###${saltIndex}`;
+    // ── 1. SIGNATURE VALIDATION (mandatory — fail closed) ──────────
+    // PhonePe requires the X-VERIFY header check on every webhook. Without a
+    // configured salt key we cannot verify authenticity, so the webhook is
+    // rejected. We still return 200 so PhonePe does not infinitely retry a
+    // request we can never process; the missed confirmation is recovered by
+    // the client-side verify route instead.
+    if (!config) {
+      console.error('[PhonePe Webhook] Gateway credentials not configured — cannot validate signature. Configure PHONEPE_SALT_KEY to enable webhook processing.');
+      return NextResponse.json({ success: true, message: 'Webhook received but gateway not configured' }, { status: 200 });
+    }
 
-      if (xVerifyHeader !== expectedVerifyHeader) {
-        console.error('[PhonePe Webhook Signature Verification Failed]', {
-          received: xVerifyHeader,
-          expected: expectedVerifyHeader
-        });
-        return NextResponse.json({ success: false, error: 'Invalid signature verification' }, { status: 401 });
-      }
+    const generatedHash = crypto
+      .createHash('sha256')
+      .update(base64Response + config.saltKey)
+      .digest('hex');
+    const expectedVerifyHeader = `${generatedHash}###${config.saltIndex}`;
+
+    if (xVerifyHeader !== expectedVerifyHeader) {
+      console.error('[PhonePe Webhook Signature Verification Failed]', {
+        received: xVerifyHeader,
+        expected: expectedVerifyHeader
+      });
+      // ACK with 200 so PhonePe doesn't retry forever on tampered traffic;
+      // the payment is still recovered via the client-side verify route.
+      return NextResponse.json({ success: true, message: 'Invalid signature ignored' }, { status: 200 });
     }
 
     // ── 2. DECODE & PARSE PAYLOAD ──────────────────────────────────
@@ -69,12 +80,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, message: 'Payment already processed' });
       }
     } else {
-      // Backup recovery: find the order by merchantTransactionId inside the orderNumber or transaction references
       console.warn(`[PhonePe Webhook] Payment doc pay_pk_${merchantTransactionId} not found. Attempting lookup on orders collection...`);
       
       const ordersCol = collection(db, 'orders');
-      // If we don't have direct ref, extract order identifier from transaction ID
-      // Structure: TXN_PK_${orderNumber}_${Date.now()}
       const parts = merchantTransactionId.split('_');
       if (parts.length >= 3) {
         const orderNumberStr = parts[2];
@@ -105,10 +113,10 @@ export async function POST(request: Request) {
 
     if (phonepeAmountInPaise !== expectedAmountInPaise) {
       console.error('[PhonePe Webhook Amount Mismatch]', { phonepeAmountInPaise, expectedAmountInPaise });
-      await updateDoc(paymentRef, {
+      await setDoc(paymentRef, {
         status: 'failed',
         failureReason: `Webhook amount mismatch: expected ${expectedAmountInPaise} paise, got ${phonepeAmountInPaise} paise`
-      });
+      }, { merge: true });
       return NextResponse.json({ success: false, error: 'Payment amount mismatch' }, { status: 400 });
     }
 
@@ -116,12 +124,17 @@ export async function POST(request: Request) {
     if (orderData.paymentStatus !== 'paid') {
       await updateDoc(orderRef, {
         paymentStatus: 'paid',
-        orderStatus: 'STOCK_RESERVED',
-        updatedAt: new Date().toISOString()
+        orderStatus: 'CONFIRMED',
+        updatedAt: new Date().toISOString(),
+        paymentDetails: {
+          transactionId: transactionId || merchantTransactionId,
+          method: 'phonepe',
+          amount: orderData.total,
+          paidAt: new Date().toISOString()
+        }
       });
 
-      // Ensure payment doc exists/is updated
-      await setDocDataHelper(paymentRef, {
+      await setDoc(paymentRef, {
         paymentId: `pay_pk_${merchantTransactionId}`,
         orderId,
         customerId: dbCustomerId,
@@ -133,9 +146,12 @@ export async function POST(request: Request) {
         gatewayOrderId: merchantTransactionId,
         gatewayPaymentId: transactionId || '',
         paidAt: new Date().toISOString()
-      });
+      }, { merge: true });
 
-      console.log(`[PhonePe Webhook Success] Order #${orderData.orderNumber || orderId} confirmed and paid!`);
+      // Automatically route to Picker Queue
+      await ensurePickingTaskForOrder(orderId, orderData as any);
+
+      console.log(`[PhonePe Webhook Success] Order #${orderData.orderNumber || orderId} confirmed, paid, and sent to picker queue!`);
     }
 
     return NextResponse.json({ success: true, message: 'Webhook processed successfully' });
@@ -146,20 +162,5 @@ export async function POST(request: Request) {
       { success: false, error: error.message || 'Webhook processing failed' },
       { status: 500 }
     );
-  }
-}
-
-// Helper to update doc or set it if missing
-async function setDocDataHelper(docRef: any, data: any) {
-  try {
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      await updateDoc(docRef, data);
-    } else {
-      const { setDoc } = require('firebase/firestore');
-      await setDoc(docRef, data);
-    }
-  } catch (err) {
-    console.error('[PhonePe Webhook Helper Error]', err);
   }
 }

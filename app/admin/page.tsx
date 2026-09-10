@@ -267,6 +267,29 @@ function AdminDashboardContent() {
   const [newProdUnit, setNewProdUnit] = useState('1 kg');
   const [newProdDesc, setNewProdDesc] = useState('');
   const [newProdImage, setNewProdImage] = useState('');
+  const [newProdShelfLife, setNewProdShelfLife] = useState('90 days');
+  const [newProdFoodType, setNewProdFoodType] = useState('100% Vegetarian');
+  const [newProdProductType, setNewProdProductType] = useState('Sehori Atta');
+  const [newProdSource, setNewProdSource] = useState('Sehore, Madhya Pradesh');
+  const [newProdDietPreference, setNewProdDietPreference] = useState('High Fiber');
+  const [newProdCountryOfOrigin, setNewProdCountryOfOrigin] = useState('India');
+  const [newProdFssaiLicense, setNewProdFssaiLicense] = useState('10012031000312');
+  const [newProdManufacturer, setNewProdManufacturer] = useState('PocketKirana Verified DarkStore Hub & Authorized FMCG Partner, Neral Central Distribution Center.');
+  const [newProdStorageInstructions, setNewProdStorageInstructions] = useState('Store in a cool, hygienic, dry place away from direct sunlight and heat.');
+  const [newProdKeyFeatures, setNewProdKeyFeatures] = useState('EXPERIENCE THE GOLDEN GRAINS: Indulge in the finest quality atta made with Premium MP Sehori Wheat carefully selected and sourced from the farmers of Sehore, Madhya Pradesh, for its exceptional aroma and taste\nBRINGING YOU WHAT YOU LIKE: Made with your preferred wheat variety, in your way of traditional chakki jaisi pisai, provided with guarantee of wheat sourcing through quality certificate');
+  const [newProdDisclaimer, setNewProdDisclaimer] = useState('Every effort is made to maintain accuracy of all information. However, actual product packaging and materials may contain more and/or different information.');
+  // Nutritional info
+  const [newProdEnergy, setNewProdEnergy] = useState('343 kcal');
+  const [newProdProtein, setNewProdProtein] = useState('10.5 g');
+  const [newProdCarbs, setNewProdCarbs] = useState('77.1 g');
+  const [newProdTotalSugar, setNewProdTotalSugar] = useState('3.4 g');
+  const [newProdAddedSugar, setNewProdAddedSugar] = useState('0 g');
+  const [newProdTotalFat, setNewProdTotalFat] = useState('1.6 g');
+  const [newProdSaturatedFat, setNewProdSaturatedFat] = useState('0.3 g');
+  const [newProdUnsaturatedFat, setNewProdUnsaturatedFat] = useState('1.3 g');
+  const [newProdTransFat, setNewProdTransFat] = useState('0 g');
+  const [newProdDietaryFiber, setNewProdDietaryFiber] = useState('10.8 g');
+  const [newProdSodium, setNewProdSodium] = useState('1.7 mg');
 
   // Edit product form states
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -278,6 +301,29 @@ function AdminDashboardContent() {
   const [editDesc, setEditDesc] = useState('');
   const [editImage, setEditImage] = useState('');
   const [editStatus, setEditStatus] = useState<'active' | 'out_of_stock' | 'discontinued'>('active');
+  const [editShelfLife, setEditShelfLife] = useState('90 days');
+  const [editFoodType, setEditFoodType] = useState('100% Vegetarian');
+  const [editProductType, setEditProductType] = useState('Sehori Atta');
+  const [editSource, setEditSource] = useState('Sehore, Madhya Pradesh');
+  const [editDietPreference, setEditDietPreference] = useState('High Fiber');
+  const [editCountryOfOrigin, setEditCountryOfOrigin] = useState('India');
+  const [editFssaiLicense, setEditFssaiLicense] = useState('10012031000312');
+  const [editManufacturer, setEditManufacturer] = useState('');
+  const [editStorageInstructions, setEditStorageInstructions] = useState('');
+  const [editKeyFeatures, setEditKeyFeatures] = useState('');
+  const [editDisclaimer, setEditDisclaimer] = useState('');
+  // Nutritional info edit
+  const [editEnergy, setEditEnergy] = useState('343 kcal');
+  const [editProtein, setEditProtein] = useState('10.5 g');
+  const [editCarbs, setEditCarbs] = useState('77.1 g');
+  const [editTotalSugar, setEditTotalSugar] = useState('3.4 g');
+  const [editAddedSugar, setEditAddedSugar] = useState('0 g');
+  const [editTotalFat, setEditTotalFat] = useState('1.6 g');
+  const [editSaturatedFat, setEditSaturatedFat] = useState('0.3 g');
+  const [editUnsaturatedFat, setEditUnsaturatedFat] = useState('1.3 g');
+  const [editTransFat, setEditTransFat] = useState('0 g');
+  const [editDietaryFiber, setEditDietaryFiber] = useState('10.8 g');
+  const [editSodium, setEditSodium] = useState('1.7 mg');
 
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
@@ -409,6 +455,30 @@ function AdminDashboardContent() {
       taxPercentage: 5,
       thumbnail: newProdImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80',
       status: 'active',
+      shelfLife: newProdShelfLife || '90 days',
+      foodType: newProdFoodType || '100% Vegetarian',
+      productType: newProdProductType || 'Sehori Atta',
+      source: newProdSource || 'Sehore, Madhya Pradesh',
+      dietPreference: newProdDietPreference || 'High Fiber',
+      countryOfOrigin: newProdCountryOfOrigin || 'India',
+      fssaiLicense: newProdFssaiLicense || '10012031000312',
+      manufacturer: newProdManufacturer || 'PocketKirana Verified DarkStore Hub & Authorized FMCG Partner, Neral Central Distribution Center.',
+      storageInstructions: newProdStorageInstructions || 'Store in a cool, hygienic, dry place away from direct sunlight and heat.',
+      keyFeatures: newProdKeyFeatures,
+      disclaimer: newProdDisclaimer,
+      nutritionalInfo: {
+        energy: newProdEnergy,
+        protein: newProdProtein,
+        carbohydrates: newProdCarbs,
+        totalSugar: newProdTotalSugar,
+        addedSugar: newProdAddedSugar,
+        totalFat: newProdTotalFat,
+        saturatedFat: newProdSaturatedFat,
+        unsaturatedFat: newProdUnsaturatedFat,
+        transFat: newProdTransFat,
+        dietaryFiber: newProdDietaryFiber,
+        sodium: newProdSodium,
+      },
       rating: 4.8,
       reviewsCount: 1,
     });
@@ -431,6 +501,28 @@ function AdminDashboardContent() {
     setEditDesc(prod.description || '');
     setEditImage(prod.thumbnail);
     setEditStatus(prod.status);
+    setEditShelfLife(prod.shelfLife || '90 days');
+    setEditFoodType(prod.foodType || '100% Vegetarian');
+    setEditProductType(prod.productType || 'Sehori Atta');
+    setEditSource(prod.source || 'Sehore, Madhya Pradesh');
+    setEditDietPreference(prod.dietPreference || 'High Fiber');
+    setEditCountryOfOrigin(prod.countryOfOrigin || 'India');
+    setEditFssaiLicense(prod.fssaiLicense || '10012031000312');
+    setEditManufacturer(prod.manufacturer || 'PocketKirana Verified DarkStore Hub & Authorized FMCG Partner, Neral Central Distribution Center.');
+    setEditStorageInstructions(prod.storageInstructions || 'Store in a cool, hygienic, dry place away from direct sunlight and heat.');
+    setEditKeyFeatures(prod.keyFeatures || prod.description || '');
+    setEditDisclaimer(prod.disclaimer || 'Every effort is made to maintain accuracy of all information. However, actual product packaging and materials may contain more and/or different information.');
+    setEditEnergy(prod.nutritionalInfo?.energy || '343 kcal');
+    setEditProtein(prod.nutritionalInfo?.protein || '10.5 g');
+    setEditCarbs(prod.nutritionalInfo?.carbohydrates || '77.1 g');
+    setEditTotalSugar(prod.nutritionalInfo?.totalSugar || '3.4 g');
+    setEditAddedSugar(prod.nutritionalInfo?.addedSugar || '0 g');
+    setEditTotalFat(prod.nutritionalInfo?.totalFat || '1.6 g');
+    setEditSaturatedFat(prod.nutritionalInfo?.saturatedFat || '0.3 g');
+    setEditUnsaturatedFat(prod.nutritionalInfo?.unsaturatedFat || '1.3 g');
+    setEditTransFat(prod.nutritionalInfo?.transFat || '0 g');
+    setEditDietaryFiber(prod.nutritionalInfo?.dietaryFiber || '10.8 g');
+    setEditSodium(prod.nutritionalInfo?.sodium || '1.7 mg');
   };
 
   const handleUpdateProduct = (e: React.FormEvent) => {
@@ -447,6 +539,30 @@ function AdminDashboardContent() {
       description: editDesc,
       thumbnail: editImage || editingProduct.thumbnail,
       status: editStatus,
+      shelfLife: editShelfLife,
+      foodType: editFoodType,
+      productType: editProductType,
+      source: editSource,
+      dietPreference: editDietPreference,
+      countryOfOrigin: editCountryOfOrigin,
+      fssaiLicense: editFssaiLicense,
+      manufacturer: editManufacturer,
+      storageInstructions: editStorageInstructions,
+      keyFeatures: editKeyFeatures,
+      disclaimer: editDisclaimer,
+      nutritionalInfo: {
+        energy: editEnergy,
+        protein: editProtein,
+        carbohydrates: editCarbs,
+        totalSugar: editTotalSugar,
+        addedSugar: editAddedSugar,
+        totalFat: editTotalFat,
+        saturatedFat: editSaturatedFat,
+        unsaturatedFat: editUnsaturatedFat,
+        transFat: editTransFat,
+        dietaryFiber: editDietaryFiber,
+        sodium: editSodium,
+      },
     });
 
     setEditingProduct(null);
@@ -1496,13 +1612,210 @@ function AdminDashboardContent() {
               <div>
                 <label className="text-[11px] font-bold text-slate-600 mb-1 block">Product Description *</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder="Enter detailed product description..."
                   value={newProdDesc}
                   onChange={(e) => setNewProdDesc(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-black resize-none"
                   required
                 />
+              </div>
+
+              {/* ── Product Specifications & Details for Customer App View Details ── */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 max-h-[380px] overflow-y-auto">
+                <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
+                  Product Details & Specifications (Displayed in Customer App)
+                </span>
+
+                {/* 1. Highlights & Key Information */}
+                <div className="space-y-2 border-b border-slate-200 pb-3">
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                    1. Highlights & Key Info
+                  </span>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Shelf Life</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 90 days"
+                        value={newProdShelfLife}
+                        onChange={(e) => setNewProdShelfLife(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none focus:border-black"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Product / Atta Type</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sehori Atta"
+                        value={newProdProductType}
+                        onChange={(e) => setNewProdProductType(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none focus:border-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Source / Origin</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sehore, Madhya Pradesh"
+                        value={newProdSource}
+                        onChange={(e) => setNewProdSource(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none focus:border-black"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Diet Preference</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. High Fiber"
+                        value={newProdDietPreference}
+                        onChange={(e) => setNewProdDietPreference(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none focus:border-black"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Nutritional Information per 100g */}
+                <div className="space-y-2 border-b border-slate-200 pb-3">
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                    2. Nutritional Information (Per 100g)
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Energy</label>
+                      <input
+                        type="text"
+                        placeholder="343 kcal"
+                        value={newProdEnergy}
+                        onChange={(e) => setNewProdEnergy(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Protein</label>
+                      <input
+                        type="text"
+                        placeholder="10.5 g"
+                        value={newProdProtein}
+                        onChange={(e) => setNewProdProtein(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Carbohydrates</label>
+                      <input
+                        type="text"
+                        placeholder="77.1 g"
+                        value={newProdCarbs}
+                        onChange={(e) => setNewProdCarbs(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Total Sugar</label>
+                      <input
+                        type="text"
+                        placeholder="3.4 g"
+                        value={newProdTotalSugar}
+                        onChange={(e) => setNewProdTotalSugar(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Added Sugar</label>
+                      <input
+                        type="text"
+                        placeholder="0 g"
+                        value={newProdAddedSugar}
+                        onChange={(e) => setNewProdAddedSugar(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Total Fat</label>
+                      <input
+                        type="text"
+                        placeholder="1.6 g"
+                        value={newProdTotalFat}
+                        onChange={(e) => setNewProdTotalFat(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Dietary Fiber</label>
+                      <input
+                        type="text"
+                        placeholder="10.8 g"
+                        value={newProdDietaryFiber}
+                        onChange={(e) => setNewProdDietaryFiber(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Sodium</label>
+                      <input
+                        type="text"
+                        placeholder="1.7 mg"
+                        value={newProdSodium}
+                        onChange={(e) => setNewProdSodium(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Info & Compliance Details */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                    3. Features & Legal Info
+                  </span>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 mb-1 block">Key Features Text</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Enter detailed key features..."
+                      value={newProdKeyFeatures}
+                      onChange={(e) => setNewProdKeyFeatures(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">FSSAI License No.</label>
+                      <input
+                        type="text"
+                        placeholder="10012031000312"
+                        value={newProdFssaiLicense}
+                        onChange={(e) => setNewProdFssaiLicense(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs font-mono focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Country of Origin</label>
+                      <input
+                        type="text"
+                        placeholder="India"
+                        value={newProdCountryOfOrigin}
+                        onChange={(e) => setNewProdCountryOfOrigin(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 mb-1 block">Disclaimer Text</label>
+                    <input
+                      type="text"
+                      placeholder="Every effort is made to maintain accuracy of all information..."
+                      value={newProdDisclaimer}
+                      onChange={(e) => setNewProdDisclaimer(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -1642,12 +1955,209 @@ function AdminDashboardContent() {
               <div>
                 <label className="text-[11px] font-bold text-slate-600 mb-1 block">Product Description *</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-black resize-none"
                   required
                 />
+              </div>
+
+              {/* ── Product Specifications & Details for Customer App View Details ── */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 max-h-[380px] overflow-y-auto">
+                <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
+                  Product Details & Specifications (Displayed in Customer App)
+                </span>
+
+                {/* 1. Highlights & Key Information */}
+                <div className="space-y-2 border-b border-slate-200 pb-3">
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                    1. Highlights & Key Info
+                  </span>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Shelf Life</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 90 days"
+                        value={editShelfLife}
+                        onChange={(e) => setEditShelfLife(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none focus:border-black"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Product / Atta Type</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sehori Atta"
+                        value={editProductType}
+                        onChange={(e) => setEditProductType(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none focus:border-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Source / Origin</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sehore, Madhya Pradesh"
+                        value={editSource}
+                        onChange={(e) => setEditSource(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none focus:border-black"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Diet Preference</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. High Fiber"
+                        value={editDietPreference}
+                        onChange={(e) => setEditDietPreference(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none focus:border-black"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Nutritional Information per 100g */}
+                <div className="space-y-2 border-b border-slate-200 pb-3">
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                    2. Nutritional Information (Per 100g)
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Energy</label>
+                      <input
+                        type="text"
+                        placeholder="343 kcal"
+                        value={editEnergy}
+                        onChange={(e) => setEditEnergy(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Protein</label>
+                      <input
+                        type="text"
+                        placeholder="10.5 g"
+                        value={editProtein}
+                        onChange={(e) => setEditProtein(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Carbohydrates</label>
+                      <input
+                        type="text"
+                        placeholder="77.1 g"
+                        value={editCarbs}
+                        onChange={(e) => setEditCarbs(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Total Sugar</label>
+                      <input
+                        type="text"
+                        placeholder="3.4 g"
+                        value={editTotalSugar}
+                        onChange={(e) => setEditTotalSugar(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Added Sugar</label>
+                      <input
+                        type="text"
+                        placeholder="0 g"
+                        value={editAddedSugar}
+                        onChange={(e) => setEditAddedSugar(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Total Fat</label>
+                      <input
+                        type="text"
+                        placeholder="1.6 g"
+                        value={editTotalFat}
+                        onChange={(e) => setEditTotalFat(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Dietary Fiber</label>
+                      <input
+                        type="text"
+                        placeholder="10.8 g"
+                        value={editDietaryFiber}
+                        onChange={(e) => setEditDietaryFiber(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 mb-0.5 block">Sodium</label>
+                      <input
+                        type="text"
+                        placeholder="1.7 mg"
+                        value={editSodium}
+                        onChange={(e) => setEditSodium(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Info & Compliance Details */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                    3. Features & Legal Info
+                  </span>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 mb-1 block">Key Features Text</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Enter detailed key features..."
+                      value={editKeyFeatures}
+                      onChange={(e) => setEditKeyFeatures(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">FSSAI License No.</label>
+                      <input
+                        type="text"
+                        placeholder="10012031000312"
+                        value={editFssaiLicense}
+                        onChange={(e) => setEditFssaiLicense(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs font-mono focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 mb-1 block">Country of Origin</label>
+                      <input
+                        type="text"
+                        placeholder="India"
+                        value={editCountryOfOrigin}
+                        onChange={(e) => setEditCountryOfOrigin(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 mb-1 block">Disclaimer Text</label>
+                    <input
+                      type="text"
+                      placeholder="Every effort is made to maintain accuracy of all information..."
+                      value={editDisclaimer}
+                      onChange={(e) => setEditDisclaimer(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2 text-slate-900 text-xs focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>

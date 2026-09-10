@@ -160,8 +160,10 @@ export default function SetupAddressPage() {
     const { currentUser } = useAppStore.getState();
 
     await addAddress({
+      userId: currentUser?.id || '',
       addressType: addressType,
-      fullName: currentUser?.name || currentUser?.mobile || 'Customer',
+      fullName: (currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : currentUser?.mobile) || 'Customer',
+
       phone: currentUser?.mobile || '',
       addressLine1: houseFlat ? `${houseFlat}, ${line1}` : line1,
       addressLine2: landmark || undefined,
@@ -173,6 +175,7 @@ export default function SetupAddressPage() {
       latitude: pickedLat!,
       longitude: pickedLon!,
     });
+
 
     showToast('Address saved! Welcome to Pocket Kirana 🎉', 'success');
     router.replace('/home');

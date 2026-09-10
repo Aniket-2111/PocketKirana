@@ -40,6 +40,12 @@ export function AddProductWithBarcodeModal({
   const [description, setDescription] = useState('');
   const [thumbnail, setThumbnail] = useState('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80');
   const [brandId, setBrandId] = useState('');
+  const [shelfLife, setShelfLife] = useState('9 Months');
+  const [foodType, setFoodType] = useState('100% Vegetarian');
+  const [countryOfOrigin, setCountryOfOrigin] = useState('India');
+  const [fssaiLicense, setFssaiLicense] = useState('10019022009876');
+  const [manufacturer, setManufacturer] = useState('PocketKirana Verified DarkStore Hub, Neral CDC');
+  const [storageInstructions, setStorageInstructions] = useState('Store in a cool, hygienic, dry place away from direct sunlight.');
 
   // Available subcategories under selected category
   const availableSubcategories = categories.filter((c) => c.parentId === categoryId);
@@ -165,6 +171,12 @@ export function AddProductWithBarcodeModal({
         taxPercentage: 5,
         thumbnail,
         status: 'active',
+        shelfLife: shelfLife || '9 Months',
+        foodType: foodType || '100% Vegetarian',
+        countryOfOrigin: countryOfOrigin || 'India',
+        fssaiLicense: fssaiLicense || '10019022009876',
+        manufacturer: manufacturer || 'PocketKirana Verified DarkStore Hub, Neral CDC',
+        storageInstructions: storageInstructions || 'Store in a cool, hygienic, dry place away from direct sunlight.',
         rating: 4.9,
         reviewsCount: 0,
       });
@@ -403,6 +415,58 @@ export function AddProductWithBarcodeModal({
                 onChange={(e) => setThumbnail(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl p-2.5 focus:bg-white focus:border-slate-400 focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Product Specifications (Shelf life, FSSAI, Food Type, etc.) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 block">
+              Specifications (For Customer App View Details)
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Dietary Preference</label>
+                <select
+                  value={foodType}
+                  onChange={(e) => setFoodType(e.target.value)}
+                  className="w-full bg-white border border-slate-200 text-slate-900 text-xs rounded-lg p-2 focus:outline-none"
+                >
+                  <option value="100% Vegetarian">100% Vegetarian</option>
+                  <option value="Non-Vegetarian">Non-Vegetarian</option>
+                  <option value="Contains Egg">Contains Egg</option>
+                  <option value="Vegan">Vegan</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Shelf Life</label>
+                <input
+                  type="text"
+                  placeholder="9 Months"
+                  value={shelfLife}
+                  onChange={(e) => setShelfLife(e.target.value)}
+                  className="w-full bg-white border border-slate-200 text-slate-900 text-xs rounded-lg p-2 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Country of Origin</label>
+                <input
+                  type="text"
+                  placeholder="India"
+                  value={countryOfOrigin}
+                  onChange={(e) => setCountryOfOrigin(e.target.value)}
+                  className="w-full bg-white border border-slate-200 text-slate-900 text-xs rounded-lg p-2 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">FSSAI License</label>
+                <input
+                  type="text"
+                  placeholder="10019022009876"
+                  value={fssaiLicense}
+                  onChange={(e) => setFssaiLicense(e.target.value)}
+                  className="w-full bg-white border border-slate-200 text-slate-900 text-xs rounded-lg p-2 font-mono focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 

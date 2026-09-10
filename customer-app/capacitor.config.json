@@ -4,7 +4,13 @@
   "webDir": "out",
   "bundledWebRuntime": false,
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "*.phonepe.com",
+      "mercury.uat.phonepe.com",
+      "mercury-uat.phonepe.com",
+      "api-preprod.phonepe.com"
+    ]
   },
   "android": {
     "allowMixedContent": true,

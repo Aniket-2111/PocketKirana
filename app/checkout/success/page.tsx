@@ -7,6 +7,7 @@ import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { Check, AlertCircle } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { OrderConfirmationAnimation } from '@/components/customer/OrderConfirmationAnimation';
 
 export default function OrderSuccessPage() {
   const { activeOrderTrackingId, orders, initializeFirebaseSync, setActiveOrderTrackingId } = useAppStore();
@@ -18,6 +19,7 @@ export default function OrderSuccessPage() {
 
   const [verifying, setVerifying] = React.useState(!!merchantTransactionId && !isMockFailure);
   const [error, setError] = React.useState<string | null>(isMockFailure ? 'Payment failed on simulated gateway' : null);
+  const [showAnimation, setShowAnimation] = React.useState(false);
 
   React.useEffect(() => {
     if (!merchantTransactionId || !orderId || isMockFailure) return;
@@ -38,6 +40,7 @@ export default function OrderSuccessPage() {
           if (json.success && json.data.verified) {
             initializeFirebaseSync();
             setActiveOrderTrackingId(orderId || null);
+            setShowAnimation(true);
             showToast('Payment verified successfully! 🎉', 'success');
           } else {
             setError(json.error || 'PhonePe payment verification failed');
@@ -163,6 +166,15 @@ export default function OrderSuccessPage() {
 
             </div>
           </div>
+        )}
+        {showAnimation && currentOrder && (
+          <OrderConfirmationAnimation
+            order={currentOrder}
+            onComplete={() => {
+              setShowAnimation(false);
+            }}
+            autoRedirectMs={3500}
+          />
         )}
       </CustomerLayout>
     </>

@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
+
 import {
   X,
   Plus,
@@ -13,18 +15,24 @@ import {
   ArrowRight,
   ShoppingBag,
   Truck,
-  Sparkles
+  Sparkles,
+  LogIn,
+  AlertCircle,
 } from 'lucide-react';
+
 
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenAuth: () => void;
 }
 
-export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
-  const { cart, updateQuantity, removeFromCart, appliedCoupon, applyCoupon, removeCoupon } = useAppStore();
+export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenAuth }) => {
+  const router = useRouter();
+  const { cart, updateQuantity, removeFromCart, appliedCoupon, applyCoupon, removeCoupon, isLoggedIn } = useAppStore();
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [couponMsg, setCouponMsg] = useState<{ success?: boolean; text?: string }>({});
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   if (!isOpen) return null;
 
@@ -285,18 +293,59 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                   Remove Out-of-Stock Items to Checkout
                 </button>
               ) : (
-                <Link
-                  href="/checkout"
-                  onClick={onClose}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-between text-sm transition-all shadow-md active:scale-[0.99]"
+                <>
+                <button
+                  onClick={() => {
+                    if (!isLoggedIn) {
+                      setShowLoginPrompt(true);
+                      return;
+                    }
+                    onClose();
+                    router.push('/checkout');
+                  }}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-between text-sm transition-all shadow-md active:scale-[0.99] cursor-pointer"
                 >
                   <span>Proceed to Checkout</span>
                   <div className="flex items-center gap-1.5 font-extrabold">
                     <span>₹{grandTotal}</span>
                     <ArrowRight className="w-4 h-4" />
                   </div>
-                </Link>
+                </button>
+
+                {/* Login Prompt Banner */}
+                {showLoginPrompt && (
+                  <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-2">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-xs font-semibold text-amber-800 leading-snug">
+                        You need to be logged in to place an order. Please login first.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setShowLoginPrompt(false);
+                          onClose();
+                          onOpenAuth();
+                        }}
+                        className="flex-1 bg-[#0B8F5A] hover:bg-[#075C3C] text-white font-black text-xs py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        Login / Sign Up
+                      </button>
+                      <button
+                        onClick={() => setShowLoginPrompt(false)}
+                        className="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                </>
+
               )}
+
             </div>
           )}
         </div>

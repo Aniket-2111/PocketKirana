@@ -251,11 +251,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
 
               {/* Green "My Cart" Button (Matching Reference) */}
               <button
+                id="header-cart-btn"
                 type="button"
                 suppressHydrationWarning
                 onClick={onOpenCart}
                 className="bg-[#0B8F5A] hover:bg-[#075C3C] text-white px-3.5 sm:px-4 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2.5 transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
               >
+
                 <div className="relative">
                   <ShoppingBag className="w-4 h-4" />
                   {cartItemsCount > 0 && (
