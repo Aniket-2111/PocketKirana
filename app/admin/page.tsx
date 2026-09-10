@@ -616,7 +616,7 @@ function AdminDashboardContent() {
             </div>
             <div>
               <h2 className="font-black text-slate-900 text-lg tracking-tight leading-none">
-                Pocket<span className="text-emerald-600">kirana</span>
+                Pocket<span className="text-emerald-600">Kirana</span>
               </h2>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-1">Admin Console</span>
             </div>
@@ -754,7 +754,7 @@ function AdminDashboardContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-baseline justify-between pt-1">
+                  <div className="flex items-baseline justify-between flex-wrap gap-x-2 gap-y-1 pt-1">
                     <span className="text-2xl font-black text-slate-900">₹{totalGMV > 0 ? totalGMV.toLocaleString() : '82,650'}</span>
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
                       <TrendingUp className="w-3 h-3" /> +11%
