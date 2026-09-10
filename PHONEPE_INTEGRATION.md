@@ -1,79 +1,71 @@
-# PhonePe Payment Gateway Integration Guide
+# PhonePe Payment Gateway Integration
 
-This document describes the onboarding steps, credentials, architecture, and deployment procedures for the **PhonePe Payment Gateway (Pay Page API)** integration in PocketKirana.
+Overview and onboarding guide for the PhonePe (Pay Page API) integration. This file covers merchant onboarding and the big picture; detailed documentation lives in [`docs/`](docs/).
+
+**Architecture:** see [`diagrams/payment-auth-architecture.svg`](diagrams/payment-auth-architecture.svg) — customer apps → middleware session verification → payment routes → PhonePe → Firestore → picking queue.
+
+> **Docs map:** reference (routes/env/data model) → [`docs/reference-payments.md`](docs/reference-payments.md) · setup walkthrough → [`docs/howto-phonepe-setup.md`](docs/howto-phonepe-setup.md) · first payment in 10 minutes → [`docs/tutorial-first-payment.md`](docs/tutorial-first-payment.md) · design rationale → [`docs/explanation-payment-security.md`](docs/explanation-payment-security.md)
 
 ---
 
-## 1. Required Environment Variables
+## 1. Environment Variables
 
-Add the following variables to your production environment or `.env.local` for testing:
+Server-side only (never `NEXT_PUBLIC_` prefixed, never committed):
 
 ```bash
-# ── PhonePe Gateway Configuration
-PHONEPE_ENV=sandbox # Options: 'sandbox' or 'production'
-PHONEPE_MERCHANT_ID=PGUATPAYOUT # PhonePe Merchant ID
-PHONEPE_SALT_KEY=e831610e-09dc-4613-bc7c-3f2df636eb01 # Cryptographic Secret Key
-PHONEPE_SALT_INDEX=1 # Index of the active salt key
+PHONEPE_ENV=sandbox          # 'sandbox' | 'production'
+PHONEPE_MERCHANT_ID=<from PhonePe dashboard>
+PHONEPE_SALT_KEY=<from PhonePe dashboard>
+PHONEPE_SALT_INDEX=1
+NEXT_PUBLIC_SITE_URL=https://yourdomain.com   # redirects + webhook callback URL
 ```
 
----
+Local development instead uses `PHONEPE_SIMULATION_MODE=true` (no credentials needed; refused in production). Missing credentials make the payment routes **fail closed with 503** — there are no fallback credentials anywhere in the codebase.
 
-## 2. Onboarding & Merchant Dashboard Setup
+## 2. Onboarding & Merchant Dashboard
 
-To move from Sandbox (UAT) to Production:
-1. **Onboarding**: Complete KYC and register a merchant account on the [PhonePe Business Portal](https://www.phonepe.com/business-solutions/).
-2. **Retrieve Production Credentials**:
-   - Navigate to the **Developer Settings** section in your PhonePe dashboard.
-   - Generate your Production **Merchant ID**, **Salt Key**, and **Salt Index**.
-3. **Configure Webhook URL**:
-   - In the PhonePe dashboard settings, set the Webhook URL to: `https://yourdomain.com/api/payments/phonepe/webhook`
-   - Permitted HTTPS certificate validation is required on the production domain.
+To move from sandbox to production:
 
----
+1. **Onboarding**: complete KYC and register on the [PhonePe Business Portal](https://www.phonepe.com/business-solutions/).
+2. **Credentials**: Developer Settings → generate production **Merchant ID**, **Salt Key**, **Salt Index**.
+3. **Webhook URL**: set to `https://yourdomain.com/api/payments/phonepe/webhook` (HTTPS required).
+4. **Auth**: set `NEXT_PUBLIC_AUTH_MIDDLEWARE_ENABLED=true` in production — payment routes enforce session auth, and page RBAC verifies real Firebase ID tokens.
 
 ## 3. How the Integration Works
 
-### Payment Initiation
-- Client requests payment via `POST /api/payments/phonepe/create` with `{ orderId }`.
-- Server fetches order from Firestore, verifies ownership, and computes the paise amount (`Math.round(total * 100)`).
-- Server hashes the payload: `SHA256(Base64Payload + "/pg/v1/pay" + saltKey) + "###" + saltIndex` to generate the `X-VERIFY` header.
-- Sends POST request to PhonePe `/pg/v1/pay` endpoint.
-- Returns redirection URL (`instrumentResponse.redirectInfo.url`) to client.
+### Payment initiation — `POST /api/payments/phonepe/create`
+Session-authenticated. Loads the order from Firestore, checks ownership and paid-status, computes paise from the server-side total, builds the payload with `X-VERIFY = SHA256(Base64Payload + "/pg/v1/pay" + saltKey) + "###" + saltIndex`, POSTs to PhonePe, returns `instrumentResponse.redirectInfo.url`.
 
-### Client Redirect & Return
-- Client redirects to PhonePe standard pay page.
-- Once completed, PhonePe redirects the client back to `/checkout/success?merchantTransactionId=...&orderId=...`.
-- Success page mounts, displays a loading state, calls `POST /api/payments/phonepe/verify` to request status verification.
-- If verified successful, order status is updated to `paid` and confirmed.
+### Client redirect & verification
+PhonePe redirects back to `/checkout/success?merchantTransactionId=...&orderId=...`. The success page calls `POST /api/payments/phonepe/verify`, which does the authoritative checksummed status query against PhonePe, guards the amount, and idempotently writes `paymentStatus: 'paid'`, `orderStatus: 'CONFIRMED'`, the payment doc, and the picker task.
 
-### Webhook Status Sync (Server-to-Server)
-- PhonePe sends asynchronous callbacks to `/api/payments/phonepe/webhook`.
-- Signature is verified by hashing: `SHA256(response + saltKey) + "###" + saltIndex`.
-- Signature validation is **mandatory** — webhooks are rejected (with a 200 ACK) when credentials are missing or the signature does not match.
-- Decodes base64 payload to verify status, updates payment and order status atomically.
+### Webhook status sync — `POST /api/payments/phonepe/webhook`
+Server-to-server. `X-VERIFY` signature validation is **mandatory**: without configured credentials or with a bad signature the webhook ACKs 200 and processes nothing (retry-storm prevention); the client-side verify route recovers any missed confirmation. Valid webhooks run the same idempotent confirmation as verify.
 
----
+Full request/response semantics: [`docs/reference-payments.md`](docs/reference-payments.md).
 
-## 4. Local Simulator / Developer Testing
+## 4. Security Invariants
 
-Simulation mode must be **explicitly enabled** — it is never triggered implicitly:
+Implemented in `lib/phonepeConfig.ts`, `lib/razorpayConfig.ts`, `middleware.ts`, and the route handlers — enforced by `npm test`:
+
+1. Credentials come only from env vars; no hardcoded merchant IDs or salt keys anywhere.
+2. Simulation requires `PHONEPE_SIMULATION_MODE=true` and is refused when `VERCEL_ENV=production` or `NODE_ENV=production`.
+3. Client-supplied strings can never trigger simulation; verify rejects `test_phonepe_` orders unless simulation is on.
+4. Both `/create` and `/verify` require a valid session (401 in strict mode without one).
+5. Webhook signature validation is mandatory; failures ACK without state changes.
+6. Every confirmation path is idempotent (`paymentStatus !== 'paid'` guard) and re-derives amounts server-side (paise mismatch → payment marked `failed`).
+
+The reasoning behind these rules: [`docs/explanation-payment-security.md`](docs/explanation-payment-security.md).
+
+## 5. Local Simulator / Developer Testing
 
 ```bash
-# .env.local (dev machines only — production deployments refuse simulation)
+# .env.local (dev machines only)
 PHONEPE_SIMULATION_MODE=true
 ```
 
-When enabled:
-- `POST /api/payments/phonepe/create` redirects to the mock payment page: `/checkout/mock-phonepe`.
-- You can simulate successful payments or failure states locally.
-- You can test the full database update cycle without requiring live internet hookups.
+- `create` redirects to the mock pay page `/checkout/mock-phonepe` (Success / Fail buttons exercise both lifecycle paths).
+- Order ids containing `test_phonepe_` form an offline demo harness that works without Firebase (auth middleware disabled); verify still refuses them unless simulation is on.
+- Simulation off + credentials missing = 503 fail-closed. By design.
 
-When simulation mode is OFF (the default everywhere, always off in production):
-- Real gateway credentials (`PHONEPE_MERCHANT_ID` + `PHONEPE_SALT_KEY`) are **required**.
-- Missing credentials cause the payment routes to **fail closed with HTTP 503** rather than silently falling back to sandbox or mock behavior.
-
-### Security invariants (implemented in `lib/phonepeConfig.ts`)
-1. Credentials come only from env vars — no hardcoded fallback merchant IDs or salt keys.
-2. Simulation requires `PHONEPE_SIMULATION_MODE=true` and is refused when `VERCEL_ENV=production` or `NODE_ENV=production`.
-3. Client-supplied strings (e.g. a transaction id containing "MOCK") can never trigger simulation; verify requests for `test_phonepe_` orders are rejected unless simulation is enabled.
-4. The `/verify` route requires a valid session (same auth as `/create`) because it mutates order state.
+Step-by-step: [`docs/tutorial-first-payment.md`](docs/tutorial-first-payment.md).

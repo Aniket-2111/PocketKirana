@@ -21,6 +21,10 @@ Key routing rules:
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
 
+## Docs
+
+Payments/auth documentation lives in `docs/` (Diataxis: tutorial, how-to, reference, explanation), with `PHONEPE_INTEGRATION.md` as the onboarding overview. When changing payment routes, gateway config, session auth, or middleware, update `docs/reference-payments.md` and `docs/explanation-payment-security.md` in the same change — they are kept accurate to code on purpose.
+
 ## Testing
 
 - Run `npm test` (vitest, node env). Tests live in `test/*.test.ts`. See TESTING.md for conventions and layers.

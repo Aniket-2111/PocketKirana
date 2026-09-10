@@ -1,0 +1,28 @@
+graph LR
+  UI["Customer UI - web + Android"]
+  Store["lib/store.ts order create"]
+  MW["middleware.ts - verify RS256 token"]
+  Create["/phonepe/create - fail-closed"]
+  Verify["/phonepe/verify - session auth"]
+  Hook["/phonepe/webhook - signature required"]
+  PP["PhonePe gateway"]
+  Order[("orders")]
+  Pay[("payments")]
+  Pick[("pickingTasks")]
+  CF["Cloud Functions - status machine"]
+
+  UI -->|"place order"| Store
+  Store -->|"pk_session cookie"| MW
+  MW -->|"x-pk-uid + x-pk-role, verified only"| Create
+  MW -->|"x-pk-uid + x-pk-role"| Verify
+  Create -->|"read order"| Order
+  Create -->|"pay request"| PP
+  PP -->|"redirect back"| UI
+  UI -->|"verify txn"| Verify
+  Verify -->|"status check"| PP
+  Verify -->|"CONFIRMED"| Pay
+  Verify -->|"create picking task"| Pick
+  PP -.->|"server-to-server"| Hook
+  Hook -->|"CONFIRMED"| Order
+  Order --> CF
+  CF -->|"CREATED to CONFIRMED"| Order
