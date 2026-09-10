@@ -20,3 +20,8 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
+
+## Testing
+
+- Run `npm test` (vitest, node env). Tests live in `test/*.test.ts`. See TESTING.md for conventions and layers.
+- 100% test coverage is the goal — tests make vibe coding safe. When writing new functions, write a corresponding test. When fixing a bug, write a regression test. When adding a conditional, test BOTH paths. Never commit code that makes existing tests fail.
