@@ -158,9 +158,11 @@ export const PickerAppShell: React.FC<PickerAppShellProps> = ({
             <div className="space-y-5">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black">
-                    PK
-                  </div>
+                  <img
+                    src="/logo-icon.png"
+                    alt="Pocket Kirana"
+                    className="w-10 h-10 object-contain rounded-2xl bg-white p-1 border border-slate-700 shadow-md"
+                  />
                   <div>
                     <h3 className="font-black text-sm">PocketKirana</h3>
                     <span className="text-[10px] text-emerald-400 uppercase font-bold">Picker Hub</span>

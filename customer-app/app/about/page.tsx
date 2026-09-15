@@ -22,9 +22,11 @@ export default function AboutPage() {
         
         {/* Brand Hero Card */}
         <div className="bg-gradient-to-b from-[#0B8F5A] via-[#075C3C] to-[#043d27] dark:from-[#0f2e22] dark:via-[#0b2118] dark:to-[#071610] rounded-3xl p-6 text-white text-center shadow-lg relative overflow-hidden">
-          <div className="w-16 h-16 rounded-2xl bg-[#FEFCE8] text-[#0B8F5A] flex items-center justify-center font-black text-2xl mx-auto mb-3 shadow-md">
-            PK
-          </div>
+          <img
+            src="/logo-icon.png"
+            alt="Pocket Kirana"
+            className="w-16 h-16 object-contain rounded-2xl bg-white p-2 mx-auto mb-3 shadow-md"
+          />
           <h1 className="text-2xl font-black tracking-tight">Pocket Kirana</h1>
           <p className="text-xs text-emerald-100 dark:text-emerald-200/80 mt-1 font-medium">
             India&apos;s Fastest 10-Minute Grocery Delivery Service

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import CustomerShell from '../../components/CustomerShell';
@@ -32,6 +32,13 @@ export default function CheckoutPage() {
     currentUser
   } = useAppStore();
 
+  // ── Hydration guard — Zustand persist doesn't rehydrate until after mount ──
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [selectedAddressId, setSelectedAddressId] = useState<string>(() => {
     const def = addresses.find((a) => a.isDefault);
     return def ? def.id : addresses[0]?.id || 'addr-1';
@@ -45,18 +52,20 @@ export default function CheckoutPage() {
   const [showAnimationModal, setShowAnimationModal] = useState(false);
   const isSubmittingRef = useRef(false);
 
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  let discount = 0;
-  if (appliedCoupon) {
-    if (appliedCoupon.type === 'fixed') {
-      discount = appliedCoupon.value;
-    } else {
-      discount = Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
-    }
-  }
-  const deliveryCharge = subtotal > 499 || subtotal === 0 ? 0 : 29;
-  const tax = Math.round((subtotal - discount) * 0.05);
-  const total = Math.max(0, subtotal - discount + deliveryCharge + tax);
+  // ── Totals — only compute after hydration so cart is populated from localStorage ──
+  const subtotal = useMemo(
+    () => (mounted ? cart.reduce((sum, item) => sum + item.price * item.quantity, 0) : 0),
+    [mounted, cart]
+  );
+  const discount = useMemo(() => {
+    if (!mounted || !appliedCoupon) return 0;
+    if (appliedCoupon.type === 'fixed') return appliedCoupon.value;
+    return Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
+  }, [mounted, appliedCoupon, subtotal]);
+  const deliveryCharge = mounted && subtotal > 499 ? 0 : mounted && subtotal > 0 ? 29 : 0;
+  const tax = mounted ? Math.round((subtotal - discount) * 0.05) : 0;
+  const total = mounted ? Math.max(0, subtotal - discount + deliveryCharge + tax) : 0;
+  const cartCount = mounted ? cart.length : 0;
 
   const handlePlaceOrder = async () => {
     // Prevent duplicate orders
@@ -127,6 +136,37 @@ export default function CheckoutPage() {
       router.replace(`/orders/${confirmedOrder.id}`);
     }
   };
+
+  // Show a loading skeleton while the store is hydrating
+  if (!mounted) {
+    return (
+      <CustomerShell title="Checkout" showBack backUrl="/cart">
+        <div className="p-4 space-y-4 animate-pulse">
+          <div className="h-32 bg-slate-200 rounded-3xl" />
+          <div className="h-24 bg-slate-200 rounded-3xl" />
+          <div className="h-28 bg-slate-200 rounded-3xl" />
+        </div>
+      </CustomerShell>
+    );
+  }
+
+  // If cart is empty after hydration, redirect to cart page
+  if (mounted && cart.length === 0) {
+    return (
+      <CustomerShell title="Checkout" showBack backUrl="/cart">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-4 shadow-xs mt-6">
+          <h3 className="text-base font-black text-slate-900">Your cart is empty</h3>
+          <p className="text-xs text-slate-500">Add items to your cart before checking out.</p>
+          <button
+            onClick={() => router.push('/')}
+            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl transition-all"
+          >
+            Shop Now
+          </button>
+        </div>
+      </CustomerShell>
+    );
+  }
 
   return (
     <CustomerShell title="Checkout" showBack backUrl="/cart">
@@ -271,7 +311,7 @@ export default function CheckoutPage() {
         {/* ── 4. ORDER SUMMARY ── */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-2.5 shadow-xs text-xs font-bold text-slate-600">
           <h4 className="font-black text-slate-900 uppercase tracking-wider pb-1 border-b border-slate-100">
-            Total Amount ({cart.length} Products)
+            Total Amount ({cartCount} Products)
           </h4>
           <div className="flex items-center justify-between">
             <span>Subtotal</span>

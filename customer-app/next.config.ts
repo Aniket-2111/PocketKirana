@@ -1,15 +1,12 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const nextConfig: NextConfig = {
-  output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
-  // Fix: Tell Next.js this sub-project's tracing root is the customer-app folder
-  // This prevents the "multiple lockfiles" confusion with the parent workspace
-  outputFileTracingRoot: path.join(__dirname),
-  // Required for Capacitor file:// URL routing — without this, routes like
-  // /home resolve to /home.html which the Android WebView can't find
-  trailingSlash: true,
+  ...(isProd ? { output: 'export', trailingSlash: true } : {}),
   reactStrictMode: false,
+  devIndicators: false,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -24,6 +21,16 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "firebasestorage.googleapis.com" },
       { protocol: "https", hostname: "storage.googleapis.com" },
     ],
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        react: path.resolve(__dirname, 'node_modules/react'),
+        'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+      };
+    }
+    return config;
   },
 };
 

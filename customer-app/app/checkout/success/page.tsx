@@ -137,7 +137,7 @@ export default function CheckoutSuccessPage() {
 
   const handleAnimationComplete = () => {
     setShowAnimationModal(false);
-    router.replace(orderId ? `/orders/${orderId}/` : '/orders/');
+    router.replace(orderId ? `/orders/track?id=${orderId}` : '/orders/');
   };
 
   return (
@@ -188,7 +188,7 @@ export default function CheckoutSuccessPage() {
 
             <div className="pt-2 space-y-2.5">
               <button
-                onClick={() => router.replace(orderId ? `/orders/${orderId}/` : '/orders/')}
+                onClick={() => router.replace(orderId ? `/orders/track?id=${orderId}` : '/orders/')}
                 className="w-full bg-[#075C3C] hover:bg-[#0B8F5A] text-white font-black text-xs py-3.5 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Track Live Delivery</span>

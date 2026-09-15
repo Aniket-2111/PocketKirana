@@ -37,8 +37,26 @@ import {
   SupportTicket,
   AuditLog,
   PaymentMethod,
-  Store
+  Store,
+  SettlementRecord,
+  CodCollectionRecord,
+  DeliveryExceptionRecord,
+  PartnerSettlementLedger
 } from '@/types';
+import {
+  FestivalTemplate,
+  FestivalCampaign,
+  FestivalAuditLog,
+  FestivalSectionConfig,
+} from '@/types/festival';
+import { INITIAL_FESTIVAL_TEMPLATES } from './festivalTemplates';
+import {
+  InvoiceSnapshot,
+  InvoiceTemplateSettings,
+  DEFAULT_INVOICE_TEMPLATE,
+  createOrGetInvoiceSnapshot,
+  generateInvoicePDF
+} from './invoiceEngine';
 import {
   DEFAULT_PREFERENCES,
   generateOrderLifecycleNotifications,
@@ -102,6 +120,10 @@ import {
   fetchDeliveryPartnersFS,
   saveDeliveryPartnerFS,
   updatePartnerAccountStatusFS,
+  deleteDeliveryPartnerFS,
+  fetchPickersFS,
+  savePickerFS,
+  deletePickerFS,
   savePartnerAuthTokenFS,
   fetchPartnerAuthTokensFS,
   updatePartnerStatusFS,
@@ -118,6 +140,9 @@ import {
   subscribeDeliveryAssignmentsFS,
   updateDeliveryTrackingFS,
   subscribeDeliveryTrackingFS,
+  startTrackingSessionFS,
+  stopTrackingSessionFS,
+  fetchLatestTrackingFS,
   clearDatabaseDummyDataFS
 } from './firebaseServices';
 import {
@@ -263,19 +288,28 @@ interface AppState {
   partnerAuthTokens: PartnerAuthToken[];
   partnerPricingRules: PartnerPricingRules;
   setActivePartnerId: (id: string) => void;
-  createDeliveryPartner: (data: { name: string; phone: string; partnerCode?: string; vehicleType?: string; vehicleNumber?: string }) => { success: boolean; partner?: DeliveryPartner; message: string };
+  createDeliveryPartner: (data: { name: string; phone: string; partnerCode?: string; loginId?: string; loginPassword?: string; vehicleType?: string; vehicleNumber?: string }) => { success: boolean; partner?: DeliveryPartner; message: string };
   updateDeliveryPartnerAccountStatus: (partnerId: string, accountStatus: 'active' | 'inactive') => void;
   generatePartnerLoginQR: (partnerId: string) => PartnerAuthToken;
   revokePartnerLoginQR: (tokenId: string) => void;
   validateAndLoginPartnerQR: (scannedToken: string) => { success: boolean; partner?: DeliveryPartner; errorType?: 'INVALID' | 'EXPIRED' | 'REVOKED' | 'ORDER_QR'; message: string };
-  logoutDeliveryPartner: () => void;
+  logoutDeliveryPartner: (partnerId?: string, force?: boolean) => { success: boolean; message: string; cashInHand?: number };
+  requestCashVerification: (partnerId: string) => { success: boolean; message: string };
+  verifyAndSettlePartnerCash: (partnerId: string, amount?: number, adminId?: string, adminName?: string, note?: string) => { success: boolean; message: string };
+  adminForceLogoutPartner: (partnerId: string) => { success: boolean; message: string };
   togglePartnerStatus: (partnerId: string) => void;
   setPartnerOnlineStatus: (partnerId: string, status: 'online' | 'offline' | 'busy') => void;
   acceptDeliveryAssignment: (orderId: string, partnerId: string) => { success: boolean; message: string };
   rejectDeliveryAssignment: (orderId: string, partnerId: string) => void;
   markDeliveryArrived: (orderId: string, partnerId: string) => { success: boolean; message: string };
   completeDeliveryDirect: (orderId: string, partnerId: string) => { success: boolean; message: string };
+  confirmCodPaymentReceived: (orderId: string, method: 'upi' | 'cash', transactionId?: string) => { success: boolean; message: string };
+  /** Legacy: login by phone or partnerCode (no password) */
   loginPartnerByPhoneOrCode: (identifier: string) => { success: boolean; partner?: DeliveryPartner; message: string };
+  /** New: login delivery partner using admin-issued ID + password */
+  loginPartnerByCredentials: (loginId: string, loginPassword: string) => { success: boolean; partner?: DeliveryPartner; message: string };
+  /** New: login picker using admin-issued ID + password */
+  loginPickerByCredentials: (loginId: string, loginPassword: string) => { success: boolean; picker?: Picker; message: string };
   advanceDeliveryStage: (
     orderId: string,
     nextStage: DeliveryLifecycleStage,
@@ -293,6 +327,7 @@ interface AppState {
   ) => Promise<{ success: boolean; message: string }>;
   updatePartnerGPSLocation: (partnerId: string, lat: number, lng: number, speed?: number) => void;
   submitPartnerDocument: (partnerId: string, doc: Omit<PartnerDocument, 'id' | 'submittedAt'>) => void;
+  deleteDeliveryPartner: (partnerId: string) => { success: boolean; message: string };
 
   // 🛒 Picker & Warehouse Fulfilment Engine
   pickers: Picker[];
@@ -303,6 +338,9 @@ interface AppState {
   stockAdjustmentRequests: StockAdjustmentRequest[];
   newProductRequests: NewProductRequest[];
   setActivePickerId: (id: string) => void;
+  /** Create a new picker account with credentials */
+  createPicker: (data: { name: string; phone: string; loginId?: string; loginPassword?: string; employeeId?: string; currentShift?: Picker['currentShift'] }) => { success: boolean; picker?: Picker; message: string };
+  deletePicker: (pickerId: string) => { success: boolean; message: string };
   togglePickerStatus: (pickerId: string) => void;
   acceptOrderTask: (
     taskId: string,
@@ -381,6 +419,39 @@ interface AppState {
   // Audit Logs
   auditLogs: AuditLog[];
   addAuditLog: (action: string, entity: string, entityId: string) => void;
+
+  // 🧾 Complete Invoice System
+  invoices: InvoiceSnapshot[];
+  invoiceTemplate: InvoiceTemplateSettings;
+  getOrGenerateInvoice: (orderId: string) => InvoiceSnapshot | null;
+  updateInvoiceTemplate: (template: InvoiceTemplateSettings) => void;
+  downloadInvoicePDF: (orderId: string) => Promise<{ success: boolean; filename?: string; message?: string }>;
+
+  // 💰 Financial Collections, Settlements & Exceptions
+  settlements: SettlementRecord[];
+  codCollections: CodCollectionRecord[];
+  deliveryExceptions: DeliveryExceptionRecord[];
+  confirmPartnerSettlement: (partnerId: string, amount: number, adminId?: string, adminName?: string, settlementRef?: string, note?: string) => { success: boolean; message: string };
+  reviewDeliveryException: (exceptionId: string, action: 'APPROVED' | 'REJECTED', adminId?: string, adminName?: string, adminNote?: string, orderId?: string) => { success: boolean; message: string };
+  requestDeliveryException: (orderId: string, partnerId: string, partnerName: string, reason: string, evidenceUrl?: string) => { success: boolean; message: string; exceptionId?: string };
+  resendCustomerDeliveryOtp: (orderId: string) => Promise<{ success: boolean; message: string; resendCount?: number; cooldownSeconds?: number }>;
+
+  // 🌟 AI Festival Design System & Campaign CMS
+  festivalTemplates: FestivalTemplate[];
+  festivalCampaigns: FestivalCampaign[];
+  festivalAuditLogs: FestivalAuditLog[];
+  isFestivalEmergencyDisabled: boolean;
+  addFestivalTemplate: (template: Omit<FestivalTemplate, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => FestivalTemplate;
+  updateFestivalTemplate: (id: string, updates: Partial<FestivalTemplate>) => void;
+  duplicateFestivalTemplate: (id: string, newName?: string) => FestivalTemplate | null;
+  archiveFestivalTemplate: (id: string) => void;
+  addFestivalCampaign: (campaign: Omit<FestivalCampaign, 'id' | 'createdAt' | 'updatedAt' | 'versionHistory' | 'currentVersion'> & { id?: string }) => FestivalCampaign;
+  updateFestivalCampaign: (id: string, updates: Partial<FestivalCampaign>) => void;
+  publishFestivalCampaign: (id: string, notes?: string) => { success: boolean; message: string; version?: number };
+  rollbackFestivalCampaign: (id: string, targetVersion: number) => { success: boolean; message: string };
+  toggleEmergencyFestivalDisable: (disabled?: boolean) => boolean;
+  addFestivalAuditLog: (log: Omit<FestivalAuditLog, 'id' | 'timestamp'>) => void;
+  getActiveFestivalCampaign: () => FestivalCampaign | null;
 }
 
 let activeSubscriptions: (() => void)[] = [];
@@ -427,6 +498,7 @@ export const useAppStore = create<AppState>()(
           const fsProducts   = await safe(fetchProductsFS, []);
           const fsCategories = await safe(fetchCategoriesFS, []);
           const fsPartners   = await safe(fetchDeliveryPartnersFS, []);
+          const fsPickers    = await safe(fetchPickersFS, []);
           const fsCampaigns  = await safe(fetchCampaignsFS, []);
           const fsBanners    = await safe(fetchBannersFS, []);
           const currUser = get().currentUser;
@@ -454,8 +526,15 @@ export const useAppStore = create<AppState>()(
             products:         enrichedProducts,
             categories:       fsCategories.length > 0 ? fsCategories : get().categories,
             brands:           mergedBrands,
-            banners:          fsBanners.length    > 0 ? fsBanners    : get().banners,
+            banners:          fsBanners.length    > 0
+              ? [
+                  // Keep INITIAL_BANNERS that are NOT overridden by Firebase, then append Firebase banners
+                  ...INITIAL_BANNERS.filter((mb) => !fsBanners.some((fb) => fb.id === mb.id)),
+                  ...fsBanners,
+                ]
+              : get().banners,
             deliveryPartners: fsPartners.length   > 0 ? fsPartners   : get().deliveryPartners,
+            pickers:          fsPickers.length    > 0 ? fsPickers    : get().pickers,
             campaigns:        fsCampaigns.length  > 0 ? fsCampaigns  : get().campaigns,
             addresses:        fsAddresses.length  > 0 ? fsAddresses  : get().addresses,
             isFirebaseConnected: true,
@@ -556,9 +635,12 @@ export const useAppStore = create<AppState>()(
 
           // 8. Subscribe to Banners in real-time
           const unsubBanners = subscribeBannersFS((fsBanners) => {
-            if (fsBanners.length > 0) {
-              set({ banners: fsBanners });
-            }
+            // Merge: keep INITIAL_BANNERS that Firebase hasn't overridden, then append Firebase banners
+            const merged = [
+              ...INITIAL_BANNERS.filter((mb) => !fsBanners.some((fb) => fb.id === mb.id)),
+              ...fsBanners,
+            ];
+            set({ banners: merged });
           });
           activeSubscriptions.push(unsubBanners);
 
@@ -632,6 +714,63 @@ export const useAppStore = create<AppState>()(
       // Stores & Service Availability
       stores: INITIAL_STORES,
       setStores: (stores) => set({ stores }),
+
+      // 🌟 AI Festival Design System & Campaign CMS Initial State
+      festivalTemplates: INITIAL_FESTIVAL_TEMPLATES,
+      festivalCampaigns: [
+        {
+          id: 'cmp-ganesh-chaturthi-2026',
+          name: 'Ganesh Chaturthi Maha Utsav 2026',
+          festivalName: 'Ganesh Chaturthi',
+          templateId: 'tpl-ganesh-chaturthi-premium',
+          templateVersion: 1,
+          status: 'PUBLISHED',
+          priority: 100,
+          startAt: '2026-08-15T00:00:00.000Z',
+          endAt: '2026-10-15T23:59:59.000Z',
+          timezone: 'Asia/Kolkata',
+          configurationSnapshot: {
+            festivalName: 'Ganesh Chaturthi',
+            theme: INITIAL_FESTIVAL_TEMPLATES[0].theme,
+            sections: INITIAL_FESTIVAL_TEMPLATES[0].sections,
+          },
+          publishedAt: '2026-08-15T00:00:00.000Z',
+          publishedBy: 'Admin (Master)',
+          currentVersion: 1,
+          versionHistory: [
+            {
+              versionNumber: 1,
+              snapshot: {
+                name: 'Ganesh Chaturthi Maha Utsav 2026',
+                templateId: 'tpl-ganesh-chaturthi-premium',
+                theme: INITIAL_FESTIVAL_TEMPLATES[0].theme,
+                sections: INITIAL_FESTIVAL_TEMPLATES[0].sections,
+                festivalName: 'Ganesh Chaturthi',
+              },
+              savedAt: '2026-08-15T00:00:00.000Z',
+              savedBy: 'Admin (Master)',
+              notes: 'Initial Published Campaign',
+            },
+          ],
+          createdAt: '2026-08-15T00:00:00.000Z',
+          updatedAt: '2026-08-15T00:00:00.000Z',
+        },
+      ],
+      festivalAuditLogs: [
+        {
+          id: 'log-init-1',
+          timestamp: '2026-08-15T00:00:00.000Z',
+          adminId: 'usr-admin-1',
+          adminName: 'Super Admin',
+          action: 'CAMPAIGN_PUBLISHED',
+          targetType: 'CAMPAIGN',
+          targetId: 'cmp-ganesh-chaturthi-2026',
+          targetName: 'Ganesh Chaturthi Maha Utsav 2026',
+          version: 1,
+          details: 'Initial festival campaign published to production.',
+        },
+      ],
+      isFestivalEmergencyDisabled: false,
 
       // Active Role
       activeRole: 'customer',
@@ -1301,7 +1440,10 @@ export const useAppStore = create<AppState>()(
           id: orderId,
           orderNumber,
           customerId: currentUser?.id || 'usr-cust-1',
-          customerName: currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : (currentUser?.mobile || 'Customer'),
+          customerName:
+            (address?.fullName || (address as any)?.name || '').trim() ||
+            (currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : '') ||
+            'Customer',
           customerPhone: currentUser?.mobile || '+91 8698893348',
           storeId: 'store-1',
           storeName: 'PocketKirana Express DarkStore',
@@ -1547,6 +1689,19 @@ export const useAppStore = create<AppState>()(
               }
             }
           }
+
+          // Manage tracking session lifecycle
+          if (status === 'OUT_FOR_DELIVERY' || status === 'PICKED_UP' || mappedStatus === 'out_for_delivery') {
+            startTrackingSessionFS(orderId, targetOrder.partnerId || '', targetOrder.customerId);
+          } else if (
+            status === 'DELIVERED' ||
+            status === 'COMPLETED' ||
+            status === 'CANCELLED' ||
+            status === 'RETURNED' ||
+            mappedStatus === 'delivered'
+          ) {
+            stopTrackingSessionFS(orderId);
+          }
         }
 
         // Sync to Firestore
@@ -1646,12 +1801,17 @@ export const useAppStore = create<AppState>()(
       createDeliveryPartner: (data) => {
         const nextIdNum = get().deliveryPartners.length + 1;
         const partnerCode = data.partnerCode || `DP${String(nextIdNum).padStart(3, '0')}`;
+        // Auto-generate login credentials if not provided by admin
+        const loginId = data.loginId || partnerCode;
+        const loginPassword = data.loginPassword || `pk${String(nextIdNum).padStart(4, '0')}`;
         const newPartner: DeliveryPartner = {
           id: `partner-${Date.now()}`,
           userId: `usr-del-${Date.now()}`,
           name: data.name,
           phone: data.phone,
           partnerCode,
+          loginId,
+          loginPassword,
           accountStatus: 'active',
           profileImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
           vehicleType: data.vehicleType || 'EV Scooter',
@@ -1697,6 +1857,50 @@ export const useAppStore = create<AppState>()(
             get().logoutDeliveryPartner();
           }
         }
+      },
+
+      deleteDeliveryPartner: (partnerId) => {
+        const partner = get().deliveryPartners.find((p) => p.id === partnerId);
+        if (!partner) {
+          return { success: false, message: 'Delivery Partner not found.' };
+        }
+
+        const partnerName = partner.name;
+
+        // Clean up from state
+        set((state) => ({
+          deliveryPartners: state.deliveryPartners.filter((p) => p.id !== partnerId),
+          // If currently authenticated partner is deleted, sign them out
+          authenticatedPartnerId: state.authenticatedPartnerId === partnerId ? null : state.authenticatedPartnerId,
+          activePartnerId: state.activePartnerId === partnerId ? (state.deliveryPartners.find((p) => p.id !== partnerId)?.id || '') : state.activePartnerId,
+          // Revert any active order assignments to READY_FOR_PICKUP
+          orders: state.orders.map((o) =>
+            o.partnerId === partnerId
+              ? {
+                  ...o,
+                  partnerId: undefined,
+                  partnerName: undefined,
+                  partnerPhone: undefined,
+                  orderStatus: o.orderStatus === 'OUT_FOR_DELIVERY' || o.orderStatus === 'ASSIGNED' ? 'READY_FOR_PICKUP' : o.orderStatus,
+                }
+              : o
+          ),
+        }));
+
+        // Clean up localStorage session if active
+        if (typeof window !== 'undefined' && localStorage.getItem('pk_delivery_authenticated_partner') === partnerId) {
+          localStorage.removeItem('pk_delivery_authenticated_partner');
+        }
+
+        // Delete from Firestore
+        deleteDeliveryPartnerFS(partnerId);
+
+        get().addAuditLog(`DELETE_DELIVERY_PARTNER: Removed ${partnerName} (${partnerId})`, 'DeliveryPartner', partnerId);
+
+        return {
+          success: true,
+          message: `Delivery Partner "${partnerName}" deleted successfully!`,
+        };
       },
 
       generatePartnerLoginQR: (partnerId) => {
@@ -1855,11 +2059,188 @@ export const useAppStore = create<AppState>()(
         };
       },
 
-      logoutDeliveryPartner: () => {
-        set({ authenticatedPartnerId: null });
+      logoutDeliveryPartner: (partnerId?: string, force = false) => {
+        const targetId = partnerId || get().authenticatedPartnerId || get().activePartnerId;
+        const partner = get().deliveryPartners.find((p) => p.id === targetId);
+
+        // Security / Operational constraint: Rider cannot log out if they hold unverified cash
+        const pendingCash = Number(partner?.cashInHand || 0);
+
+        if (!force && pendingCash > 0 && !partner?.forceLoggedOutByAdmin) {
+          return {
+            success: false,
+            message: `⚠️ Cannot sign out: You have ₹${pendingCash} in unverified cash in hand. Please handover the collected cash to DarkStore Admin for verification first.`,
+            cashInHand: pendingCash,
+          };
+        }
+
+        set((state) => ({
+          authenticatedPartnerId: null,
+          deliveryPartners: state.deliveryPartners.map((p) =>
+            p.id === targetId
+              ? {
+                  ...p,
+                  currentStatus: 'offline' as const,
+                  forceLoggedOutByAdmin: false,
+                }
+              : p
+          ),
+        }));
+
         if (typeof window !== 'undefined') {
           localStorage.removeItem('pk_delivery_authenticated_partner');
         }
+
+        return {
+          success: true,
+          message: 'Signed out of delivery shift successfully.',
+          cashInHand: 0,
+        };
+      },
+
+      requestCashVerification: (partnerId: string) => {
+        const partner = get().deliveryPartners.find((p) => p.id === partnerId);
+        if (!partner) return { success: false, message: 'Partner not found.' };
+
+        const cashAmt = Number(partner.cashInHand || 0);
+        if (cashAmt <= 0) {
+          return { success: false, message: 'No pending cash in hand to settle.' };
+        }
+
+        set((state) => ({
+          deliveryPartners: state.deliveryPartners.map((p) =>
+            p.id === partnerId
+              ? { ...p, cashSettlementStatus: 'PENDING_VERIFICATION' as const }
+              : p
+          ),
+        }));
+
+        get().addNotification(
+          '💵 Cash Handover Verification Request',
+          `Rider ${partner.name} (${partner.partnerCode || partner.id}) requested verification for ₹${cashAmt} collected cash.`,
+          'ADMIN_SYSTEM_ALERT',
+          'admin',
+          { deepLink: '/admin?tab=payments' }
+        );
+
+        return {
+          success: true,
+          message: `Verification request for ₹${cashAmt} sent to DarkStore Admin!`,
+        };
+      },
+
+      verifyAndSettlePartnerCash: (partnerId: string, amount?: number, adminId = 'admin-root', adminName = 'Store Admin', note?: string) => {
+        const partner = get().deliveryPartners.find((p) => p.id === partnerId);
+        if (!partner) return { success: false, message: 'Partner not found.' };
+
+        const currentCash = Number(partner.cashInHand || 0);
+        const settleAmt = amount !== undefined ? Number(amount) : currentCash;
+
+        if (settleAmt <= 0 && currentCash <= 0) {
+          return { success: false, message: 'No cash in hand to settle.' };
+        }
+
+        const remainingCash = Math.max(0, currentCash - settleAmt);
+        const timestamp = new Date().toISOString();
+        const settlementRef = `STL-VER-${Date.now().toString().slice(-6)}`;
+
+        const newSettlement: SettlementRecord = {
+          id: `stl_${partnerId}_${Date.now()}`,
+          partnerId,
+          partnerName: partner.name,
+          amount: settleAmt,
+          adminId,
+          adminName,
+          settlementRef,
+          note: note || `Verified cash handover of ₹${settleAmt} received at Darkstore Counter.`,
+          timestamp,
+        };
+
+        set((state) => ({
+          settlements: [newSettlement, ...state.settlements],
+          codCollections: state.codCollections.map((c) =>
+            c.partnerId === partnerId && c.status === 'COLLECTED'
+              ? ({
+                  ...c,
+                  status: 'SETTLED' as import('@/types').CollectionStatus,
+                  settledAmount: c.collectedAmount,
+                  settledAt: timestamp,
+                  settlementRef,
+                } as import('@/types').CodCollectionRecord)
+              : c
+          ),
+          deliveryPartners: state.deliveryPartners.map((p) =>
+            p.id === partnerId
+              ? {
+                  ...p,
+                  cashInHand: remainingCash,
+                  cashSettlementStatus: (remainingCash === 0 ? 'SETTLED' : 'UNCLEARED') as any,
+                  lastCashSettledAt: timestamp,
+                  forceLoggedOutByAdmin: false,
+                }
+              : p
+          ),
+        }));
+
+        get().addAuditLog(
+          `CASH_HANDOVER_VERIFIED: Received ₹${settleAmt} from ${partner.name} (Ref: ${settlementRef})`,
+          'DeliveryPartner',
+          partnerId
+        );
+
+        get().addNotification(
+          '✅ Cash Handover Verified',
+          `Admin verified and accepted ₹${settleAmt} cash from ${partner.name}. Cash in hand settled.`,
+          'PARTNER_EARNINGS_CREDITED',
+          'delivery_partner',
+          { recipientId: partner.id, deepLink: '/delivery' }
+        );
+
+        return {
+          success: true,
+          message: `✓ Cash handover of ₹${settleAmt} verified & settled for ${partner.name}!`,
+        };
+      },
+
+      adminForceLogoutPartner: (partnerId: string) => {
+        const partner = get().deliveryPartners.find((p) => p.id === partnerId);
+        if (!partner) return { success: false, message: 'Partner not found.' };
+
+        set((state) => ({
+          authenticatedPartnerId: state.authenticatedPartnerId === partnerId ? null : state.authenticatedPartnerId,
+          deliveryPartners: state.deliveryPartners.map((p) =>
+            p.id === partnerId
+              ? {
+                  ...p,
+                  currentStatus: 'offline' as const,
+                  forceLoggedOutByAdmin: true,
+                }
+              : p
+          ),
+        }));
+
+        if (typeof window !== 'undefined' && localStorage.getItem('pk_delivery_authenticated_partner') === partnerId) {
+          localStorage.removeItem('pk_delivery_authenticated_partner');
+        }
+
+        get().addAuditLog(
+          `ADMIN_FORCE_LOGOUT: Logged out Delivery Partner ${partner.name} (${partnerId})`,
+          'DeliveryPartner',
+          partnerId
+        );
+
+        get().addNotification(
+          '🔒 Shift Ended by Admin',
+          `Your delivery shift has been ended and you have been signed out by the Darkstore Admin.`,
+          'ADMIN_PARTNER_OFFLINE' as any,
+          'delivery_partner',
+          { recipientId: partnerId }
+        );
+
+        return {
+          success: true,
+          message: `Successfully logged out Delivery Partner "${partner.name}".`,
+        };
       },
 
       togglePartnerStatus: (partnerId: string) => {
@@ -2141,6 +2522,70 @@ export const useAppStore = create<AppState>()(
         return { success: true, message: `Order #${order.orderNumber} delivered successfully!` };
       },
 
+      confirmCodPaymentReceived: (orderId, method, transactionId) => {
+        const order = get().orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+        if (!order) return { success: false, message: 'Order not found.' };
+
+        const orderTotal = Number(order.total || 450);
+        const assignedPartnerId = order.partnerId || get().authenticatedPartnerId || get().activePartnerId || 'partner-1';
+        const now = new Date().toISOString();
+
+        const codRecord: CodCollectionRecord = {
+          id: `cod_${order.id}_${Date.now()}`,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          partnerId: assignedPartnerId,
+          expectedAmount: orderTotal,
+          collectedAmount: orderTotal,
+          settledAmount: 0,
+          method: method === 'cash' ? 'CASH' : 'UPI',
+          status: 'COLLECTED',
+          collectedAt: now,
+        };
+
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === order.id || o.orderNumber === order.orderNumber
+              ? ({
+                  ...o,
+                  paymentStatus: 'paid' as const,
+                  paymentMethod: (method === 'cash' ? 'cod' : 'upi') as any,
+                  collectionMethod: method === 'cash' ? 'CASH' : 'UPI',
+                  collectionStatus: 'COLLECTED',
+                  collectedAt: now,
+                } as Order)
+              : o
+          ),
+          codCollections: [codRecord, ...state.codCollections.filter((c) => c.orderId !== order.id)],
+          deliveryPartners: state.deliveryPartners.map((p) => {
+            if (p.id === assignedPartnerId && method === 'cash') {
+              return {
+                ...p,
+                cashInHand: (p.cashInHand || 0) + orderTotal,
+                cashSettlementStatus: 'UNCLEARED' as const,
+                forceLoggedOutByAdmin: false,
+              };
+            }
+            return p;
+          }),
+        }));
+
+        soundAlerts.playOrderChime();
+
+        get().addNotification(
+          method === 'cash' ? '💵 COD Cash Collected by Rider' : '💳 UPI Payment Verified',
+          `₹${orderTotal} collected via ${method.toUpperCase()} for Order #${order.orderNumber}. ${method === 'cash' ? 'Added to Rider Cash in Hand for DarkStore handover.' : ''}`,
+          'ADMIN_PAYMENT_RECEIVED',
+          'admin',
+          { orderId: order.id, deepLink: `/admin?tab=payments` }
+        );
+
+        return {
+          success: true,
+          message: `Payment of ₹${orderTotal} verified via ${method.toUpperCase()}!`,
+        };
+      },
+
       loginPartnerByPhoneOrCode: (identifier) => {
         const clean = identifier.trim().toLowerCase();
         const partner = get().deliveryPartners.find(
@@ -2169,6 +2614,102 @@ export const useAppStore = create<AppState>()(
         }
 
         return { success: true, partner, message: `Welcome back, ${partner.name}!` };
+      },
+
+      loginPartnerByCredentials: (loginId, loginPassword) => {
+        const cleanId = loginId.trim();
+        const cleanPw = loginPassword.trim();
+        const digits = cleanId.replace(/\D/g, '');
+
+        // Find partner by loginId (case-insensitive), partnerCode, or phone
+        const partner = get().deliveryPartners.find(
+          (p) =>
+            (p.loginId && p.loginId.toLowerCase() === cleanId.toLowerCase()) ||
+            (p.partnerCode && p.partnerCode.toLowerCase() === cleanId.toLowerCase()) ||
+            p.id.toLowerCase() === cleanId.toLowerCase() ||
+            (digits.length >= 10 && p.phone && p.phone.replace(/\D/g, '').endsWith(digits.slice(-10)))
+        );
+
+        if (!partner) {
+          return { success: false, message: 'No Delivery Partner account found with this ID or Phone. Please contact Admin.' };
+        }
+
+        if (partner.accountStatus === 'inactive' || partner.accountStatus === 'suspended') {
+          return { success: false, message: 'Your account is currently deactivated. Please contact Admin.' };
+        }
+
+        // Verify password if one is set; otherwise allow default 'pk1234'
+        const expectedPw = partner.loginPassword || 'pk1234';
+        if (cleanPw !== expectedPw) {
+          return { success: false, message: 'Incorrect password. Please try again.' };
+        }
+
+        set({
+          authenticatedPartnerId: partner.id,
+          activePartnerId: partner.id,
+          isLoggedIn: true,
+          activeRole: 'delivery_partner',
+          currentUser: {
+            id: partner.userId || partner.id,
+            role: 'delivery_partner',
+            firstName: partner.name,
+            mobile: partner.phone,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          } as any,
+        });
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('pk_delivery_authenticated_partner', partner.id);
+        }
+
+        return { success: true, partner, message: `✓ Welcome, ${partner.name}!` };
+      },
+
+      loginPickerByCredentials: (loginId, loginPassword) => {
+        const cleanId = loginId.trim();
+        const cleanPw = loginPassword.trim();
+        const digits = cleanId.replace(/\D/g, '');
+
+        // Find picker by loginId (case-insensitive), employeeId, or phone
+        const picker = get().pickers.find(
+          (p) =>
+            (p.loginId && p.loginId.toLowerCase() === cleanId.toLowerCase()) ||
+            (p.employeeId && p.employeeId.toLowerCase() === cleanId.toLowerCase()) ||
+            p.id.toLowerCase() === cleanId.toLowerCase() ||
+            (digits.length >= 10 && p.phone && p.phone.replace(/\D/g, '').endsWith(digits.slice(-10)))
+        );
+
+        if (!picker) {
+          return { success: false, message: 'No Picker account found with this ID or Phone. Please contact Admin.' };
+        }
+
+        // Verify password if one is set; otherwise allow default 'pk1234'
+        const expectedPw = picker.loginPassword || 'pk1234';
+        if (cleanPw !== expectedPw) {
+          return { success: false, message: 'Incorrect password. Please try again.' };
+        }
+
+        // Set picker session
+        set({
+          activePickerId: picker.id,
+          isLoggedIn: true,
+          activeRole: 'picker',
+          currentUser: {
+            id: picker.id,
+            role: 'picker',
+            firstName: picker.name,
+            mobile: picker.phone,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          } as any,
+        });
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('pk_picker_authenticated', picker.id);
+        }
+
+        return { success: true, picker, message: `✓ Welcome, ${picker.name}!` };
       },
 
       advanceDeliveryStage: (orderId, nextStage, proof) => {
@@ -2316,9 +2857,40 @@ export const useAppStore = create<AppState>()(
         }
 
         if (proof.type === 'cash_collected') {
+          const cashAmt = Number(proof.cashReceived || order.total || 0);
+          const assignedPartnerId = order.partnerId || get().authenticatedPartnerId || get().activePartnerId || 'partner-1';
+          const now = new Date().toISOString();
+
+          const codRecord: CodCollectionRecord = {
+            id: `cod_${order.id}_${Date.now()}`,
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            partnerId: assignedPartnerId,
+            expectedAmount: cashAmt,
+            collectedAmount: cashAmt,
+            settledAmount: 0,
+            method: 'CASH',
+            status: 'COLLECTED',
+            collectedAt: now,
+          };
+
+          set((state) => ({
+            codCollections: [codRecord, ...state.codCollections.filter((c) => c.orderId !== order.id)],
+            deliveryPartners: state.deliveryPartners.map((p) =>
+              p.id === assignedPartnerId
+                ? {
+                    ...p,
+                    cashInHand: (p.cashInHand || 0) + cashAmt,
+                    cashSettlementStatus: 'UNCLEARED' as const,
+                    forceLoggedOutByAdmin: false,
+                  }
+                : p
+            ),
+          }));
+
           get().advanceDeliveryStage(orderId, 'COMPLETED', proof);
           soundAlerts.playOrderChime();
-          return { success: true, message: `Cash payment of ₹${proof.cashReceived} confirmed! Delivery completed.` };
+          return { success: true, message: `Cash payment of ₹${cashAmt} confirmed! Added to Cash in Hand.` };
         }
 
         if (proof.type === 'qr') {
@@ -2416,6 +2988,99 @@ export const useAppStore = create<AppState>()(
 
       setActivePickerId: (id) => set({ activePickerId: id }),
 
+      createPicker: (data) => {
+        const nextIdNum = get().pickers.length + 1;
+        const employeeId = data.employeeId || `PKP-${String(nextIdNum).padStart(3, '0')}`;
+        const loginId = data.loginId || employeeId;
+        const loginPassword = data.loginPassword || `pk${String(nextIdNum).padStart(4, '0')}`;
+        const newPicker: Picker = {
+          id: `picker-${Date.now()}`,
+          name: data.name,
+          phone: data.phone,
+          photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80',
+          employeeId,
+          loginId,
+          loginPassword,
+          storeId: 'store-1',
+          storeName: 'PocketKirana Main Store',
+          status: 'offline',
+          currentShift: data.currentShift || 'Morning (06:00 - 14:00)',
+          joiningDate: new Date().toISOString().split('T')[0],
+          statistics: {
+            ordersPickedToday: 0,
+            itemsPickedToday: 0,
+            averagePickTimeSeconds: 0,
+            accuracyPercent: 100,
+            missingItemsCount: 0,
+            wrongItemsScanned: 0,
+            rating: 5.0,
+          },
+        };
+
+        set((state) => ({
+          pickers: [newPicker, ...state.pickers],
+        }));
+
+        savePickerFS(newPicker);
+
+        return {
+          success: true,
+          picker: newPicker,
+          message: `Picker ${data.name} (${employeeId}) created successfully!`,
+        };
+      },
+
+      deletePicker: (pickerId) => {
+        const picker = get().pickers.find((p) => p.id === pickerId);
+        if (!picker) {
+          return { success: false, message: 'Store Picker not found.' };
+        }
+
+        const pickerName = picker.name;
+
+        // Clean up from state
+        set((state) => ({
+          pickers: state.pickers.filter((p) => p.id !== pickerId),
+          activePickerId: state.activePickerId === pickerId ? (state.pickers.find((p) => p.id !== pickerId)?.id || '') : state.activePickerId,
+          // Unassign any active picking tasks
+          pickingTasks: state.pickingTasks.map((t) =>
+            t.pickerId === pickerId
+              ? {
+                  ...t,
+                  pickerId: undefined,
+                  pickerName: undefined,
+                  status: 'pending' as const,
+                }
+              : t
+          ),
+          orders: state.orders.map((o) =>
+            o.pickerId === pickerId
+              ? {
+                  ...o,
+                  pickerId: undefined,
+                  pickerName: undefined,
+                  orderStatus: o.orderStatus === 'PICKING' ? 'STOCK_RESERVED' : o.orderStatus,
+                }
+              : o
+          ),
+        }));
+
+        // Clean up localStorage session if active
+        if (typeof window !== 'undefined' && localStorage.getItem('pk_picker_authenticated') === pickerId) {
+          localStorage.removeItem('pk_picker_authenticated');
+        }
+
+        // Delete from Firestore
+        deletePickerFS(pickerId);
+
+        get().addAuditLog(`DELETE_STORE_PICKER: Removed ${pickerName} (${pickerId})`, 'Picker', pickerId);
+
+        return {
+          success: true,
+          message: `Store Picker "${pickerName}" deleted successfully!`,
+        };
+      },
+
       togglePickerStatus: (pickerId) => {
         set((state) => ({
           pickers: state.pickers.map((p) =>
@@ -2432,6 +3097,11 @@ export const useAppStore = create<AppState>()(
         const order = get().orders.find((o) => o.id === rawOrderId || o.orderNumber === taskId || o.orderNumber === rawOrderId);
         
         let existingTask = get().pickingTasks.find((t) => t.id === taskId || t.orderNumber === taskId || t.orderId === rawOrderId);
+
+        // 🔒 Prevent picker from accepting a new order if they are already busy with another
+        if (picker && picker.status === 'busy' && picker.activeTaskId && picker.activeTaskId !== taskId) {
+          return { success: false, message: 'You already have an active order. Complete it before accepting a new one.' };
+        }
 
         // Prevent another picker from accepting an already assigned task
         if (existingTask && existingTask.pickerId && existingTask.pickerId !== pickerId) {
@@ -3393,6 +4063,543 @@ export const useAppStore = create<AppState>()(
         };
         set((state) => ({ auditLogs: [newLog, ...state.auditLogs] }));
       },
+
+      // 🧾 Complete Invoice System Implementations
+      invoices: [],
+      invoiceTemplate: DEFAULT_INVOICE_TEMPLATE,
+      getOrGenerateInvoice: (orderId: string) => {
+        const state = get();
+        const order = state.orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+        if (!order) return null;
+        const inv = createOrGetInvoiceSnapshot(order, state.invoiceTemplate, state.invoices);
+        if (!state.invoices.some((i) => i.id === inv.id || i.invoiceNumber === inv.invoiceNumber)) {
+          set((s) => ({ invoices: [inv, ...s.invoices] }));
+        }
+        return inv;
+      },
+      updateInvoiceTemplate: (template: InvoiceTemplateSettings) => {
+        set({ invoiceTemplate: template });
+      },
+      downloadInvoicePDF: async (orderId: string) => {
+        try {
+          const state = get();
+          const order = state.orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+          if (!order) {
+            return { success: false, message: 'Order not found' };
+          }
+          const invoice = state.getOrGenerateInvoice(orderId);
+          if (!invoice) {
+            return { success: false, message: 'Unable to resolve invoice for this order' };
+          }
+          const { filename } = generateInvoicePDF(invoice, { saveAsFile: true });
+          return { success: true, filename };
+        } catch (err: any) {
+          console.error('Download invoice PDF failed:', err);
+          return { success: false, message: err?.message || 'Failed to download invoice' };
+        }
+      },
+
+      // 💰 Financial Collections, Settlements & Exceptions Implementation
+      settlements: [
+        {
+          id: 'stl-init-1',
+          partnerId: 'partner-1',
+          partnerName: 'Sunil Kumar',
+          amount: 10000,
+          adminId: 'admin-root',
+          adminName: 'Store Admin',
+          settlementRef: 'STL-10024',
+          note: 'Weekly cash handover verified.',
+          timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+        }
+      ],
+      codCollections: [],
+      deliveryExceptions: [],
+
+      confirmPartnerSettlement: (partnerId, amount, adminId = 'admin-root', adminName = 'Store Admin', settlementRef, note) => {
+        const cleanRef = settlementRef || `STL-REF-${Date.now().toString().slice(-6)}`;
+        const timestamp = new Date().toISOString();
+        const partner = get().deliveryPartners.find((p) => p.id === partnerId);
+        const partnerName = partner?.name || 'Partner';
+
+        const record: SettlementRecord = {
+          id: `stl_${partnerId}_${Date.now()}`,
+          partnerId,
+          partnerName,
+          amount: Number(amount),
+          adminId,
+          adminName,
+          settlementRef: cleanRef,
+          note: note || 'Cash handover received and confirmed.',
+          timestamp,
+        };
+
+        set((state) => ({
+          settlements: [record, ...state.settlements],
+        }));
+
+        get().addAuditLog(
+          'SETTLEMENT_CONFIRMED',
+          'settlements',
+          record.id
+        );
+
+        get().addNotification(
+          '💵 Cash Settlement Confirmed',
+          `Admin confirmed settlement of ₹${amount} for Delivery Partner ${partnerName}. Ref: ${cleanRef}`,
+          'ADMIN_SYSTEM_ALERT',
+          'admin'
+        );
+
+        return {
+          success: true,
+          message: `Settlement of ₹${amount} confirmed for ${partnerName}.`,
+        };
+      },
+
+      requestDeliveryException: (orderId, partnerId, partnerName, reason, evidenceUrl) => {
+        const order = get().orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+        const orderNumber = order?.orderNumber || orderId;
+        const exceptionId = `exc_${orderId}_${Date.now()}`;
+        const createdAt = new Date().toISOString();
+
+        const record: DeliveryExceptionRecord = {
+          id: exceptionId,
+          orderId,
+          orderNumber,
+          partnerId,
+          partnerName,
+          reason,
+          evidenceUrl,
+          status: 'PENDING',
+          createdAt,
+        };
+
+        set((state) => ({
+          deliveryExceptions: [record, ...state.deliveryExceptions],
+          orders: state.orders.map((o) =>
+            o.id === orderId || o.orderNumber === orderId
+              ? ({ ...o, deliveryExceptionId: exceptionId, isExceptionDelivery: false } as Order)
+              : o
+          ),
+        }));
+
+        get().addNotification(
+          '⚠️ Delivery Exception Requested',
+          `Partner ${partnerName} requested OTP exception for Order #${orderNumber}. Reason: ${reason}`,
+          'ADMIN_SYSTEM_ALERT',
+          'admin',
+          { orderId, deepLink: '/admin?tab=payments-settlement' }
+        );
+
+        return {
+          success: true,
+          message: 'Delivery exception requested successfully. Awaiting Admin review.',
+          exceptionId,
+        };
+      },
+
+      reviewDeliveryException: (exceptionId, action, adminId = 'admin-root', adminName = 'Store Admin', adminNote, orderId) => {
+        const reviewedAt = new Date().toISOString();
+        const isApproved = action === 'APPROVED';
+
+        set((state) => ({
+          deliveryExceptions: state.deliveryExceptions.map((e) =>
+            e.id === exceptionId
+              ? {
+                  ...e,
+                  status: action,
+                  reviewedByAdminId: adminId,
+                  reviewedByAdminName: adminName,
+                  reviewedAt,
+                  adminNote: adminNote || (isApproved ? 'Exception authorized by Admin.' : 'Exception rejected.'),
+                }
+              : e
+          ),
+          orders: isApproved && orderId
+            ? state.orders.map((o) =>
+                o.id === orderId || o.orderNumber === orderId
+                  ? ({
+                      ...o,
+                      orderStatus: 'DELIVERED' as const,
+                      deliveryStatus: 'DELIVERED' as any,
+                      isExceptionDelivery: true,
+                      deliveredAt: reviewedAt,
+                    } as Order)
+                  : o
+              )
+            : state.orders,
+        }));
+
+        get().addAuditLog(
+          isApproved ? 'DELIVERY_EXCEPTION_APPROVED' : 'DELIVERY_EXCEPTION_REJECTED',
+          'deliveryExceptions',
+          exceptionId
+        );
+
+        return {
+          success: true,
+          message: `Delivery exception ${action.toLowerCase()} successfully.`,
+        };
+      },
+
+      resendCustomerDeliveryOtp: async (orderId) => {
+        const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+        set((state) => ({
+          orders: state.orders.map((o) =>
+            o.id === orderId || o.orderNumber === orderId
+              ? ({
+                  ...o,
+                  deliveryOtp: newOtp,
+                  deliveryOtpAttempts: 0,
+                  deliveryOtpLocked: false,
+                } as Order)
+              : o
+          ),
+        }));
+
+        return {
+          success: true,
+          message: 'Fresh Delivery OTP sent to customer.',
+          resendCount: 1,
+          cooldownSeconds: 60,
+        };
+      },
+
+      // 🌟 AI Festival CMS Actions
+      addFestivalTemplate: (templateData) => {
+        const newTemplate: FestivalTemplate = {
+          ...templateData,
+          id: templateData.id || `tpl-custom-${Date.now()}`,
+          category: templateData.category || 'MY_TEMPLATES',
+          version: 1,
+          schemaVersion: '1.0',
+          minimumAppVersion: '1.0.0',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          festivalTemplates: [newTemplate, ...state.festivalTemplates],
+        }));
+
+        get().addFestivalAuditLog({
+          adminId: get().currentUser?.id || 'usr-admin-1',
+          adminName: 'Admin',
+          action: templateData.category === 'AI_GENERATED' ? 'AI_TEMPLATE_GENERATED' : 'TEMPLATE_CREATED',
+          targetType: 'TEMPLATE',
+          targetId: newTemplate.id,
+          targetName: newTemplate.name,
+          version: 1,
+          details: `Created template "${newTemplate.name}" under ${newTemplate.category}.`,
+        });
+
+        return newTemplate;
+      },
+
+      updateFestivalTemplate: (id, updates) => {
+        set((state) => ({
+          festivalTemplates: state.festivalTemplates.map((t) =>
+            t.id === id
+              ? {
+                  ...t,
+                  ...updates,
+                  version: (t.version || 1) + 1,
+                  updatedAt: new Date().toISOString(),
+                }
+              : t
+          ),
+        }));
+
+        get().addFestivalAuditLog({
+          adminId: get().currentUser?.id || 'usr-admin-1',
+          adminName: 'Admin',
+          action: 'TEMPLATE_EDITED',
+          targetType: 'TEMPLATE',
+          targetId: id,
+          targetName: updates.name || id,
+          details: `Updated template configuration.`,
+        });
+      },
+
+      duplicateFestivalTemplate: (id, newName) => {
+        const source = get().festivalTemplates.find((t) => t.id === id);
+        if (!source) return null;
+
+        const duplicated: FestivalTemplate = {
+          ...JSON.parse(JSON.stringify(source)),
+          id: `tpl-dup-${Date.now()}`,
+          name: newName || `${source.name} (Copy)`,
+          category: 'MY_TEMPLATES',
+          version: 1,
+          createdBy: 'Admin',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          festivalTemplates: [duplicated, ...state.festivalTemplates],
+        }));
+
+        get().addFestivalAuditLog({
+          adminId: get().currentUser?.id || 'usr-admin-1',
+          adminName: 'Admin',
+          action: 'TEMPLATE_DUPLICATED',
+          targetType: 'TEMPLATE',
+          targetId: duplicated.id,
+          targetName: duplicated.name,
+          version: 1,
+          details: `Duplicated from "${source.name}".`,
+        });
+
+        return duplicated;
+      },
+
+      archiveFestivalTemplate: (id) => {
+        set((state) => ({
+          festivalTemplates: state.festivalTemplates.map((t) =>
+            t.id === id ? { ...t, category: 'ARCHIVED' as const, isArchived: true } : t
+          ),
+        }));
+
+        get().addFestivalAuditLog({
+          adminId: get().currentUser?.id || 'usr-admin-1',
+          adminName: 'Admin',
+          action: 'TEMPLATE_ARCHIVED',
+          targetType: 'TEMPLATE',
+          targetId: id,
+          targetName: id,
+          details: 'Archived festival template.',
+        });
+      },
+
+      addFestivalCampaign: (campaignData) => {
+        const newCampaign: FestivalCampaign = {
+          ...campaignData,
+          id: campaignData.id || `cmp-${Date.now()}`,
+          status: campaignData.status || 'DRAFT',
+          priority: campaignData.priority || 50,
+          timezone: campaignData.timezone || 'Asia/Kolkata',
+          currentVersion: 1,
+          versionHistory: [
+            {
+              versionNumber: 1,
+              snapshot: {
+                name: campaignData.name,
+                templateId: campaignData.templateId,
+                theme: campaignData.configurationSnapshot.theme,
+                sections: campaignData.configurationSnapshot.sections,
+                festivalName: campaignData.festivalName,
+                startAt: campaignData.startAt,
+                endAt: campaignData.endAt,
+              },
+              savedAt: new Date().toISOString(),
+              savedBy: 'Admin',
+              notes: 'Initial campaign creation',
+            },
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          festivalCampaigns: [newCampaign, ...state.festivalCampaigns],
+        }));
+
+        get().addFestivalAuditLog({
+          adminId: get().currentUser?.id || 'usr-admin-1',
+          adminName: 'Admin',
+          action: 'CAMPAIGN_CREATED',
+          targetType: 'CAMPAIGN',
+          targetId: newCampaign.id,
+          targetName: newCampaign.name,
+          version: 1,
+          details: `Created campaign "${newCampaign.name}".`,
+        });
+
+        return newCampaign;
+      },
+
+      updateFestivalCampaign: (id, updates) => {
+        set((state) => ({
+          festivalCampaigns: state.festivalCampaigns.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  ...updates,
+                  updatedAt: new Date().toISOString(),
+                }
+              : c
+          ),
+        }));
+      },
+
+      publishFestivalCampaign: (id, notes) => {
+        const campaign = get().festivalCampaigns.find((c) => c.id === id);
+        if (!campaign) {
+          return { success: false, message: 'Campaign not found.' };
+        }
+
+        const newVersion = (campaign.currentVersion || 1) + 1;
+        const now = new Date().toISOString();
+
+        const versionSnapshot = {
+          versionNumber: newVersion,
+          snapshot: {
+            name: campaign.name,
+            templateId: campaign.templateId,
+            theme: campaign.configurationSnapshot.theme,
+            sections: campaign.configurationSnapshot.sections,
+            festivalName: campaign.festivalName,
+            startAt: campaign.startAt,
+            endAt: campaign.endAt,
+          },
+          savedAt: now,
+          savedBy: 'Admin',
+          notes: notes || `Published Version ${newVersion}`,
+        };
+
+        set((state) => ({
+          festivalCampaigns: state.festivalCampaigns.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  status: 'PUBLISHED' as const,
+                  publishedAt: now,
+                  publishedBy: 'Admin',
+                  currentVersion: newVersion,
+                  versionHistory: [versionSnapshot, ...c.versionHistory],
+                  updatedAt: now,
+                }
+              : c
+          ),
+        }));
+
+        get().addFestivalAuditLog({
+          adminId: get().currentUser?.id || 'usr-admin-1',
+          adminName: 'Admin',
+          action: 'CAMPAIGN_PUBLISHED',
+          targetType: 'CAMPAIGN',
+          targetId: id,
+          targetName: campaign.name,
+          version: newVersion,
+          details: `Published campaign "${campaign.name}" as Version ${newVersion}.`,
+        });
+
+        return {
+          success: true,
+          message: `Campaign published successfully (Version ${newVersion}).`,
+          version: newVersion,
+        };
+      },
+
+      rollbackFestivalCampaign: (id, targetVersion) => {
+        const campaign = get().festivalCampaigns.find((c) => c.id === id);
+        if (!campaign) {
+          return { success: false, message: 'Campaign not found.' };
+        }
+
+        const targetSnapshot = campaign.versionHistory.find(
+          (v) => v.versionNumber === targetVersion
+        );
+        if (!targetSnapshot) {
+          return {
+            success: false,
+            message: `Version ${targetVersion} not found in campaign history.`,
+          };
+        }
+
+        const now = new Date().toISOString();
+        set((state) => ({
+          festivalCampaigns: state.festivalCampaigns.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  name: targetSnapshot.snapshot.name,
+                  configurationSnapshot: {
+                    theme: targetSnapshot.snapshot.theme,
+                    sections: targetSnapshot.snapshot.sections,
+                    festivalName: targetSnapshot.snapshot.festivalName,
+                  },
+                  startAt: targetSnapshot.snapshot.startAt || c.startAt,
+                  endAt: targetSnapshot.snapshot.endAt || c.endAt,
+                  currentVersion: targetVersion,
+                  updatedAt: now,
+                }
+              : c
+          ),
+        }));
+
+        get().addFestivalAuditLog({
+          adminId: get().currentUser?.id || 'usr-admin-1',
+          adminName: 'Admin',
+          action: 'CAMPAIGN_ROLLED_BACK',
+          targetType: 'CAMPAIGN',
+          targetId: id,
+          targetName: campaign.name,
+          version: targetVersion,
+          details: `Rolled back campaign configuration to Version ${targetVersion}.`,
+        });
+
+        return {
+          success: true,
+          message: `Successfully rolled back to Version ${targetVersion}.`,
+        };
+      },
+
+      toggleEmergencyFestivalDisable: (disabled) => {
+        const nextVal =
+          disabled !== undefined
+            ? disabled
+            : !get().isFestivalEmergencyDisabled;
+        set({ isFestivalEmergencyDisabled: nextVal });
+
+        get().addFestivalAuditLog({
+          adminId: get().currentUser?.id || 'usr-admin-1',
+          adminName: 'Admin',
+          action: 'EMERGENCY_DISABLE_TOGGLED',
+          targetType: 'SYSTEM',
+          targetId: 'emergency-disable-switch',
+          targetName: 'Festival Emergency Master Switch',
+          details: nextVal
+            ? 'Emergency DISABLE activated: all festival campaigns hidden.'
+            : 'Emergency DISABLE deactivated: festival campaigns restored.',
+        });
+
+        return nextVal;
+      },
+
+      addFestivalAuditLog: (logData) => {
+        const newLog: FestivalAuditLog = {
+          ...logData,
+          id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          timestamp: new Date().toISOString(),
+        };
+        set((state) => ({
+          festivalAuditLogs: [newLog, ...state.festivalAuditLogs.slice(0, 99)],
+        }));
+      },
+
+      getActiveFestivalCampaign: () => {
+        if (get().isFestivalEmergencyDisabled) {
+          return null;
+        }
+
+        const now = new Date().getTime();
+        const campaigns = get().festivalCampaigns.filter((c) => {
+          if (c.status !== 'PUBLISHED') return false;
+          const start = new Date(c.startAt).getTime();
+          const end = new Date(c.endAt).getTime();
+          return now >= start && now <= end;
+        });
+
+        if (campaigns.length === 0) {
+          return null;
+        }
+
+        // Return highest priority campaign
+        return campaigns.sort((a, b) => (b.priority || 0) - (a.priority || 0))[0];
+      },
     }),
     {
       name: 'pocketkirana-store-v4',
@@ -3401,6 +4608,11 @@ export const useAppStore = create<AppState>()(
         categories: state.categories,
         brands: state.brands,
         orders: state.orders,
+        invoices: state.invoices,
+        invoiceTemplate: state.invoiceTemplate,
+        settlements: state.settlements,
+        codCollections: state.codCollections,
+        deliveryExceptions: state.deliveryExceptions,
         addresses: state.addresses,
         banners: state.banners,
         coupons: state.coupons,
@@ -3413,6 +4625,10 @@ export const useAppStore = create<AppState>()(
         activeRole: state.activeRole,
         isLoggedIn: state.isLoggedIn,
         currentUser: state.currentUser,
+        festivalTemplates: state.festivalTemplates,
+        festivalCampaigns: state.festivalCampaigns,
+        festivalAuditLogs: state.festivalAuditLogs,
+        isFestivalEmergencyDisabled: state.isFestivalEmergencyDisabled,
       }),
     }
   )

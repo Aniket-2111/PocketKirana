@@ -222,15 +222,15 @@ export default function ProductDetailPage() {
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-3 gap-2">
                   {productGallery.map((imgUrl, idx) => (
                     <button
                       key={idx}
                       onClick={() => setSelectedImgIndex(idx)}
                       suppressHydrationWarning
-                      className={`bg-[#EEF2F0] rounded-xl h-20 sm:h-24 p-1.5 border-2 overflow-hidden transition-all flex items-center justify-center ${
+                      className={`bg-[#EEF2F0] rounded-xl h-16 sm:h-24 p-1.5 border-2 overflow-hidden transition-all flex items-center justify-center cursor-pointer ${
                         selectedImgIndex === idx
-                          ? 'border-emerald-600 shadow-sm ring-2 ring-emerald-600/20'
+                          ? 'border-[#0B8F5A] shadow-xs ring-2 ring-emerald-600/20'
                           : 'border-transparent hover:border-gray-300'
                       }`}
                     >
@@ -245,7 +245,7 @@ export default function ProductDetailPage() {
                 <div className="space-y-3.5 sm:space-y-4">
                   {/* Category Tag + Brand Badge */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-block bg-emerald-600 text-white font-bold text-[10px] sm:text-[11px] px-3 py-1 rounded-full uppercase tracking-wider">
+                    <span className="inline-block bg-[#0B8F5A] text-white font-bold text-[10px] sm:text-[11px] px-3 py-1 rounded-full uppercase tracking-wider">
                       {category?.name || 'Organic'}
                     </span>
                     {brandObj && (
@@ -266,7 +266,7 @@ export default function ProductDetailPage() {
                   </div>
 
                   {/* Title */}
-                  <h1 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight leading-snug">
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900 tracking-tight leading-snug">
                     {product.name}
                   </h1>
 
@@ -323,9 +323,9 @@ export default function ProductDetailPage() {
                                 setSelectedVariant(v);
                                 setLocalQty(1);
                               }}
-                              className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center relative ${
+                              className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center relative cursor-pointer ${
                                 isSelected
-                                  ? 'border-emerald-600 bg-emerald-50 text-emerald-900 shadow-sm font-black ring-2 ring-emerald-600/20'
+                                  ? 'border-[#0B8F5A] bg-emerald-50 text-emerald-900 shadow-xs font-black ring-2 ring-emerald-600/20'
                                   : vIsOut
                                   ? 'border-gray-100 text-gray-300 bg-gray-50 cursor-not-allowed line-through'
                                   : 'border-gray-200 text-gray-600 hover:border-emerald-400 hover:bg-emerald-50/30'
@@ -358,7 +358,7 @@ export default function ProductDetailPage() {
                         <button
                           onClick={() => setLocalQty(Math.max(1, localQty - 1))}
                           suppressHydrationWarning
-                          className="px-3 py-1.5 text-gray-600 hover:bg-gray-200 transition-colors font-bold text-sm"
+                          className="px-3.5 py-2 text-gray-600 hover:bg-gray-200 transition-colors font-bold text-sm cursor-pointer"
                         >
                           -
                         </button>
@@ -366,7 +366,7 @@ export default function ProductDetailPage() {
                         <button
                           onClick={() => setLocalQty(localQty + 1)}
                           suppressHydrationWarning
-                          className="px-3 py-1.5 text-gray-600 hover:bg-gray-200 transition-colors font-bold text-sm"
+                          className="px-3.5 py-2 text-gray-600 hover:bg-gray-200 transition-colors font-bold text-sm cursor-pointer"
                         >
                           +
                         </button>
@@ -380,7 +380,7 @@ export default function ProductDetailPage() {
                   {/* Stock Badge */}
                   <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600 pt-1">
                     <span className="text-gray-900">
-                      Delivered: <strong className="font-black">Today, in 15 mins</strong>
+                      Delivered: <strong className="font-black">Today, in 10-15 mins</strong>
                     </span>
                     {isOutOfStock ? (
                       <span className="flex items-center gap-1 text-rose-700 font-black bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full text-[10px]">
@@ -415,7 +415,7 @@ export default function ProductDetailPage() {
                               updateQuantity(cartItemId, cartItem.quantity - 1);
                             }
                           }}
-                          className="w-12 h-12 flex items-center justify-center hover:bg-black/15 transition-colors"
+                          className="w-12 h-12 flex items-center justify-center hover:bg-black/15 transition-colors cursor-pointer"
                           title="Decrease quantity"
                         >
                           <Minus className="w-4 h-4 stroke-[2.5]" />
@@ -425,7 +425,7 @@ export default function ProductDetailPage() {
                           suppressHydrationWarning
                           onClick={() => updateQuantity(cartItemId, cartItem.quantity + 1)}
                           disabled={isOutOfStock}
-                          className="w-12 h-12 flex items-center justify-center hover:bg-black/15 transition-colors disabled:opacity-40"
+                          className="w-12 h-12 flex items-center justify-center hover:bg-black/15 transition-colors disabled:opacity-40 cursor-pointer"
                           title="Increase quantity"
                         >
                           <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -436,10 +436,10 @@ export default function ProductDetailPage() {
                         onClick={handleAddToCart}
                         disabled={isOutOfStock}
                         suppressHydrationWarning
-                        className={`flex-1 font-bold py-3.5 px-5 rounded-2xl text-xs sm:text-sm transition-all shadow-md flex items-center justify-center gap-2 active:scale-98 ${
+                        className={`flex-1 font-black py-4 px-5 rounded-2xl text-xs sm:text-sm transition-all shadow-md flex items-center justify-center gap-2 active:scale-98 cursor-pointer ${
                           isOutOfStock
                             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-[#0F532B] hover:bg-[#0B3E20] text-white'
+                            : 'bg-[#0B8F5A] hover:bg-[#075C3C] text-white'
                         }`}
                       >
                         <ShoppingBag className="w-4 h-4" />

@@ -5,32 +5,45 @@ import { Pool, QueryResult } from 'pg';
  * Configured to connect Developer Laptop -> Client Laptop (D:\PostgreSQL\data)
  */
 
-const DB_HOST = process.env.DB_HOST || '192.168.0.102';
+const DB_HOST = process.env.DB_HOST || '192.168.0.106';
 const DB_PORT = parseInt(process.env.DB_PORT || '5433', 10);
 const DB_NAME = process.env.DB_NAME || 'pocketkirana_db';
 const DB_USER = process.env.DB_USER || 'postgres';
 const DB_PASSWORD = process.env.DB_PASSWORD || 'varbusiness';
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  `postgresql://${DB_USER}:${encodeURIComponent(DB_PASSWORD)}@${DB_HOST}:${DB_PORT}/${DB_NAME}`;
+declare global {
+  // eslint-disable-next-line no-var
+  var _postgresPool: Pool | undefined;
+}
 
-let pool: Pool | null = null;
+function getConnectionString(): string {
+  const dbHost = process.env.DB_HOST || '192.168.0.106';
+  const dbPort = parseInt(process.env.DB_PORT || '5433', 10);
+  const dbName = process.env.DB_NAME || 'pocketkirana_db';
+  const dbUser = process.env.DB_USER || 'postgres';
+  const dbPassword = process.env.DB_PASSWORD || 'varbusiness';
+
+  return (
+    process.env.DATABASE_URL ||
+    `postgresql://${dbUser}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${dbName}`
+  );
+}
 
 export function getPostgresPool(): Pool {
-  if (!pool) {
-    pool = new Pool({
-      connectionString,
-      max: 25,
-      idleTimeoutMillis: 30000,
+  if (!globalThis._postgresPool) {
+    globalThis._postgresPool = new Pool({
+      connectionString: getConnectionString(),
+      max: 15,
+      idleTimeoutMillis: 20000,
       connectionTimeoutMillis: 5000,
+      allowExitOnIdle: true,
     });
 
-    pool.on('error', (err) => {
+    globalThis._postgresPool.on('error', (err) => {
       console.error('⚠️ Unexpected PostgreSQL Pool Error on Client DB:', err.message);
     });
   }
-  return pool;
+  return globalThis._postgresPool;
 }
 
 /**
@@ -55,7 +68,7 @@ export async function withTransaction<T>(
     } catch (err: any) {
       try {
         await client.query('ROLLBACK');
-      } catch (_) {}
+      } catch (_) { }
 
       // Retry on 40001 (serialization_failure) or 40P01 (deadlock_detected)
       const isRetryable = err.code === '40001' || err.code === '40P01';

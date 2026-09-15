@@ -184,8 +184,8 @@ export default function ProductDetailClient() {
   };
 
   return (
-    <CustomerShell title={product.name} hideBottomNav>
-      <div className="min-h-screen bg-[#121215] text-white pb-32 selection:bg-emerald-500 selection:text-white font-sans">
+    <CustomerShell title={product.name} hideBottomNav noPadding>
+      <div className="min-h-screen w-full bg-[#121215] text-white pb-32 selection:bg-emerald-500 selection:text-white font-sans">
         
         {/* ── 1. PRODUCT IMAGE SHOWCASE & FLOATING ACTION BUTTONS ── */}
         <div className="relative bg-[#FFFFFF] rounded-b-[36px] overflow-hidden shadow-2xl">
@@ -594,18 +594,18 @@ export default function ProductDetailClient() {
             {/* Bottom Sheet Drawer */}
             <div className="bg-[#18181F] rounded-t-[28px] border-t border-slate-700/60 overflow-hidden flex flex-col max-h-[82vh] shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
               
-              {/* Product Preview Card */}
-              <div className="p-4 px-5 flex items-center gap-3.5 bg-[#18181F] border-b border-slate-800/80 shrink-0">
-                <div className="w-13 h-13 rounded-2xl bg-white p-1 flex items-center justify-center shrink-0 border border-slate-700/40 shadow-sm overflow-hidden">
-                  <img
-                    src={product.thumbnail || (product as any).image}
-                    alt={product.name}
-                    className="w-full h-full object-contain"
-                  />
+              {/* Product Header (Details Only - No Image) */}
+              <div className="p-4 px-5 bg-[#18181F] border-b border-slate-800/80 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800/50">
+                      Product Details
+                    </span>
+                    <h2 className="text-base sm:text-lg font-black text-white leading-snug mt-1.5">
+                      {product.name}
+                    </h2>
+                  </div>
                 </div>
-                <h2 className="text-sm sm:text-base font-black text-white leading-snug line-clamp-2">
-                  {product.name}
-                </h2>
               </div>
 
               {/* Scrollable Specifications Content inside bottom sheet */}

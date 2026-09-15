@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
+import { PWARegister } from '@/components/common/PWARegister';
 import './globals.css';
 
 const inter = Inter({
@@ -57,8 +59,6 @@ export const metadata: Metadata = {
   },
 };
 
-import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -67,10 +67,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
-        <link rel="manifest" href="/manifest.json" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="PocketKirana" />
         <link
           rel="stylesheet"
@@ -83,6 +86,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-gray-50 flex flex-col font-sans antialiased text-gray-900" suppressHydrationWarning>
+        <PWARegister />
         <GlobalErrorSuppressor />
         {children}
       </body>

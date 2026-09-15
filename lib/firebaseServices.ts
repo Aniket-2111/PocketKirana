@@ -32,6 +32,7 @@ import {
   ServiceRequest,
   PickingTask,
   PickingItem,
+  Picker,
   Delivery,
   Brand
 } from '@/types';
@@ -49,6 +50,7 @@ const COLLECTIONS = {
   BANNERS: 'banners',
   COUPONS: 'coupons',
   DELIVERY_PARTNERS: 'deliveryPartners',
+  PICKERS: 'pickers',
   SHOPS: 'shops',
   SERVICE_REQUESTS: 'serviceRequests',
   PICKING_TASKS: 'pickingTasks',
@@ -1008,6 +1010,69 @@ export async function updatePartnerAccountStatusFS(partnerId: string, accountSta
   }
 }
 
+export async function deleteDeliveryPartnerFS(partnerId: string): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const docRef = doc(firestore, COLLECTIONS.DELIVERY_PARTNERS, partnerId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    console.error('Error deleting delivery partner from Firestore:', error);
+    return false;
+  }
+}
+
+// ==========================================
+// STORE PICKERS (WAREHOUSE STAFF)
+// ==========================================
+export async function fetchPickersFS(): Promise<Picker[]> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return [];
+  try {
+    const querySnapshot = await withTimeout(
+      getDocs(collection(firestore, COLLECTIONS.PICKERS)),
+      1500,
+      null as any
+    );
+    if (!querySnapshot) return [];
+    const pickers: Picker[] = [];
+    querySnapshot.forEach((docSnap: any) => {
+      pickers.push({ id: docSnap.id, ...docSnap.data() } as Picker);
+    });
+    return pickers;
+  } catch (error) {
+    console.error('Error fetching pickers from Firestore:', error);
+    return [];
+  }
+}
+
+export async function savePickerFS(picker: Picker): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const docRef = doc(firestore, COLLECTIONS.PICKERS, picker.id);
+    await setDoc(docRef, sanitizeForFirestore(picker), { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error saving picker to Firestore:', error);
+    return false;
+  }
+}
+
+export async function deletePickerFS(pickerId: string): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const docRef = doc(firestore, COLLECTIONS.PICKERS, pickerId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    console.error('Error deleting picker from Firestore:', error);
+    return false;
+  }
+}
+
 export async function savePartnerAuthTokenFS(tokenData: PartnerAuthToken): Promise<boolean> {
   const firestore = getFirestoreInstance();
   if (!firestore) return false;
@@ -1508,13 +1573,36 @@ export function subscribeDeliveryAssignmentsFS(callback: (assignments: Delivery[
   }
 }
 
+// ══════════════════════════════════════════════════════════
+// DELIVERY TRACKING — Full telemetry, session lifecycle
+// ══════════════════════════════════════════════════════════
+
+/** Full telemetry payload for a single GPS fix */
+export interface DeliveryLocationTelemetry {
+  partnerId: string;
+  orderId: string;
+  latitude: number;
+  longitude: number;
+  /** GPS horizontal accuracy in metres */
+  accuracy?: number;
+  /** Speed in km/h */
+  speed?: number;
+  /** Compass heading in degrees (0–360) */
+  heading?: number;
+  /** Altitude in metres above sea level */
+  altitude?: number;
+  /** ISO timestamp from the device */
+  deviceTimestamp?: string;
+}
+
 export async function updateDeliveryTrackingFS(
   assignmentId: string,
   partnerId: string,
   orderId: string,
   lat: number,
   lng: number,
-  isActive: boolean = true
+  isActive: boolean = true,
+  telemetry?: Partial<DeliveryLocationTelemetry>
 ): Promise<boolean> {
   const firestore = getFirestoreInstance();
   if (!firestore) return false;
@@ -1526,13 +1614,94 @@ export async function updateDeliveryTrackingFS(
       orderId,
       currentLat: lat,
       currentLng: lng,
+      accuracy: telemetry?.accuracy ?? null,
+      speed: telemetry?.speed ?? null,
+      heading: telemetry?.heading ?? null,
+      altitude: telemetry?.altitude ?? null,
+      deviceTimestamp: telemetry?.deviceTimestamp ?? null,
+      // Server-side received timestamp (authoritative, not client-controlled)
+      receivedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      isActive
+      isActive,
     }, { merge: true });
     return true;
   } catch (error) {
     console.error('Error updating delivery tracking in Firestore:', error);
     return false;
+  }
+}
+
+/**
+ * Opens a delivery tracking session when an order goes out for delivery.
+ * Sets status to 'active' with startedAt timestamp.
+ */
+export async function startTrackingSessionFS(
+  orderId: string,
+  partnerId: string,
+  customerId?: string
+): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const assignmentId = `assign-${orderId}`;
+    const docRef = doc(firestore, COLLECTIONS.DELIVERY_TRACKING, assignmentId);
+    await setDoc(docRef, {
+      assignmentId,
+      orderId,
+      partnerId,
+      customerId: customerId ?? null,
+      status: 'active',
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      isActive: true,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error starting tracking session in Firestore:', error);
+    return false;
+  }
+}
+
+/**
+ * Closes a delivery tracking session when an order is delivered, cancelled, or failed.
+ * Sets isActive to false so the customer map stops showing live location.
+ */
+export async function stopTrackingSessionFS(orderId: string): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const assignmentId = `assign-${orderId}`;
+    const docRef = doc(firestore, COLLECTIONS.DELIVERY_TRACKING, assignmentId);
+    await setDoc(docRef, {
+      status: 'ended',
+      endedAt: new Date().toISOString(),
+      isActive: false,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error stopping tracking session in Firestore:', error);
+    return false;
+  }
+}
+
+/**
+ * One-time fetch of the latest tracking document for reconnect synchronisation.
+ * Returns null if no tracking session exists or Firebase is unavailable.
+ */
+export async function fetchLatestTrackingFS(orderId: string): Promise<any | null> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return null;
+  try {
+    const assignmentId = `assign-${orderId}`;
+    const docRef = doc(firestore, COLLECTIONS.DELIVERY_TRACKING, assignmentId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) return snap.data();
+    return null;
+  } catch (error) {
+    console.warn('fetchLatestTrackingFS error (non-fatal):', error);
+    return null;
   }
 }
 
@@ -1562,6 +1731,7 @@ export function subscribeDeliveryTrackingFS(
     return () => {};
   }
 }
+
 
 // ==========================================
 // DUMMY DATA PURGE / DATABASE CLEANUP

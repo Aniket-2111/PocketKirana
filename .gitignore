@@ -58,3 +58,8 @@ Thumbs.db
 Desktop.ini
 
 .gstack/
+.claude/
+.freebuff/
+.reticle/
+.reticle.json
+.tmp-preview.cmd

@@ -319,7 +319,86 @@ export type OrderStatus =
 
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'paid';
 
-export type PaymentMethod = 'upi' | 'razorpay' | 'phonepe' | 'card' | 'netbanking' | 'cod' | 'wallet';
+export type PaymentMethod = 'upi' | 'razorpay' | 'phonepe' | 'card' | 'netbanking' | 'cod' | 'wallet' | 'cash' | 'phonepe_upi' | 'cod_cash';
+
+export type CollectionMethod = 'ONLINE' | 'CASH' | 'UPI';
+
+export type CollectionStatus = 'NOT_REQUIRED' | 'PENDING' | 'COLLECTED' | 'VERIFIED' | 'SETTLED' | 'FAILED';
+
+export type SettlementStatus = 'NOT_APPLICABLE' | 'PENDING' | 'SETTLED' | 'PARTIALLY_SETTLED';
+
+export interface DeliveryOtpRecord {
+  otp: string;
+  attempts: number;
+  maxAttempts: number;
+  isLocked: boolean;
+  lockedAt?: string;
+  generatedAt: string;
+  expiresAt: string;
+  verifiedAt?: string;
+  lastAttemptAt?: string;
+}
+
+export interface CodCollectionRecord {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  partnerId: string;
+  partnerName?: string;
+  expectedAmount: number;
+  collectedAmount: number;
+  settledAmount: number;
+  method: CollectionMethod;
+  status: CollectionStatus;
+  collectedAt?: string;
+  settledAt?: string;
+  settlementRef?: string;
+  adminId?: string;
+  adminName?: string;
+  note?: string;
+}
+
+export interface PartnerSettlementLedger {
+  partnerId: string;
+  partnerName: string;
+  phone?: string;
+  totalCashCollected: number;
+  totalUpiCollected: number;
+  totalCollected: number;
+  totalSettled: number;
+  pendingSettlement: number;
+  lastSettledAt?: string;
+  activeOrdersCount?: number;
+}
+
+export interface SettlementRecord {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  amount: number;
+  adminId: string;
+  adminName: string;
+  settlementRef: string;
+  note?: string;
+  timestamp: string;
+  orderIds?: string[];
+}
+
+export interface DeliveryExceptionRecord {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  partnerId: string;
+  partnerName: string;
+  reason: string;
+  evidenceUrl?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewedByAdminId?: string;
+  reviewedByAdminName?: string;
+  reviewedAt?: string;
+  adminNote?: string;
+  createdAt: string;
+}
 
 export interface OrderItem {
   id: string;
@@ -363,6 +442,7 @@ export interface Order {
   placedAt: string;
   deliverySlot: string;
   deliveryOtp: string;
+  deliveryOtpData?: DeliveryOtpRecord;
   estimatedDeliveryTime?: string;
   partnerId?: string;
   partnerName?: string;
@@ -376,6 +456,21 @@ export interface Order {
     note?: string;
   }[];
   deliveryDistanceKm?: number;
+  // Financial & COD Collection fields
+  collectionMethod?: CollectionMethod;
+  collectionStatus?: CollectionStatus;
+  settlementStatus?: SettlementStatus;
+  expectedCodAmount?: number;
+  collectedCodAmount?: number;
+  settledCodAmount?: number;
+  cashCollectedAt?: string;
+  cashCollectedBy?: string;
+  upiVerifiedAt?: string;
+  upiTransactionId?: string;
+  deliveryOtpAttempts?: number;
+  deliveryOtpLocked?: boolean;
+  deliveryExceptionId?: string;
+  isExceptionDelivery?: boolean;
 }
 
 export interface Payment {
@@ -473,6 +568,10 @@ export interface DeliveryPartner {
   name: string;
   phone: string;
   partnerCode?: string;
+  /** Admin-issued login credential ID for password-based login */
+  loginId?: string;
+  /** Admin-issued login password (plaintext, stored in local store) */
+  loginPassword?: string;
   accountStatus?: 'active' | 'inactive' | 'suspended';
   profileImage: string;
   vehicleType: string;
@@ -504,6 +603,14 @@ export interface DeliveryPartner {
   statistics?: PartnerStatistics;
   activeSessionToken?: string;
   activeDeviceSession?: string;
+  /** Unverified cash on delivery collected and currently held by rider */
+  cashInHand?: number;
+  /** Status of cash collection settlement with Admin */
+  cashSettlementStatus?: 'SETTLED' | 'PENDING_VERIFICATION' | 'UNCLEARED';
+  /** Timestamp when cash was last settled and verified by DarkStore Admin */
+  lastCashSettledAt?: string;
+  /** Flag set when Admin remotely logs out or ends rider's shift */
+  forceLoggedOutByAdmin?: boolean;
 }
 
 export interface Delivery {
@@ -902,6 +1009,10 @@ export interface Picker {
   email?: string;
   photo: string;
   employeeId: string; // e.g. 'PKP-014'
+  /** Admin-issued login credential ID for password-based login */
+  loginId?: string;
+  /** Admin-issued login password (plaintext, stored in local store) */
+  loginPassword?: string;
   storeId: string;
   storeName: string;
   status: 'active' | 'offline' | 'busy';

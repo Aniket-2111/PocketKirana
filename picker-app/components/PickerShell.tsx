@@ -103,6 +103,44 @@ export default function PickerShell({ children }: PickerShellProps) {
     }
   }, [isLoggedIn, router]);
 
+  // Android Hardware Back Button Handler & Double-Back to Exit on Home
+  useEffect(() => {
+    let lastBackPressTime = 0;
+
+    const handleBackButton = (e: any) => {
+      if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+      }
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      const isHomePage = currentPath === '/home' || currentPath === '/home/' || currentPath === '/' || currentPath === '';
+      if (isHomePage) {
+        const now = Date.now();
+        if (now - lastBackPressTime < 2000) {
+          if ((window as any).navigator?.app?.exitApp) {
+            (window as any).navigator.app.exitApp();
+          } else if ((window as any).Capacitor?.Plugins?.App?.exitApp) {
+            (window as any).Capacitor.Plugins.App.exitApp();
+          }
+        } else {
+          lastBackPressTime = now;
+          showToast('Press back again to exit', 'info');
+        }
+      } else {
+        router.back();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('backbutton', handleBackButton, false);
+    }
+
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('backbutton', handleBackButton, false);
+      }
+    };
+  }, [router]);
+
   useEffect(() => {
     // Always force picker role in picker workspace so Firebase sync fetches all orders
     const state = useAppStore.getState();
@@ -131,7 +169,6 @@ export default function PickerShell({ children }: PickerShellProps) {
   const navItems = [
     { name: 'Home', href: '/home', icon: Home },
     { name: 'Orders', href: '/tasks', icon: Package },
-    { name: 'Putaway', href: '/putaway', icon: Archive },
     { name: 'Profile', href: '/profile', icon: User },
   ];
 
@@ -155,9 +192,11 @@ export default function PickerShell({ children }: PickerShellProps) {
         <div className="space-y-6">
           {/* Logo Brand */}
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-emerald-600/20">
-              PK
-            </div>
+            <img
+              src="/logo-icon.png"
+              alt="Pocket Kirana"
+              className="w-10 h-10 object-contain rounded-2xl bg-white p-1 border border-slate-200 shadow-sm"
+            />
             <div>
               <h3 className="font-black text-sm tracking-tight text-slate-900 uppercase">PocketKirana</h3>
               <span className="text-[10px] text-emerald-700 font-extrabold uppercase tracking-wider block">
@@ -285,7 +324,7 @@ export default function PickerShell({ children }: PickerShellProps) {
 
       {/* ── MOBILE BOTTOM NAVIGATION BAR ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-xl">
-        <div className="grid grid-cols-4 h-16">
+        <div className="grid grid-cols-3 h-16">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;

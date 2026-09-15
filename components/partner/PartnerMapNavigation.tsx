@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { MapPin, Navigation, ExternalLink, Compass } from 'lucide-react';
+import { getRoadRoute } from '@/lib/locationServices';
 
 interface PartnerMapNavigationProps {
   riderLocation?: { latitude: number; longitude: number };
@@ -87,26 +88,23 @@ export const PartnerMapNavigation: React.FC<PartnerMapNavigationProps> = ({
           .addTo(map)
           .bindPopup(`<b>Customer: ${customerLocation.address}</b>`);
 
-        // Route Polyline
+        // Real Road Route Polyline
         const targetLat = isHeadingToCustomer ? customerLocation.latitude : storeLocation.latitude;
         const targetLng = isHeadingToCustomer ? customerLocation.longitude : storeLocation.longitude;
 
-        L.polyline(
-          [
-            [riderLocation.latitude, riderLocation.longitude],
-            [
-              (riderLocation.latitude + targetLat) / 2 + 0.001,
-              (riderLocation.longitude + targetLng) / 2 + 0.0005,
-            ],
-            [targetLat, targetLng],
-          ],
-          {
-            color: '#10B981',
-            weight: 5,
-            opacity: 0.9,
-            dashArray: '8, 8',
+        getRoadRoute(riderLocation.latitude, riderLocation.longitude, targetLat, targetLng).then((res) => {
+          if (res.geometry && res.geometry.length > 0) {
+            L.polyline(res.geometry, {
+              color: '#10B981',
+              weight: 5,
+              opacity: 0.95,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }).addTo(map);
+
+            map.fitBounds(L.latLngBounds(res.geometry), { padding: [35, 35] });
           }
-        ).addTo(map);
+        });
 
         setMapLoaded(true);
       });

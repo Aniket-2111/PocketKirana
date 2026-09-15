@@ -10,14 +10,19 @@ import { HeroBanner } from '@/components/customer/HeroBanner';
 import { CategoryGrid } from '@/components/customer/CategoryGrid';
 import { ProductCarouselSection } from '@/components/customer/ProductCarouselSection';
 import { DualPromoBanner } from '@/components/customer/DualPromoBanner';
-import { ServiceBenefits } from '@/components/customer/ServiceBenefits';
+import { FestivalCampaignRenderer } from '@/components/customer/festival/FestivalCampaignRenderer';
 import { Product } from '@/types';
 import { Sparkles, Building2, Flame, ArrowRight } from 'lucide-react';
 import { INITIAL_PRODUCTS, INITIAL_BRANDS } from '@/lib/mockData';
 
 export default function HomePage() {
   const router = useRouter();
-  const { products, categories, brands } = useAppStore();
+  const { products, categories, brands, getActiveFestivalCampaign, isFestivalEmergencyDisabled } = useAppStore();
+
+  const activeFestivalCampaign = useMemo(() => {
+    if (isFestivalEmergencyDisabled) return null;
+    return getActiveFestivalCampaign ? getActiveFestivalCampaign() : null;
+  }, [getActiveFestivalCampaign, isFestivalEmergencyDisabled]);
 
   const handleNavigateToProduct = (product: Product) => {
     router.push(`/product/${product.slug}`);
@@ -76,17 +81,24 @@ export default function HomePage() {
     <>
       <RoleSwitcher />
       <CustomerLayout>
-        <div suppressHydrationWarning className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-8 font-sans">
+        <div suppressHydrationWarning className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-6 sm:space-y-8 font-sans">
           
-          {/* ── 1. PROMOTIONAL HERO BANNER (Cream + Organic Green) ── */}
-          <HeroBanner />
+          {/* ── 1. ACTIVE FESTIVAL CAMPAIGN OR PROMOTIONAL HERO BANNER ── */}
+          {activeFestivalCampaign ? (
+            <FestivalCampaignRenderer
+              campaign={activeFestivalCampaign}
+              onOpenProductDetail={handleNavigateToProduct}
+            />
+          ) : (
+            <HeroBanner />
+          )}
 
           {/* ── 2. CIRCULAR CATEGORY NAVIGATION (Matching Reference Layout) ── */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#0B8F5A]" />
-                <h2 className="text-lg sm:text-xl font-black text-[#075C3C] tracking-tight">
+                <h2 className="text-base sm:text-xl font-black text-[#075C3C] tracking-tight">
                   Shop By Category
                 </h2>
               </div>
@@ -125,29 +137,29 @@ export default function HomePage() {
 
           {/* ── 6. SHOP BY BRAND SHOWCASE (Dynamic Brand System) ── */}
           {activeBrands.length > 0 && (
-            <section id="brands-section" className="space-y-4 my-8">
+            <section id="brands-section" className="space-y-3 sm:space-y-4 my-6 sm:my-8">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#0B8F5A] flex items-center justify-center font-bold">
-                    <Building2 className="w-4 h-4" />
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 text-[#0B8F5A] flex items-center justify-center font-bold">
+                    <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-black text-[#075C3C] tracking-tight">
+                    <h2 className="text-base sm:text-xl md:text-2xl font-black text-[#075C3C] tracking-tight">
                       Shop by Official Brands
                     </h2>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="text-[11px] sm:text-xs text-slate-500 font-medium line-clamp-1">
                       Authentic pantry staples, dairy, and snacks from trusted brands
                     </p>
                   </div>
                 </div>
 
-                <span className="text-xs font-bold text-slate-400">
-                  {activeBrands.length} Brands Available
+                <span className="text-[11px] sm:text-xs font-bold text-slate-400 shrink-0">
+                  {activeBrands.length} Brands
                 </span>
               </div>
 
               {/* Brand Cards Carousel */}
-              <div className="flex items-center gap-4 overflow-x-auto scrollbar-none no-scrollbar py-2">
+              <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto scrollbar-none no-scrollbar py-2">
                 {activeBrands.map((brand) => {
                   const logoSrc = brand.logoUrl || brand.logo || '';
                   const brandProdCount = allProducts.filter(
@@ -161,9 +173,9 @@ export default function HomePage() {
                     <Link
                       key={brand.id}
                       href={`/brand/${brand.slug}`}
-                      className="group flex flex-col items-center gap-2 shrink-0 bg-white border border-slate-200/80 hover:border-[#0B8F5A] p-4 rounded-3xl transition-all shadow-2xs hover:shadow-md w-28 sm:w-32 text-center"
+                      className="group flex flex-col items-center gap-2 shrink-0 bg-white border border-slate-200/80 hover:border-[#0B8F5A] p-3 sm:p-4 rounded-2xl sm:rounded-3xl transition-all shadow-2xs hover:shadow-md w-24 sm:w-32 text-center"
                     >
-                      <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-[#FFFDF5] border border-slate-100 flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform p-2">
+                      <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-xl sm:rounded-2xl bg-[#FFFDF5] border border-slate-100 flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform p-1.5 sm:p-2">
                         {logoSrc ? (
                           <img
                             src={logoSrc}
@@ -171,16 +183,16 @@ export default function HomePage() {
                             className="w-full h-full object-contain"
                           />
                         ) : (
-                          <span className="font-black text-slate-500 text-xl uppercase">
+                          <span className="font-black text-slate-500 text-lg sm:text-xl uppercase">
                             {brand.name.slice(0, 2)}
                           </span>
                         )}
                       </div>
                       <div className="space-y-0.5">
-                        <span className="text-xs font-black text-slate-900 group-hover:text-[#0B8F5A] line-clamp-1">
+                        <span className="text-[11px] sm:text-xs font-black text-slate-900 group-hover:text-[#0B8F5A] line-clamp-1">
                           {brand.name}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-bold block">
+                        <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold block">
                           {brandProdCount > 0 ? `${brandProdCount} items` : 'Explore'}
                         </span>
                       </div>
@@ -199,9 +211,6 @@ export default function HomePage() {
             products={freshEssentialsProducts.length > 0 ? freshEssentialsProducts : allProducts.slice(0, 8)}
             onOpenDetail={handleNavigateToProduct}
           />
-
-          {/* ── 8. SERVICE BENEFITS (Matching Reference Bottom Section) ── */}
-          <ServiceBenefits />
 
         </div>
       </CustomerLayout>

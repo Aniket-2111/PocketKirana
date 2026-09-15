@@ -45,6 +45,7 @@ import {
   ChevronDown,
   ArrowUpRight,
   CreditCard,
+  Wallet,
   FileSpreadsheet,
   UploadCloud,
   Navigation,
@@ -58,7 +59,8 @@ import {
   Barcode,
   History,
   CheckCheck,
-  Building2
+  Building2,
+  Menu
 } from 'lucide-react';
 import { BulkCSVUploadModal } from '@/components/admin/BulkCSVUploadModal';
 import { uploadProductImageFS } from '@/lib/firebaseStorage';
@@ -73,6 +75,11 @@ import { CategoryManagementView } from '@/components/admin/CategoryManagementVie
 import { BrandManagementView } from '@/components/admin/BrandManagementView';
 import { BannerManagementView } from '@/components/admin/BannerManagementView';
 import { ModernSalesAnalyticsChart } from '@/components/admin/ModernSalesAnalyticsChart';
+import { StaffManagementView } from '@/components/admin/StaffManagementView';
+import { InvoicesManagementView } from '@/components/admin/InvoicesManagementView';
+import { InvoiceSettingsView } from '@/components/admin/InvoiceSettingsView';
+import { PaymentsAndSettlementView } from '@/components/admin/PaymentsAndSettlementView';
+import { FestivalCampaignsCMS } from '@/components/admin/festival/FestivalCampaignsCMS';
 import { Order } from '@/types';
 import { INITIAL_ORDERS } from '@/lib/mockData';
 
@@ -96,6 +103,7 @@ function AdminDashboardContent() {
     coupons,
     orders,
     deliveryPartners,
+    pickers,
     addresses,
     auditLogs,
     addAuditLog,
@@ -120,7 +128,8 @@ function AdminDashboardContent() {
     deleteProduct,
     addCategory,
     updateCategory,
-    deleteCategory
+    deleteCategory,
+    downloadInvoicePDF
   } = useAppStore();
 
   React.useEffect(() => {
@@ -146,7 +155,7 @@ function AdminDashboardContent() {
   };
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'analytics' | 'inventory' | 'batches' | 'expiry' | 'ledger' | 'categories' | 'brands' | 'offers' | 'orders' | 'customers' | 'notifications' | 'audit'
+    'overview' | 'analytics' | 'inventory' | 'batches' | 'expiry' | 'ledger' | 'categories' | 'brands' | 'offers' | 'orders' | 'customers' | 'notifications' | 'audit' | 'delivery-fleet' | 'service-area' | 'invoices' | 'invoice-settings' | 'payments' | 'festivals'
   >(
     initialTab === 'store' ? 'orders' : (initialTab as any) || 'overview'
   );
@@ -154,6 +163,7 @@ function AdminDashboardContent() {
   const [selectedOrderModal, setSelectedOrderModal] = useState<Order | null>(null);
   const [selectedProductFor360, setSelectedProductFor360] = useState<Product | null>(null);
   const [showBarcodeAddModal, setShowBarcodeAddModal] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Synchronize URL search parameters (tab, orderId, search) with state
   React.useEffect(() => {
@@ -571,26 +581,163 @@ function AdminDashboardContent() {
 
   // ── SECURITY PROTECTION BARRIER REMOVED ──
 
-  // Sidebar Menu Config (Pixel Commerce / PocketKirana Style)
+  // Sidebar Menu Config (Pixel Commerce / PocketKirana  // Sidebar Menu Config (Pixel Commerce / PocketKirana Style)
   const adminUnreadCount = notifications.filter(n => n.recipientType === 'admin' && !n.isRead).length;
 
-  const navMenuItems: Array<{ id: string; label: string; icon: any; count?: number; href?: string }> = [
-    { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'service-area', label: 'Service Area & Location', icon: MapPin, href: '/admin/service-area' },
-    { id: 'delivery-fleet', label: 'Delivery Partners', icon: Truck, href: '/admin/delivery-fleet' },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'inventory', label: 'Products', icon: Package, count: products.length },
-    { id: 'batches', label: 'Batch & FEFO Stock', icon: Boxes },
-    { id: 'expiry', label: 'Expiry Center', icon: Clock },
-    { id: 'ledger', label: 'Stock Ledger', icon: History },
-    { id: 'categories', label: 'Categories', icon: Layers, count: categories.length },
-    { id: 'brands', label: 'Brands', icon: Building2 },
-    { id: 'offers', label: 'Banners & Marketing', icon: Percent, count: banners.length + coupons.length },
-    { id: 'orders', label: 'Orders & Queue', icon: ShoppingBag, count: activeOrders.length },
-    { id: 'customers', label: 'Customer', icon: Users },
-    { id: 'notifications', label: 'Broadcast & Notifications', icon: Bell, count: adminUnreadCount > 0 ? adminUnreadCount : undefined },
-    { id: 'audit', label: 'Audit Logs', icon: ShieldCheck, count: auditLogs.length },
+  const navMenuSections = [
+    {
+      title: 'OPERATIONS',
+      items: [
+        { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'orders', label: 'Orders & Queue', icon: ShoppingBag, count: activeOrders.length },
+        { id: 'delivery-fleet', label: 'Staff & Fleet', icon: Truck, count: deliveryPartners.length + (pickers?.length || 0) },
+        { id: 'service-area', label: 'Service Area', icon: MapPin, href: '/admin/service-area' },
+      ],
+    },
+    {
+      title: 'CATALOG & INVENTORY',
+      items: [
+        { id: 'inventory', label: 'Products', icon: Package, count: products.length },
+        { id: 'categories', label: 'Categories', icon: Layers, count: categories.length },
+        { id: 'brands', label: 'Brands', icon: Building2 },
+        { id: 'batches', label: 'Batch & FEFO Stock', icon: Boxes },
+        { id: 'expiry', label: 'Expiry Center', icon: Clock },
+        { id: 'ledger', label: 'Stock Ledger', icon: History },
+      ],
+    },
+    {
+      title: 'GROWTH & CUSTOMERS',
+      items: [
+        { id: 'festivals', label: 'Festival Campaigns', icon: Sparkles },
+        { id: 'offers', label: 'Banners & Marketing', icon: Percent, count: banners.length + coupons.length },
+        { id: 'customers', label: 'Customer Base', icon: Users },
+        { id: 'notifications', label: 'Broadcast & Alerts', icon: Bell, count: adminUnreadCount > 0 ? adminUnreadCount : undefined },
+      ],
+    },
+    {
+      title: 'FINANCE & AUDIT',
+      items: [
+        { id: 'payments', label: 'Payments & Settlements', icon: Wallet },
+        { id: 'invoices', label: 'Invoices', icon: FileText },
+        { id: 'invoice-settings', label: 'Invoice Settings', icon: Sliders },
+        { id: 'analytics', label: 'Analytics & Trends', icon: BarChart3 },
+        { id: 'audit', label: 'Audit Logs', icon: ShieldCheck, count: auditLogs.length },
+      ],
+    },
   ];
+
+  const renderSidebarContent = () => (
+    <div className="flex flex-col h-full">
+      {/* Logo & Brand Header */}
+      <div className="flex items-center justify-between px-2 py-2 mb-2 shrink-0 border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/logo-icon.png"
+            alt="Pocket Kirana"
+            className="w-9 h-9 object-contain rounded-xl bg-white p-1 shadow-xs border border-slate-200"
+          />
+          <div>
+            <h2 className="font-black text-slate-900 text-base tracking-tight leading-none">
+              Pocket<span className="text-emerald-600">Kirana</span>
+            </h2>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">Admin Console</span>
+          </div>
+        </div>
+        {mobileSidebarOpen && (
+          <button
+            onClick={() => setMobileSidebarOpen(false)}
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+
+      {/* Sidebar Nav Links with Clear Grouping */}
+      <nav className="flex-1 min-h-0 space-y-4 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 overscroll-contain">
+        {navMenuSections.map((sec) => (
+          <div key={sec.title} className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 block">
+              {sec.title}
+            </span>
+            <div className="space-y-0.5">
+              {sec.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                if ((item as any).href) {
+                  return (
+                    <Link
+                      key={item.id}
+                      href={(item as any).href}
+                      onClick={() => setMobileSidebarOpen(false)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    </Link>
+                  );
+                }
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id as any);
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#4FD1C5] text-slate-950 font-black shadow-2xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-slate-500'}`} />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                      {item.count !== undefined && (
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                            isActive ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {item.count}
+                        </span>
+                      )}
+                      {isActive && <ChevronRight className="w-3.5 h-3.5 text-slate-950 shrink-0" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      {/* Quick User Profile Pill at Bottom (Pinned) */}
+      <div className="shrink-0 pt-3 mt-2 border-t border-slate-200 flex items-center justify-between px-2 text-xs bg-white">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+            A
+          </div>
+          <div className="min-w-0">
+            <span className="font-bold text-slate-900 block leading-tight truncate">Aniket (Admin)</span>
+            <span className="text-[10px] text-slate-500 block truncate">Master Operations</span>
+          </div>
+        </div>
+        <button
+          onClick={() => setActiveRole('customer')}
+          className="text-slate-400 hover:text-slate-900 transition-colors p-1.5 rounded-lg hover:bg-slate-100 shrink-0"
+          title="Switch to Customer Mode"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
 
   if (!mounted) {
     return (
@@ -605,106 +752,48 @@ function AdminDashboardContent() {
       <RoleSwitcher />
 
       {/* Main Admin Wrapper */}
-      <div className="flex-1 flex max-w-[1600px] w-full mx-auto bg-[#F4F5F7] min-h-[calc(100vh-37px)]">
+      <div className="flex-1 flex max-w-[1600px] w-full mx-auto bg-[#F4F5F7] min-h-[calc(100vh-37px)] relative">
 
-        {/* ── LEFT SIDEBAR (Clean Monochrome Design from Screenshot) ── */}
-        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 p-5 space-y-6">
-          {/* Logo & Brand Header */}
-          <div className="flex items-center gap-3 px-2 py-1">
-            <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-lg shadow-sm border border-amber-500/30">
-              PK
-            </div>
-            <div>
-              <h2 className="font-black text-slate-900 text-lg tracking-tight leading-none">
-                Pocket<span className="text-emerald-600">Kirana</span>
-              </h2>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-1">Admin Console</span>
-            </div>
-          </div>
-
-          {/* Sidebar Nav Links */}
-          <nav className="flex-1 space-y-1.5">
-            {navMenuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              if (item.href) {
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className="w-4 h-4 text-emerald-600" />
-                      <span>{item.label}</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </Link>
-                );
-              }
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${isActive
-                      ? 'bg-[#4FD1C5] text-slate-950 font-black shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-slate-950' : 'text-slate-500'}`} />
-                    <span>{item.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {item.count !== undefined && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isActive ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                        {item.count}
-                      </span>
-                    )}
-                    {isActive && <ChevronRight className="w-4 h-4 text-slate-950" />}
-                  </div>
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Quick User Profile Pill at Bottom */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-between px-2 text-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-                A
-              </div>
-              <div>
-                <span className="font-bold text-slate-900 block leading-tight">Aniket (Admin)</span>
-                <span className="text-[10px] text-slate-500 block">Master Operations</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setActiveRole('customer')}
-              className="text-slate-400 hover:text-slate-900 transition-colors p-1"
-              title="Switch to Customer Mode"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+        {/* ── DESKTOP LEFT SIDEBAR ── */}
+        <aside className="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col shrink-0 p-3.5 sticky top-[37px] h-[calc(100vh-37px)] max-h-[calc(100vh-37px)] z-30 overflow-hidden shadow-2xs">
+          {renderSidebarContent()}
         </aside>
 
+        {/* ── MOBILE SLIDEOVER DRAWER ── */}
+        {mobileSidebarOpen && (
+          <div className="fixed inset-0 z-50 md:hidden bg-slate-950/60 backdrop-blur-xs flex">
+            <div className="w-72 max-w-[85vw] bg-white h-full p-4 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+              {renderSidebarContent()}
+            </div>
+            <div className="flex-1" onClick={() => setMobileSidebarOpen(false)} />
+          </div>
+        )}
+
         {/* ── MAIN CONTENT AREA (Right Side) ── */}
-        <main className="flex-1 flex flex-col min-w-0 p-6 md:p-8 space-y-6 overflow-y-auto">
+        <main className="flex-1 flex flex-col min-w-0 p-4 sm:p-6 md:p-8 space-y-6 overflow-y-auto">
 
           {/* Top Bar Header */}
           <header className="flex flex-wrap items-center justify-between gap-4 pb-2">
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight capitalize">
-                {activeTab === 'overview' ? 'Overview' : activeTab.replace(/_/g, ' ')}
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">Real-time store performance & operational controls</p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(true)}
+                className="md:hidden p-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer"
+                aria-label="Open Admin Menu"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight capitalize">
+                  {activeTab === 'overview' ? 'Overview' : activeTab.replace(/_/g, ' ')}
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5">Real-time store performance & operational controls</p>
+              </div>
             </div>
 
             {/* Top Search, Notification Bell & Controls */}
-            <div className="flex items-center gap-3">
-              <div className="relative w-64">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative w-full sm:w-64">
                 <input
                   type="text"
                   placeholder="Search products, orders..."
@@ -720,7 +809,7 @@ function AdminDashboardContent() {
 
               <button
                 onClick={() => setShowBulkCSVModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Bulk CSV Import</span>
@@ -728,7 +817,7 @@ function AdminDashboardContent() {
 
               <button
                 onClick={() => setShowBarcodeAddModal(true)}
-                className="bg-slate-900 hover:bg-black text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                className="bg-slate-900 hover:bg-black text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Product (EAN-13)</span>
@@ -800,22 +889,25 @@ function AdminDashboardContent() {
                   </div>
                 </div>
 
-                {/* Active EV Delivery Fleet */}
-                <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs space-y-3">
+                {/* Active EV Delivery & Picker Fleet */}
+                <div
+                  onClick={() => setActiveTab('delivery-fleet')}
+                  className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs space-y-3 cursor-pointer hover:border-emerald-400 hover:shadow-md transition-all group"
+                >
                   <div className="flex items-center justify-between text-slate-500">
                     <div>
-                      <span className="text-xs font-bold text-slate-700 block">Active Fleet</span>
-                      <span className="text-[10px] text-slate-400">EV Delivery Partners</span>
+                      <span className="text-xs font-bold text-slate-700 block group-hover:text-emerald-700 transition-colors">Staff &amp; Fleet</span>
+                      <span className="text-[10px] text-slate-400">Riders &amp; Pickers</span>
                     </div>
-                    <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-600 group-hover:border-emerald-200 transition-colors">
                       <Truck className="w-5 h-5" />
                     </div>
                   </div>
 
                   <div className="flex items-baseline justify-between pt-1">
-                    <span className="text-2xl font-black text-slate-900">{deliveryPartners.length} Online</span>
+                    <span className="text-2xl font-black text-slate-900">{deliveryPartners.length + (pickers?.length || 0)} Staff</span>
                     <span className="text-[11px] text-emerald-600 font-bold flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Live Dispatch
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> {deliveryPartners.length} Riders / {pickers?.length || 0} Pickers
                     </span>
                   </div>
                 </div>
@@ -985,6 +1077,11 @@ function AdminDashboardContent() {
                 </table>
               </div>
             </div>
+          )}
+
+          {/* ── TAB: STAFF & DELIVERY FLEET MANAGEMENT (Direct In-Dashboard View) ── */}
+          {activeTab === 'delivery-fleet' && (
+            <StaffManagementView />
           )}
 
           {/* ── TAB: BATCHES & FEFO INVENTORY ── */}
@@ -1524,6 +1621,26 @@ function AdminDashboardContent() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ── TAB: INVOICES MANAGEMENT ── */}
+          {activeTab === 'invoices' && (
+            <InvoicesManagementView />
+          )}
+
+          {/* ── TAB: INVOICE SETTINGS ── */}
+          {activeTab === 'invoice-settings' && (
+            <InvoiceSettingsView />
+          )}
+
+          {/* ── TAB: PAYMENTS & SETTLEMENTS ── */}
+          {activeTab === 'payments' && (
+            <PaymentsAndSettlementView />
+          )}
+
+          {/* ── TAB: FESTIVAL CAMPAIGNS & AI TEMPLATES CMS ── */}
+          {activeTab === 'festivals' && (
+            <FestivalCampaignsCMS />
           )}
 
         </main>
@@ -2510,6 +2627,26 @@ function AdminDashboardContent() {
                 )}
 
                 <div className="flex-1" />
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await downloadInvoicePDF(selectedOrderModal.id);
+                      if (res.success) {
+                        showToast(`Invoice downloaded for Order #${selectedOrderModal.orderNumber}`, 'success');
+                      } else {
+                        showToast('Failed to download invoice', 'error');
+                      }
+                    } catch (err) {
+                      showToast('Failed to download invoice', 'error');
+                    }
+                  }}
+                  className="bg-slate-900 hover:bg-black text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Download Invoice</span>
+                </button>
 
                 <button
                   onClick={() => {

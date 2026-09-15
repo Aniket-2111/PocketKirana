@@ -24,7 +24,10 @@ import {
   Lock,
   X,
   CheckCircle2,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ShieldCheck,
+  FileText,
+  RotateCcw
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 
@@ -315,14 +318,69 @@ export default function CustomerProfilePage() {
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
 
-            {/* 3. Account Privacy */}
+            {/* 3. Legal & Compliance Policies (All 9 Documents) */}
+            <button
+              onClick={() => router.push('/legal')}
+              className="w-full p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between transition-colors text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-3.5">
+                <ShieldCheck className="w-4.5 h-4.5 text-[#006E2F] dark:text-emerald-400" />
+                <div>
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                    Legal &amp; Compliance Center
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    FSSAI, DPDP, Terms, Refunds &amp; Disclosures
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+
+            {/* 4. Terms & Conditions */}
+            <button
+              onClick={() => router.push('/terms')}
+              className="w-full p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between transition-colors text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-3.5">
+                <FileText className="w-4.5 h-4.5 text-slate-600 dark:text-slate-300" />
+                <span className="text-xs font-black text-slate-800 dark:text-slate-200">Terms &amp; conditions</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+
+            {/* 5. Account Privacy & DPDP */}
             <button
               onClick={() => router.push('/privacy')}
               className="w-full p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between transition-colors text-left cursor-pointer"
             >
               <div className="flex items-center gap-3.5">
                 <Lock className="w-4.5 h-4.5 text-slate-600 dark:text-slate-300" />
-                <span className="text-xs font-black text-slate-800 dark:text-slate-200">Account privacy</span>
+                <span className="text-xs font-black text-slate-800 dark:text-slate-200">Account privacy &amp; DPDP</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+
+            {/* 6. Refunds & Cancellations */}
+            <button
+              onClick={() => router.push('/refund-policy')}
+              className="w-full p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between transition-colors text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-3.5">
+                <RotateCcw className="w-4.5 h-4.5 text-slate-600 dark:text-slate-300" />
+                <span className="text-xs font-black text-slate-800 dark:text-slate-200">Refund &amp; cancellation policy</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+
+            {/* 7. Grievance Redressal */}
+            <button
+              onClick={() => router.push('/grievance-redressal')}
+              className="w-full p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between transition-colors text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-3.5">
+                <HelpCircle className="w-4.5 h-4.5 text-slate-600 dark:text-slate-300" />
+                <span className="text-xs font-black text-slate-800 dark:text-slate-200">Grievance officer &amp; redressal</span>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>

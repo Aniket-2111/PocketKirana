@@ -9,14 +9,19 @@ import { HeroBanner } from '@/components/customer/HeroBanner';
 import { CategoryGrid } from '@/components/customer/CategoryGrid';
 import { ProductCarouselSection } from '@/components/customer/ProductCarouselSection';
 import { DualPromoBanner } from '@/components/customer/DualPromoBanner';
-import { ServiceBenefits } from '@/components/customer/ServiceBenefits';
+import { FestivalCampaignRenderer } from '@/components/customer/festival/FestivalCampaignRenderer';
 import { INITIAL_PRODUCTS, INITIAL_CATEGORIES, INITIAL_BRANDS } from '@/lib/mockData';
 import { Product } from '@/types';
 import { Search, Sparkles, Building2, Flame, ArrowRight } from 'lucide-react';
 
 export default function CustomerHome() {
   const router = useRouter();
-  const { products, categories, brands, isLoggedIn } = useAppStore();
+  const { products, categories, brands, isLoggedIn, getActiveFestivalCampaign, isFestivalEmergencyDisabled } = useAppStore();
+
+  const activeFestivalCampaign = useMemo(() => {
+    if (isFestivalEmergencyDisabled) return null;
+    return getActiveFestivalCampaign ? getActiveFestivalCampaign() : null;
+  }, [getActiveFestivalCampaign, isFestivalEmergencyDisabled]);
 
   // Guard: if not logged in, redirect to login
   useEffect(() => {
@@ -94,8 +99,15 @@ export default function CustomerHome() {
           </span>
         </div>
 
-        {/* ── 1. PROMOTIONAL HERO BANNER ── */}
-        <HeroBanner />
+        {/* ── 1. ACTIVE FESTIVAL CAMPAIGN OR PROMOTIONAL HERO BANNER ── */}
+        {activeFestivalCampaign ? (
+          <FestivalCampaignRenderer
+            campaign={activeFestivalCampaign}
+            onOpenProductDetail={handleNavigateToProduct}
+          />
+        ) : (
+          <HeroBanner />
+        )}
 
         {/* ── 2. CIRCULAR CATEGORY NAVIGATION ── */}
         <div className="space-y-2">
@@ -187,9 +199,6 @@ export default function CustomerHome() {
             onOpenDetail={handleNavigateToProduct}
           />
         )}
-
-        {/* ── 8. VALUE TRUST & SPEED BENEFITS ── */}
-        <ServiceBenefits />
 
       </div>
     </CustomerShell>

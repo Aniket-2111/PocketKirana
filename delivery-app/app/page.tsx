@@ -6,21 +6,28 @@ import { useAppStore } from '@/lib/store';
 
 export default function DeliveryRootPage() {
   const router = useRouter();
-  const { authenticatedPartnerId, deliveryPartners } = useAppStore();
+  const { authenticatedPartnerId } = useAppStore();
 
   useEffect(() => {
-    // If authenticated partner exists, go to /home, else default partner session is active
-    router.replace('/home');
-  }, [router]);
+    if (typeof window === 'undefined') return;
+
+    const storedPartnerId = localStorage.getItem('pk_delivery_authenticated_partner');
+    const isAuthenticated = !!(authenticatedPartnerId || storedPartnerId);
+
+    if (isAuthenticated) {
+      router.replace('/home');
+    } else {
+      router.replace('/login');
+    }
+  }, [authenticatedPartnerId, router]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="text-center space-y-3">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto font-black animate-pulse">
-          PK
-        </div>
-        <span className="text-xs font-bold text-slate-500">Loading Delivery Partner Workspace...</span>
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
+      <div className="w-16 h-16 rounded-3xl bg-[#0F532B] text-white flex items-center justify-center shadow-xl animate-pulse">
+        <span className="text-2xl">🚴</span>
       </div>
+      <span className="text-sm font-black text-slate-900 mt-4 tracking-tight">PocketKirana Delivery</span>
+      <span className="text-xs text-slate-400 mt-1">Starting app…</span>
     </div>
   );
 }

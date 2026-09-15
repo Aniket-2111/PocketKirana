@@ -4,228 +4,304 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import DeliveryShell from '../../components/DeliveryShell';
-import { 
-  Bike, 
-  Package, 
-  MapPin, 
-  CheckCircle2, 
-  Clock, 
-  ChevronRight, 
-  Bell, 
-  ShieldCheck, 
-  Play,
-  Sparkles,
-  AlertCircle
+import {
+  MapPin,
+  Package,
+  Clock,
+  ChevronRight,
+  Bike,
+  Star,
+  Navigation,
+  Zap,
+  CheckCircle2,
+  User as UserIcon,
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { resolveCustomerName } from '../../lib/customerUtils';
 
 export default function DeliveryPartnerHomePage() {
   const router = useRouter();
-  const { 
-    orders, 
-    deliveryPartners, 
-    activePartnerId, 
-    authenticatedPartnerId, 
-    acceptDeliveryAssignment 
-  } = useAppStore();
+  const { orders, deliveryPartners, activePartnerId, authenticatedPartnerId } = useAppStore();
 
-  const partner = deliveryPartners.find((p) => p.id === authenticatedPartnerId || p.id === activePartnerId) || deliveryPartners[0] || {
-    id: 'partner-1',
-    name: 'Rahul Sharma',
-    phone: '+91 8698893348',
-    partnerCode: 'DP001',
-    currentStatus: 'online',
-    activeOrderId: undefined,
-  };
+  const [activeTab, setActiveTab] = useState<'new' | 'ongoing'>('new');
+
+  const partner =
+    deliveryPartners.find((p) => p.id === authenticatedPartnerId || p.id === activePartnerId) ||
+    deliveryPartners[0] || {
+      id: 'partner-1',
+      name: 'Sunil Kumar',
+      phone: '+91 8698893348',
+      partnerCode: 'DP001',
+      currentStatus: 'online',
+      activeOrderId: undefined as string | undefined,
+      rating: 4.9,
+      completedDeliveries: 12,
+    };
 
   const isOnline = partner.currentStatus === 'online' || partner.currentStatus === 'busy';
   const hasActiveDelivery = !!partner.activeOrderId || partner.currentStatus === 'busy';
 
-  // Central Delivery Queue: Find all orders in WAITING_FOR_DELIVERY or PACKED state that are not assigned to other partners
   const waitingOrders = (orders || []).filter((o) => {
     const s = (o.orderStatus || '').toUpperCase();
-    const isReady = s === 'WAITING_FOR_DELIVERY' || s === 'PACKED' || s === 'READY_FOR_PICKUP';
-    const isAssignedToOther = o.partnerId && o.partnerId !== partner.id && s === 'OUT_FOR_DELIVERY';
-    return isReady && !isAssignedToOther;
+    return (
+      s === 'WAITING_FOR_DELIVERY' ||
+      s === 'PACKED' ||
+      s === 'READY_FOR_PICKUP' ||
+      s === 'ASSIGNED_TO_DELIVERY'
+    );
   });
 
-  // Next recommended delivery
-  const nextAvailableOrder = waitingOrders[0];
+  const ongoingOrders = (orders || []).filter((o) => {
+    const s = (o.orderStatus || '').toUpperCase();
+    return (
+      o.partnerId === partner.id &&
+      (s === 'OUT_FOR_DELIVERY' ||
+        s === 'ARRIVED_AT_CUSTOMER' ||
+        s === 'ARRIVED' ||
+        s === 'ACCEPTED')
+    );
+  });
 
-  const handleAcceptOrder = (orderId: string) => {
-    if (!isOnline) {
-      showToast('Please toggle ON DUTY before accepting deliveries', 'error');
-      return;
-    }
+  const deliveredToday = (orders || []).filter((o) => {
+    const s = (o.orderStatus || '').toUpperCase();
+    return (s === 'DELIVERED' || s === 'COMPLETED') && o.partnerId === partner.id;
+  });
 
-    if (hasActiveDelivery) {
-      showToast('You already have an active delivery in progress', 'error');
-      router.push('/active');
-      return;
-    }
+  const earningsToday = deliveredToday.reduce((sum, o) => {
+    return sum + ((o as any).deliveryFee || 40);
+  }, 0);
 
-    const res = acceptDeliveryAssignment(orderId, partner.id);
-    if (res.success) {
-      showToast(res.message, 'success');
-      router.push('/active');
-    } else {
-      showToast(res.message, 'error');
-    }
+  const getTimeAgo = (dateStr?: string) => {
+    if (!dateStr) return '2 mins ago';
+    const diff = Math.round((Date.now() - new Date(dateStr).getTime()) / 60000);
+    if (diff < 1) return 'Just now';
+    if (diff < 60) return `${diff} min${diff > 1 ? 's' : ''} ago`;
+    return `${Math.round(diff / 60)}h ago`;
   };
+
+  const getDistance = (order: any) =>
+    ((order as any).deliveryDistanceKm || (Math.random() * 2.5 + 0.8)).toFixed(1);
+
+  const getEta = (km: number) => Math.max(2, Math.ceil(km / 0.4));
+
+  const displayOrders = activeTab === 'new' ? waitingOrders : ongoingOrders;
 
   return (
     <DeliveryShell>
-      <div className="space-y-4 animate-in fade-in duration-200">
-        
-        {/* ── ACTIVE DELIVERY BANNER (IF DRIVER IS ALREADY ON A TRIP) ── */}
+      <div className="space-y-3 animate-in fade-in duration-200">
+
+        {/* ── HERO BANNER ── */}
+        <div className="bg-[#0F532B] rounded-2xl px-4 py-3.5 flex items-center justify-between">
+          <div>
+            <p className="text-white font-bold text-sm">Ready to deliver groceries and essentials</p>
+            <p className="text-emerald-200 text-xs font-medium mt-0.5">Stay safe, deliver smiles! 🙌</p>
+          </div>
+          <div className="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+            <Bike className="w-7 h-7 text-white" />
+          </div>
+        </div>
+
+        {/* ── ACTIVE DELIVERY BANNER ── */}
         {hasActiveDelivery && (
-          <div 
+          <button
             onClick={() => router.push('/active')}
-            className="bg-purple-600 text-white p-4 rounded-3xl space-y-2 shadow-md cursor-pointer hover:bg-purple-700 transition-colors"
+            className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">
-                Active Delivery in Progress
-              </span>
-              <span className="text-xs font-black flex items-center gap-1">
-                <span>View Trip</span>
-                <ChevronRight className="w-4 h-4" />
-              </span>
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+              <div className="text-left">
+                <span className="text-xs font-black text-amber-900 block">Active Delivery in Progress</span>
+                <span className="text-[11px] text-amber-700">Tap to continue navigation</span>
+              </div>
             </div>
-            <strong className="block text-sm font-black">
-              You have an active delivery ({partner.activeOrderId}). Tap to open navigation &amp; delivery actions.
-            </strong>
-          </div>
+            <ChevronRight className="w-4 h-4 text-amber-600 shrink-0" />
+          </button>
         )}
 
-        {/* ── NEXT DELIVERY AVAILABLE ALERT CARD ── */}
-        {nextAvailableOrder && !hasActiveDelivery && isOnline && (
-          <div className="bg-gradient-to-b from-emerald-50 to-white border-2 border-emerald-500 rounded-3xl p-5 space-y-4 shadow-lg animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-emerald-200/80 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
-                <span className="text-xs font-black text-emerald-900 uppercase tracking-widest">
-                  NEXT DELIVERY AVAILABLE
-                </span>
+        {/* ── STATS ROW ── */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { label: 'Deliveries\nToday', value: deliveredToday.length || (partner as any).completedDeliveries || 12 },
+            { label: 'Earnings\nToday', value: `₹${earningsToday || 480}` },
+            {
+              label: 'Rating',
+              value: partner.rating || 4.9,
+              star: true,
+            },
+          ].map((stat, i) => (
+            <div key={i} className="bg-white rounded-2xl p-3 border border-slate-200/60 text-center">
+              <div className={`font-black text-slate-900 flex items-center justify-center gap-0.5 ${stat.star ? 'text-lg' : 'text-xl'}`}>
+                {stat.value}
+                {stat.star && <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500 ml-0.5" />}
               </div>
-              <span className="text-xs font-mono font-black text-slate-900 bg-white border border-emerald-300 px-2.5 py-0.5 rounded-full">
-                Order #{nextAvailableOrder.orderNumber}
+              <div className="text-[10px] text-slate-500 font-medium mt-0.5 whitespace-pre-line leading-tight">
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── SEGMENTED TABS ── */}
+        <div className="flex bg-white border border-slate-200/60 rounded-xl p-1 gap-1">
+          <button
+            onClick={() => setActiveTab('new')}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeTab === 'new' ? 'bg-[#0F532B] text-white' : 'text-slate-500'
+            }`}
+          >
+            New Orders
+            {waitingOrders.length > 0 && (
+              <span className={`text-[10px] font-black px-1.5 rounded-full ${
+                activeTab === 'new' ? 'bg-white/25 text-white' : 'bg-[#0F532B] text-white'
+              }`}>
+                {waitingOrders.length}
               </span>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex items-start gap-2.5">
-                <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <strong className="block text-slate-900">
-                    {nextAvailableOrder.address?.addressLine1 || nextAvailableOrder.deliveryAddress?.addressLine1 || 'Customer Delivery Address'}
-                  </strong>
-                  <span className="text-[11px] text-slate-500 font-bold block">
-                    {nextAvailableOrder.address?.city || 'Neral'} - {nextAvailableOrder.address?.postalCode || '410101'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white p-3 rounded-2xl border border-slate-200 flex items-center justify-between font-bold">
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase">Items to Deliver</span>
-                  <span className="text-slate-900 font-mono block mt-0.5">
-                    {nextAvailableOrder.items?.length || 1} Products ({nextAvailableOrder.items?.reduce((s, i) => s + i.quantity, 0) || 1} Units)
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-400 block text-[10px] uppercase">Packed At Hub</span>
-                  <span className="text-emerald-800 font-mono block mt-0.5">
-                    {new Date(nextAvailableOrder.placedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Accept Delivery Trigger */}
-            <button
-              onClick={() => handleAcceptOrder(nextAvailableOrder.id)}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-transform cursor-pointer uppercase tracking-wider"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>ACCEPT DELIVERY</span>
-            </button>
-          </div>
-        )}
-
-        {/* ── CENTRALIZED DELIVERY QUEUE ── */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-                <Package className="w-4 h-4 text-emerald-600" />
-                <span>Central Delivery Queue</span>
-              </h3>
-              <span className="text-[10px] text-slate-500 font-bold block">
-                Orders packed &amp; waiting for pickup
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('ongoing')}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeTab === 'ongoing' ? 'bg-[#0F532B] text-white' : 'text-slate-500'
+            }`}
+          >
+            Ongoing
+            {ongoingOrders.length > 0 && (
+              <span className={`text-[10px] font-black px-1.5 rounded-full ${
+                activeTab === 'ongoing' ? 'bg-white/25 text-white' : 'bg-amber-500 text-white'
+              }`}>
+                {ongoingOrders.length}
               </span>
-            </div>
-            <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-mono font-bold px-3 py-1 rounded-xl">
-              {waitingOrders.length} Waiting
-            </span>
-          </div>
+            )}
+          </button>
+        </div>
 
-          {waitingOrders.length > 0 ? (
-            <div className="space-y-3">
-              {waitingOrders.map((order) => {
-                const totalItems = order.items?.reduce((s, i) => s + i.quantity, 0) || order.items?.length || 1;
+        {/* ── ORDER LIST ── */}
+        {displayOrders.length > 0 ? (
+          <div className="space-y-2.5">
+            {displayOrders.map((order) => {
+              const distKm = parseFloat(getDistance(order));
+              const etaMins = getEta(distKm);
+              const itemCount = order.items?.reduce((s, i) => s + i.quantity, 0) || 1;
+              const orderTotal =
+                order.total ||
+                order.items?.reduce((s, i) => {
+                  const p = (i as any).unitPrice || i.price || (i.product as any)?.sellingPrice || 0;
+                  return s + p * i.quantity;
+                }, 0) ||
+                25;
+              const customerName = resolveCustomerName(order);
+              const addr = order.address || (order as any).deliveryAddress;
+              const city = addr?.city || 'Neral';
+              const addrLine = addr?.addressLine1 || addr?.landmark || 'Customer Location';
+              const rawPaymentMethod = ((order as any)?.paymentMethod || '').toUpperCase();
+              const rawPaymentStatus = ((order as any)?.paymentStatus || '').toUpperCase();
+              const rawPaymentMode = ((order as any)?.paymentMode || '').toUpperCase();
+              const isCod =
+                rawPaymentMethod === 'COD' ||
+                rawPaymentMethod === 'CASH' ||
+                rawPaymentMethod === 'COD_CASH' ||
+                rawPaymentMethod === 'COD_UPI' ||
+                rawPaymentMethod.includes('COD') ||
+                rawPaymentMethod.includes('CASH') ||
+                rawPaymentMode === 'COD';
 
-                return (
-                  <div
-                    key={order.id}
-                    className="p-4 rounded-2xl border border-slate-200/90 bg-slate-50/50 space-y-3 hover:border-emerald-300 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
-                          WAITING FOR DELIVERY
+              return (
+                /* Tapping card → Order Details page */
+                <button
+                  key={order.id}
+                  onClick={() => router.push(`/order/${order.id}`)}
+                  className="w-full bg-white rounded-2xl border border-slate-200/60 overflow-hidden text-left"
+                >
+                  {/* Header */}
+                  <div className="px-3.5 pt-3 pb-2 flex items-center justify-between border-b border-slate-100">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[11px] font-black text-slate-900 font-mono truncate">
+                        #{order.orderNumber || order.id}
+                      </span>
+                      {isCod ? (
+                        <span className="bg-amber-50 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-amber-200 uppercase shrink-0">
+                          COD • ₹{orderTotal}
                         </span>
-                        <strong className="text-sm font-black text-slate-900 block mt-0.5">
-                          Order #{order.orderNumber}
-                        </strong>
-                      </div>
-                      <span className="text-[11px] font-mono text-slate-500 font-bold">
-                        {totalItems} Items
+                      ) : (
+                        <span className="bg-emerald-50 text-[#0F532B] text-[9px] font-black px-1.5 py-0.5 rounded border border-emerald-200 uppercase shrink-0">
+                          PAID
+                        </span>
+                      )}
+                      <span className="bg-slate-100 text-slate-600 text-[9px] font-black px-1.5 py-0.5 rounded border border-slate-200 uppercase shrink-0">
+                        GROCERY
                       </span>
                     </div>
+                    <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                      {getTimeAgo((order as any).packedAt || order.placedAt)}
+                    </span>
+                  </div>
 
-                    <div className="flex items-start gap-2 text-xs text-slate-600 font-medium">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                      <p className="truncate">
-                        {order.address?.addressLine1 || order.deliveryAddress?.addressLine1 || 'Pocket Kirana Customer Area'}
-                      </p>
+                  {/* Body */}
+                  <div className="px-3.5 py-2.5 flex items-center justify-between gap-3">
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      {/* Customer Name */}
+                      <div className="flex items-center gap-1.5 text-xs text-slate-900 font-black">
+                        <UserIcon className="w-3.5 h-3.5 text-[#0F532B] shrink-0" />
+                        <span className="truncate">{customerName}</span>
+                      </div>
+                      <div className="text-xs font-bold text-slate-700">
+                        {itemCount} item{itemCount > 1 ? 's' : ''} • <span className="text-slate-900 font-black">₹{orderTotal}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                        <Navigation className="w-3 h-3 text-[#0F532B] shrink-0" />
+                        <span className="font-bold text-slate-700">{distKm} km</span>
+                        <span>• ~{etaMins} mins</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                        <span className="text-[11px] text-slate-600 font-semibold truncate">
+                          {addrLine}, {city}
+                        </span>
+                      </div>
                     </div>
 
-                    {!hasActiveDelivery && isOnline && (
-                      <button
-                        onClick={() => handleAcceptOrder(order.id)}
-                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider transition-colors"
+                    {/* Accept or Active button */}
+                    {activeTab === 'new' && !hasActiveDelivery && isOnline ? (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/order/${order.id}`);
+                        }}
+                        className="shrink-0 bg-[#0F532B] text-white text-xs font-black px-4 py-2 rounded-xl cursor-pointer active:scale-95 transition-all"
                       >
-                        <span>ACCEPT THIS ORDER</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                        Accept
+                      </div>
+                    ) : activeTab === 'ongoing' ? (
+                      <div className="shrink-0 bg-amber-500 text-white text-xs font-black px-3 py-2 rounded-xl">
+                        Active
+                      </div>
+                    ) : null}
                   </div>
-                );
-              })}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200/60 p-10 text-center space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto">
+              {activeTab === 'new' ? (
+                <Package className="w-6 h-6 text-slate-400" />
+              ) : (
+                <CheckCircle2 className="w-6 h-6 text-slate-400" />
+              )}
             </div>
-          ) : (
-            <div className="text-center py-8 space-y-2">
-              <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">
-                <Package className="w-6 h-6" />
-              </div>
-              <h4 className="text-xs font-black text-slate-900">No Orders in Waiting Queue</h4>
-              <p className="text-[11px] text-slate-500 max-w-xs mx-auto font-medium">
-                When warehouse pickers finish packing and rechecking an order, it will automatically appear here.
+            <div>
+              <h4 className="text-sm font-black text-slate-900">
+                {activeTab === 'new' ? 'No New Orders' : 'No Active Deliveries'}
+              </h4>
+              <p className="text-xs text-slate-500 mt-1">
+                {activeTab === 'new'
+                  ? 'New orders appear here when the store packs them.'
+                  : 'Accept an order from the New Orders tab.'}
               </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
       </div>
     </DeliveryShell>

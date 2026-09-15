@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
@@ -106,10 +106,13 @@ export default function CheckoutPage() {
     : null;
   const isSelectedServiceable = selectedZone ? selectedZone.isServiceable : true;
 
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = useMemo(
+    () => (mounted ? cart.reduce((sum, item) => sum + item.price * item.quantity, 0) : 0),
+    [mounted, cart]
+  );
 
   let discount = 20;
-  if (appliedCoupon) {
+  if (mounted && appliedCoupon) {
     if (appliedCoupon.type === 'fixed') {
       discount = appliedCoupon.value;
     } else {
@@ -118,7 +121,7 @@ export default function CheckoutPage() {
   }
 
   const deliveryCharge = 20;
-  const grandTotal = Math.max(0, subtotal - discount + deliveryCharge);
+  const grandTotal = mounted ? Math.max(0, subtotal - discount + deliveryCharge) : 0;
 
   // Auto-select newly added address
   const prevAddrCount = React.useRef(addresses.length);
@@ -345,23 +348,23 @@ export default function CheckoutPage() {
           <Breadcrumb items={[{ label: step === 1 ? 'Address Selection' : 'Checkout & Payment' }]} />
 
           {/* ── STEP PROGRESS BAR (Matching Screen 8 & 9) ── */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs flex items-center justify-center gap-4 sm:gap-12">
+          <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-200 shadow-2xs flex items-center justify-between sm:justify-center gap-2 sm:gap-10">
             {/* Step 1 */}
             <div
               onClick={() => setStep(1)}
-              className={`flex items-center gap-2 cursor-pointer ${
-                step === 1 ? 'text-[#0F532B] font-extrabold' : 'text-gray-400 font-bold'
+              className={`flex items-center gap-1.5 sm:gap-2 cursor-pointer ${
+                step === 1 ? 'text-[#075C3C] font-extrabold' : 'text-gray-400 font-bold'
               }`}
             >
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${
-                step === 1 ? 'bg-[#0F532B] text-white' : 'bg-emerald-100 text-[#0F532B]'
+              <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-black ${
+                step === 1 ? 'bg-[#0B8F5A] text-white' : 'bg-emerald-100 text-[#075C3C]'
               }`}>
                 1
               </div>
-              <span className="text-xs sm:text-sm">Address</span>
+              <span className="text-[11px] sm:text-sm">Address</span>
             </div>
 
-            <div className="w-8 sm:w-16 h-0.5 bg-gray-200" />
+            <div className="flex-1 sm:flex-none sm:w-12 h-0.5 bg-gray-200 max-w-[40px] sm:max-w-none" />
 
             {/* Step 2 */}
             <div
@@ -376,26 +379,26 @@ export default function CheckoutPage() {
                 }
                 setStep(2);
               }}
-              className={`flex items-center gap-2 cursor-pointer ${
-                step === 2 ? 'text-[#0F532B] font-extrabold' : 'text-gray-400 font-bold'
+              className={`flex items-center gap-1.5 sm:gap-2 cursor-pointer ${
+                step === 2 ? 'text-[#075C3C] font-extrabold' : 'text-gray-400 font-bold'
               }`}
             >
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${
-                step === 2 ? 'bg-[#0F532B] text-white' : 'bg-gray-200 text-gray-600'
+              <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-black ${
+                step === 2 ? 'bg-[#0B8F5A] text-white' : 'bg-gray-200 text-gray-600'
               }`}>
                 2
               </div>
-              <span className="text-xs sm:text-sm">Payment</span>
+              <span className="text-[11px] sm:text-sm">Payment</span>
             </div>
 
-            <div className="w-8 sm:w-16 h-0.5 bg-gray-200" />
+            <div className="flex-1 sm:flex-none sm:w-12 h-0.5 bg-gray-200 max-w-[40px] sm:max-w-none" />
 
             {/* Step 3 */}
-            <div className="flex items-center gap-2 text-gray-400 font-bold opacity-60">
-              <div className="w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-black">
+            <div className="flex items-center gap-1.5 sm:gap-2 text-gray-400 font-bold opacity-60">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-black">
                 3
               </div>
-              <span className="text-xs sm:text-sm">Confirm</span>
+              <span className="text-[11px] sm:text-sm">Confirm</span>
             </div>
           </div>
 
@@ -411,11 +414,11 @@ export default function CheckoutPage() {
 
           {/* ── STEP 1: ADDRESS SELECTION ── */}
           {step === 1 && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
+            <div className="space-y-5 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                  <h1 className="text-xl font-black text-gray-900 tracking-tight">Select Delivery Address</h1>
-                  <p className="text-xs text-gray-500 mt-0.5">Where should we deliver your order?</p>
+                  <h1 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">Select Delivery Address</h1>
+                  <p className="text-xs text-gray-500 mt-0.5">Where should we deliver your fresh order?</p>
                 </div>
                 {addresses.length > 0 && (
                   <button
@@ -423,7 +426,7 @@ export default function CheckoutPage() {
                       setEditingAddress(null);
                       setShowLocationPicker(true);
                     }}
-                    className="bg-emerald-50 text-[#0F532B] border border-emerald-300 font-extrabold text-xs px-3.5 py-2 rounded-xl hover:bg-emerald-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="w-full sm:w-auto bg-emerald-50 text-[#075C3C] border border-emerald-300 font-extrabold text-xs px-3.5 py-2.5 rounded-xl hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" /> Add New Address
                   </button>
@@ -571,10 +574,10 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <div className="pt-4 flex items-center justify-between">
+              <div className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <Link
-                  href="/products"
-                  className="text-xs font-bold text-slate-600 hover:text-slate-900"
+                  href="/categories"
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 text-center sm:text-left py-2"
                 >
                   ← Continue Browsing Products
                 </Link>
@@ -593,9 +596,9 @@ export default function CheckoutPage() {
                     setStep(2);
                   }}
                   disabled={!isSelectedServiceable || addresses.length === 0}
-                  className={`font-black text-xs sm:text-sm px-8 py-3 rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 ${
+                  className={`font-black text-xs sm:text-sm px-8 py-3.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 ${
                     isSelectedServiceable && addresses.length > 0
-                      ? 'bg-[#0F532B] hover:bg-[#0B3E20] text-white cursor-pointer'
+                      ? 'bg-[#0B8F5A] hover:bg-[#075C3C] text-white cursor-pointer'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
@@ -796,7 +799,7 @@ export default function CheckoutPage() {
                   <button
                     onClick={handlePlaceOrder}
                     disabled={isProcessing || !isSelectedServiceable}
-                    className="w-full bg-[#0F532B] hover:bg-[#0B3E20] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-black text-sm py-3.5 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full bg-[#0B8F5A] hover:bg-[#075C3C] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-black text-sm py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {isProcessing ? (
                       <>

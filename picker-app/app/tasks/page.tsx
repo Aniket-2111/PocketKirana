@@ -132,14 +132,14 @@ export default function TasksQueue() {
         }
         startPickingTask(taskId, picker.id);
         showToast('Order opened! Starting one-by-one packing...', 'success');
-        router.push(`/picking/${taskId}`);
+        router.push(`/picking?id=${encodeURIComponent(taskId)}`);
         return;
       }
       
       if (status === 'packing' || status === 'packed') {
-        router.push(`/packing/${taskId}`);
+        router.push(`/packing?id=${encodeURIComponent(taskId)}`);
       } else {
-        router.push(`/picking/${taskId}`);
+        router.push(`/picking?id=${encodeURIComponent(taskId)}`);
       }
     } catch (err: any) {
       showToast('Failed to accept or open task', 'error');

@@ -105,8 +105,18 @@ export default function MyOrdersPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 justify-between md:justify-end">
+                    <div className="flex items-center gap-3 justify-between md:justify-end">
                       <span className="text-lg font-black text-gray-900">₹{order.total}</span>
+
+                      <a
+                        href={`/api/orders/${order.id}/invoice`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-extrabold text-xs px-3.5 py-2.5 rounded-xl uppercase tracking-wider transition-colors"
+                        title="View Tax Invoice"
+                      >
+                        INVOICE
+                      </a>
 
                       {isOutForDelivery ? (
                         <Link

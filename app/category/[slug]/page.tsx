@@ -185,9 +185,9 @@ export default function DedicatedCategoryPage() {
     <>
       <RoleSwitcher />
       <CustomerLayout>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-5">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-5 space-y-4 sm:space-y-5 font-sans">
           {/* ── 1. DYNAMIC BREADCRUMB PATH ── */}
-          <nav className="flex items-center gap-2 text-xs font-bold text-slate-500 overflow-x-auto no-scrollbar scrollbar-none">
+          <nav className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold text-slate-500 overflow-x-auto no-scrollbar scrollbar-none">
             <Link href="/" className="hover:text-emerald-700 transition-colors shrink-0">
               Home
             </Link>
@@ -196,13 +196,13 @@ export default function DedicatedCategoryPage() {
               Categories
             </Link>
             <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
-            <span className="text-slate-700 font-extrabold shrink-0 truncate max-w-[150px] sm:max-w-none">
+            <span className="text-slate-700 font-extrabold shrink-0 truncate max-w-[120px] sm:max-w-none">
               {currentCategory.name}
             </span>
             {activeSubcategory && (
               <>
                 <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
-                <span className="text-emerald-700 font-black shrink-0">
+                <span className="text-emerald-700 font-black shrink-0 truncate max-w-[120px] sm:max-w-none">
                   {activeSubcategory.name}
                 </span>
               </>
@@ -210,7 +210,7 @@ export default function DedicatedCategoryPage() {
           </nav>
 
           {/* ── 2. TOP HORIZONTAL CATEGORY NAVIGATION BAR ── */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-2.5 shadow-2xs">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-2 sm:p-2.5 shadow-2xs">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-0.5 px-0.5">
               {activeTopCategories.map((cat) => {
                 const isSelected = cat.id === currentCategory.id || cat.slug === currentCategory.slug;
@@ -218,13 +218,13 @@ export default function DedicatedCategoryPage() {
                   <Link
                     key={cat.id}
                     href={`/category/${cat.slug}`}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2.5 shrink-0 border ${
+                    className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all flex items-center gap-2 shrink-0 border ${
                       isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs scale-[1.02]'
+                        ? 'bg-[#0B8F5A] text-white border-[#0B8F5A] shadow-2xs scale-[1.02]'
                         : 'bg-slate-50 hover:bg-white text-slate-700 hover:text-slate-900 border-slate-200/70 hover:border-slate-300'
                     }`}
                   >
-                    <div className="w-5 h-5 rounded-lg overflow-hidden bg-white/80 p-0.5 shrink-0 flex items-center justify-center">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-lg overflow-hidden bg-white/80 p-0.5 shrink-0 flex items-center justify-center">
                       <img
                         src={cat.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=100&q=80'}
                         alt={cat.name}
@@ -239,28 +239,28 @@ export default function DedicatedCategoryPage() {
           </div>
 
           {/* ── 3. MAIN CONTENT AREA ── */}
-          <main className="w-full space-y-6">
+          <main className="w-full space-y-4 sm:space-y-6">
             {/* Category Page Title, Subtitle & Sort Selector */}
             <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-[#075C3C] tracking-tight">
                     {activeSubcategory ? activeSubcategory.name : currentCategory.name}
                   </h1>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
                     {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} available in{' '}
                     {currentCategory.name}
                   </p>
                 </div>
 
                 {/* Sort Selector */}
-                <div className="flex items-center gap-2 self-end sm:self-center">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="text-xs font-bold text-slate-600">Sort:</span>
+                  <span className="text-[11px] sm:text-xs font-bold text-slate-600">Sort:</span>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as SortKey)}
-                    className="bg-white border border-slate-200 rounded-xl text-xs font-bold px-3 py-1.5 text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                    className="bg-white border border-slate-200 rounded-xl text-[11px] sm:text-xs font-bold px-2.5 py-1 sm:py-1.5 text-slate-800 focus:outline-none focus:border-[#0B8F5A] shadow-2xs"
                   >
                     <option value="relevance">Popularity</option>
                     <option value="price-low">Price: Low to High</option>
@@ -277,9 +277,9 @@ export default function DedicatedCategoryPage() {
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('all')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 border ${
+                  className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 border ${
                     activeSubTab === 'all'
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                      ? 'bg-[#075C3C] text-white border-[#075C3C] shadow-2xs'
                       : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
                   }`}
                 >
@@ -295,9 +295,9 @@ export default function DedicatedCategoryPage() {
                       key={sub.id}
                       type="button"
                       onClick={() => setActiveSubTab(sub.id)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 border ${
+                      className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 border ${
                         isSelected
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                          ? 'bg-[#0B8F5A] text-white border-[#0B8F5A] shadow-2xs'
                           : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
                       }`}
                     >
@@ -319,8 +319,8 @@ export default function DedicatedCategoryPage() {
             {categoryBrands.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-[11px] font-black text-slate-600 uppercase tracking-wider">
+                  <Building2 className="w-3.5 h-3.5 text-[#0B8F5A]" />
+                  <span className="text-[10px] sm:text-[11px] font-black text-slate-600 uppercase tracking-wider">
                     Filter by Brand
                   </span>
                 </div>
@@ -328,7 +328,7 @@ export default function DedicatedCategoryPage() {
                   <button
                     type="button"
                     onClick={() => setActiveBrandId('all')}
-                    className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0 border ${
+                    className={`px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-bold whitespace-nowrap transition-all shrink-0 border ${
                       activeBrandId === 'all'
                         ? 'bg-slate-900 text-white border-slate-900'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
@@ -341,9 +341,9 @@ export default function DedicatedCategoryPage() {
                       key={brand.id}
                       type="button"
                       onClick={() => setActiveBrandId(brand.id === activeBrandId ? 'all' : brand.id)}
-                      className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0 border flex items-center gap-1.5 ${
+                      className={`px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-bold whitespace-nowrap transition-all shrink-0 border flex items-center gap-1.5 ${
                         activeBrandId === brand.id
-                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          ? 'bg-[#0B8F5A] text-white border-[#0B8F5A]'
                           : 'bg-white text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200'
                       }`}
                     >
@@ -351,7 +351,7 @@ export default function DedicatedCategoryPage() {
                         <img
                           src={brand.logoUrl || brand.logo}
                           alt={brand.name}
-                          className="w-4 h-4 object-contain rounded"
+                          className="w-3.5 h-3.5 object-contain rounded"
                         />
                       )}
                       <span>{brand.name}</span>
@@ -368,11 +368,11 @@ export default function DedicatedCategoryPage() {
 
             {/* ── 5. DYNAMIC PRODUCT GRID ── */}
             {displayProducts.length === 0 ? (
-              <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-4 shadow-2xs">
-                <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-400 mx-auto flex items-center justify-center">
-                  <FolderOpen className="w-8 h-8" />
+              <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center space-y-4 shadow-2xs">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-50 text-slate-400 mx-auto flex items-center justify-center">
+                  <FolderOpen className="w-7 h-7 sm:w-8 sm:h-8" />
                 </div>
-                <h3 className="text-base font-black text-slate-900">No products found in this section</h3>
+                <h3 className="text-sm sm:text-base font-black text-slate-900">No products found in this section</h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   {activeSubcategory
                     ? `There are currently no items under "${activeSubcategory.name}". Switch to "All ${currentCategory.name}" or explore other categories.`
@@ -381,14 +381,14 @@ export default function DedicatedCategoryPage() {
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('all')}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-2xs inline-flex items-center gap-1.5"
+                  className="bg-[#0B8F5A] hover:bg-[#075C3C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors shadow-2xs inline-flex items-center gap-1.5"
                 >
                   <Layers className="w-4 h-4" />
                   <span>View All {currentCategory.name}</span>
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4">
                 {displayProducts.map((product) => (
                   <ProductCard
                     key={product.id}

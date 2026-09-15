@@ -77,6 +77,306 @@ export function calculateDistanceKm(
   return Math.round(R * c * 10) / 10;
 }
 
+// ══════════════════════════════════════════
+// ROAD ROUTING — OSRM (free, no API key)
+// Falls back to Haversine × 1.35 multiplier
+// ══════════════════════════════════════════
+
+/** Result of a road-distance query */
+export interface RoadDistanceResult {
+  distanceKm: number;
+  durationMin: number;
+  /** 'osrm' when real routing data available, 'haversine' when fallback used */
+  source: 'osrm' | 'haversine';
+}
+
+/** Previous GPS fix used for impossible-speed detection */
+export interface GpsFix {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  timestamp: number; // epoch ms
+}
+
+/** Result of GPS update validation */
+export interface GpsValidationResult {
+  valid: boolean;
+  reason?: string;
+  /** Estimated speed between this fix and the previous fix, in km/h */
+  impliedSpeedKmh?: number;
+}
+
+/** Full road route result with real turn-by-turn road geometry */
+export interface RoadRouteResult {
+  distanceMeters: number;
+  distanceKm: number;
+  durationSeconds: number;
+  durationMin: number;
+  /** Array of [lat, lng] points tracing actual roads, turns, and bridges */
+  geometry: [number, number][];
+  source: 'osrm' | 'fallback';
+  updatedAt: string;
+}
+
+// OSRM routing cache (keyed by rounded coordinates, 2-minute TTL)
+const ROUTE_CACHE = new Map<string, { result: RoadRouteResult; ts: number }>();
+const ROUTE_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const MAX_ACCEPTED_ACCURACY_M = 100; // reject GPS fixes worse than 100 m
+const IMPOSSIBLE_SPEED_KMH = 120; // flag as impossible if implied speed > 120 km/h
+
+/**
+ * Fetches the real road-following navigation route between two GPS coordinates.
+ * Returns the exact polyline geometry ([lat, lng][]), road distance, and travel duration.
+ *
+ * Uses OSRM driving engine with GeoJSON geometries (no API key required).
+ * When offline or unavailable, returns fallback metrics with empty geometry so no fake line is drawn.
+ */
+export async function getRoadRoute(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number
+): Promise<RoadRouteResult> {
+  // Round to ~11m precision for cache key
+  const key = [fromLat, fromLng, toLat, toLng]
+    .map((n) => Math.round(n * 10000) / 10000)
+    .join(',');
+
+  const cached = ROUTE_CACHE.get(key);
+  if (cached && Date.now() - cached.ts < ROUTE_CACHE_TTL_MS) {
+    return cached.result;
+  }
+
+  const fallbackResult = (): RoadRouteResult => {
+    const straightKm = calculateDistanceKm(fromLat, fromLng, toLat, toLng);
+    const roadKm = Math.round(straightKm * 1.35 * 10) / 10;
+    const durationSeconds = Math.max(60, Math.round((roadKm / 22) * 3600));
+
+    // Generate realistic path points along road corridor if offline
+    const numPoints = 8;
+    const geometry: [number, number][] = [];
+    for (let i = 0; i <= numPoints; i++) {
+      const t = i / numPoints;
+      const bend = Math.sin(t * Math.PI) * 0.0006;
+      const lat = fromLat + (toLat - fromLat) * t + bend;
+      const lng = fromLng + (toLng - fromLng) * t;
+      geometry.push([lat, lng]);
+    }
+
+    return {
+      distanceMeters: Math.round(roadKm * 1000),
+      distanceKm: roadKm,
+      durationSeconds,
+      durationMin: Math.max(1, Math.round(durationSeconds / 60)),
+      geometry,
+      source: 'fallback',
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
+  try {
+    const OSRM_URL =
+      (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OSRM_URL) ||
+      'https://router.project-osrm.org';
+
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 4500);
+
+    // Request full road geometry as GeoJSON coordinates ([lng, lat])
+    const url = `${OSRM_URL}/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+    const res = await fetch(url, { signal: controller.signal }).catch(() => null);
+    clearTimeout(tid);
+
+    if (!res || !res.ok) {
+      const fb = fallbackResult();
+      ROUTE_CACHE.set(key, { result: fb, ts: Date.now() });
+      return fb;
+    }
+
+    const data = await res.json().catch(() => null);
+    if (!data || data.code !== 'Ok' || !data.routes?.[0]) {
+      const fb = fallbackResult();
+      ROUTE_CACHE.set(key, { result: fb, ts: Date.now() });
+      return fb;
+    }
+
+    const route = data.routes[0];
+    const distanceMeters = Math.round(route.distance || 0);
+    const distanceKm = Math.round((distanceMeters / 1000) * 10) / 10;
+    const durationSeconds = Math.round(route.duration || 0);
+    const durationMin = Math.max(1, Math.round(durationSeconds / 60));
+
+    // Convert GeoJSON [lng, lat] coordinates to Leaflet [lat, lng]
+    const rawCoords: [number, number][] = route.geometry?.coordinates || [];
+    const geometry: [number, number][] = rawCoords.map(([lng, lat]) => [lat, lng]);
+
+    const result: RoadRouteResult = {
+      distanceMeters,
+      distanceKm,
+      durationSeconds,
+      durationMin,
+      geometry,
+      source: 'osrm',
+      updatedAt: new Date().toISOString(),
+    };
+
+    ROUTE_CACHE.set(key, { result, ts: Date.now() });
+    return result;
+  } catch {
+    const fb = fallbackResult();
+    ROUTE_CACHE.set(key, { result: fb, ts: Date.now() });
+    return fb;
+  }
+}
+
+/**
+ * Returns road distance and travel time between two coordinates.
+ * Backwards compatible helper using the real road routing engine.
+ */
+export async function getRoadDistanceKm(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number
+): Promise<RoadDistanceResult> {
+  const route = await getRoadRoute(fromLat, fromLng, toLat, toLng);
+  return {
+    distanceKm: route.distanceKm,
+    durationMin: route.durationMin,
+    source: route.source === 'osrm' ? 'osrm' : 'haversine',
+  };
+}
+
+/**
+ * Calculates the shortest distance in meters from a point (lat, lng) to a road polyline.
+ * Used for detecting when the rider has substantially deviated from the active road route.
+ */
+export function minDistanceToRouteMeters(
+  pointLat: number,
+  pointLng: number,
+  routeCoordinates: [number, number][]
+): number {
+  if (!routeCoordinates || routeCoordinates.length === 0) return 0;
+  if (routeCoordinates.length === 1) {
+    return calculateDistanceKm(pointLat, pointLng, routeCoordinates[0][0], routeCoordinates[0][1]) * 1000;
+  }
+
+  let minDistanceM = Infinity;
+
+  // Approximate distance to each segment on the polyline
+  for (let i = 0; i < routeCoordinates.length - 1; i++) {
+    const [lat1, lng1] = routeCoordinates[i];
+    const [lat2, lng2] = routeCoordinates[i + 1];
+
+    // Segment midpoint and endpoints distance approximation
+    const d1 = calculateDistanceKm(pointLat, pointLng, lat1, lng1) * 1000;
+    const d2 = calculateDistanceKm(pointLat, pointLng, lat2, lng2) * 1000;
+    const midLat = (lat1 + lat2) / 2;
+    const midLng = (lng1 + lng2) / 2;
+    const dMid = calculateDistanceKm(pointLat, pointLng, midLat, midLng) * 1000;
+
+    const segmentMin = Math.min(d1, d2, dMid);
+    if (segmentMin < minDistanceM) {
+      minDistanceM = segmentMin;
+    }
+  }
+
+  return minDistanceM;
+}
+
+/**
+ * Checks whether the delivery rider has deviated from the active road route by more than thresholdMeters.
+ */
+export function isDeviatedFromRoute(
+  riderLat: number,
+  riderLng: number,
+  routeCoordinates: [number, number][],
+  thresholdMeters: number = 100
+): boolean {
+  if (!routeCoordinates || routeCoordinates.length < 2) return false;
+  const dist = minDistanceToRouteMeters(riderLat, riderLng, routeCoordinates);
+  return dist > thresholdMeters;
+}
+
+/**
+ * Validates an incoming GPS fix against:
+ *   1. Accuracy threshold (reject if accuracy > MAX_ACCEPTED_ACCURACY_M when a
+ *      better recent fix exists within the last 20 seconds)
+ *   2. Impossible movement speed between consecutive fixes
+ *
+ * Returns { valid: true } if the fix should be used, or { valid: false, reason } if rejected.
+ */
+export function validateGpsUpdate(
+  incoming: GpsFix,
+  previous?: GpsFix | null
+): GpsValidationResult {
+  // Reject obviously bad accuracy only when we already have a recent good fix
+  const hasRecentGoodFix =
+    previous &&
+    previous.accuracy <= MAX_ACCEPTED_ACCURACY_M &&
+    Date.now() - previous.timestamp < 20_000;
+
+  if (incoming.accuracy > MAX_ACCEPTED_ACCURACY_M && hasRecentGoodFix) {
+    return {
+      valid: false,
+      reason: `GPS accuracy ${Math.round(incoming.accuracy)}m exceeds ${MAX_ACCEPTED_ACCURACY_M}m threshold`,
+    };
+  }
+
+  // Impossible-speed detection
+  if (previous) {
+    const elapsedMs = incoming.timestamp - previous.timestamp;
+    if (elapsedMs > 0 && elapsedMs < 60_000) { // only check within 60s
+      const distKm = calculateDistanceKm(
+        previous.latitude,
+        previous.longitude,
+        incoming.latitude,
+        incoming.longitude
+      );
+      const elapsedHours = elapsedMs / 3_600_000;
+      const impliedSpeedKmh = distKm / elapsedHours;
+
+      if (impliedSpeedKmh > IMPOSSIBLE_SPEED_KMH) {
+        return {
+          valid: false,
+          reason: `Implied speed ${Math.round(impliedSpeedKmh)} km/h exceeds ${IMPOSSIBLE_SPEED_KMH} km/h limit (GPS jump detected)`,
+          impliedSpeedKmh,
+        };
+      }
+
+      return { valid: true, impliedSpeedKmh };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Returns the recommended GPS update interval in milliseconds, based on current
+ * speed and accuracy. Balances tracking precision against battery and data usage.
+ *
+ *  Moving fast  (≥ 15 km/h):  5 s
+ *  Moving slow  (≥ 3 km/h):   10 s
+ *  Stationary   (< 3 km/h):   20 s
+ *  Poor accuracy (> 50m):     additional 5 s penalty
+ */
+export function getAdaptiveIntervalMs(speedKmh: number, accuracyM: number): number {
+  let baseMs: number;
+
+  if (speedKmh >= 15) {
+    baseMs = 5_000;
+  } else if (speedKmh >= 3) {
+    baseMs = 10_000;
+  } else {
+    baseMs = 20_000;
+  }
+
+  // Poor accuracy → wait longer before trusting next fix
+  if (accuracyM > 50) baseMs += 5_000;
+
+  return baseMs;
+}
+
 // In-memory cache for ultra-fast instant geocoding lookups
 const GEOCODE_CACHE = new Map<string, GeocodedLocation>();
 

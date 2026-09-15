@@ -19,6 +19,7 @@ import {
   Phone
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { Footer } from '@/components/layout/Footer';
 
 interface CustomerShellProps {
   children: React.ReactNode;
@@ -26,6 +27,8 @@ interface CustomerShellProps {
   showBack?: boolean;
   backUrl?: string;
   hideBottomNav?: boolean;
+  noPadding?: boolean;
+  fixedViewport?: boolean;
 }
 
 export default function CustomerShell({
@@ -34,6 +37,8 @@ export default function CustomerShell({
   showBack = false,
   backUrl,
   hideBottomNav = false,
+  noPadding = false,
+  fixedViewport = false,
 }: CustomerShellProps) {
   const rawPathname = usePathname();
   const pathname = rawPathname || '/';
@@ -143,11 +148,11 @@ export default function CustomerShell({
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0c0f17] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-emerald-600 selection:text-white pb-20 transition-colors duration-200">
+    <div className={`${fixedViewport ? 'h-[100dvh] h-screen overflow-hidden' : 'min-h-screen pb-20 overflow-x-hidden'} bg-slate-50 dark:bg-[#0c0f17] text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-emerald-600 selection:text-white transition-colors duration-200 w-full`}>
       
       {/* ── TOP HEADER BAR ── */}
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#151923]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 shadow-2xs">
-        <div className="max-w-md mx-auto flex items-center justify-between gap-3">
+      <header className="shrink-0 z-40 bg-white/95 dark:bg-[#151923]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 py-2.5 sm:py-3 shadow-2xs w-full">
+        <div className="w-full flex items-center justify-between gap-3">
           
           {showBack ? (
             <div className="flex items-center gap-3">
@@ -163,9 +168,11 @@ export default function CustomerShell({
             </div>
           ) : (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-emerald-600/20 shrink-0">
-                PK
-              </div>
+              <img
+                src="/logo-icon.png"
+                alt="Pocket Kirana"
+                className="w-10 h-10 object-contain rounded-2xl bg-white p-1 border border-emerald-200 dark:border-emerald-800 shadow-md shrink-0"
+              />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-black text-sm text-slate-900 dark:text-white tracking-tight">Pocket Kirana</span>
@@ -229,14 +236,17 @@ export default function CustomerShell({
       )}
 
       {/* ── MAIN CONTENT AREA ── */}
-      <main className="flex-1 max-w-md mx-auto w-full px-4 py-4 space-y-5">
+      <main className={`flex-1 min-h-0 w-full ${fixedViewport || noPadding ? 'p-0 flex flex-col overflow-hidden' : 'px-3 sm:px-4 py-3 sm:py-4 space-y-4'}`}>
         {children}
       </main>
 
+      {/* ── CUSTOMER FOOTER ── */}
+      {!fixedViewport && <Footer />}
+
       {/* ── STICKY BOTTOM NAVIGATION BAR ── */}
       {!hideBottomNav && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#151923]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-xl">
-          <div className="max-w-md mx-auto grid grid-cols-4 h-16">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#151923]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-xl w-full">
+          <div className="w-full grid grid-cols-4 h-16">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || (item.href === '/home' && pathname === '/') || (item.href !== '/home' && item.href !== '/' && pathname.startsWith(item.href));

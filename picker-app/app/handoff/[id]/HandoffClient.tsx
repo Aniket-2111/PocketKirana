@@ -1,39 +1,51 @@
 'use client';
 
-import React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import React, { Suspense } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import PickerShell from '../../../components/PickerShell';
 import { PackingHandoverModal } from '@/components/picker/PackingHandoverModal';
 import { showToast } from '@/components/ui/Toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
-export default function HandoffClient({ taskId: propTaskId }: { taskId?: string }) {
+function HandoffContent({ taskId: propTaskId }: { taskId?: string }) {
   const router = useRouter();
   const params = useParams();
-  const taskId = propTaskId || (params?.id as string) || 'default';
+  const searchParams = useSearchParams();
 
   const {
+    pickers,
+    activePickerId,
     pickingTasks,
     packOrderTask,
     verifyOrderHandover,
   } = useAppStore();
 
-  const task = pickingTasks.find((t) => t.id === taskId);
+  const picker = pickers.find((p) => p.id === activePickerId) || pickers[0];
+
+  let taskId = propTaskId || (params?.id as string) || searchParams?.get('id') || searchParams?.get('taskId') || '';
+  if (!taskId || taskId === 'default') {
+    taskId = picker?.activeTaskId || '';
+  }
+
+  let task = pickingTasks.find((t) => t.id === taskId || t.orderNumber === taskId);
+  if (!task) {
+    task = pickingTasks.find(t => t.status === 'packed');
+  }
 
   if (!task) {
     return (
       <PickerShell>
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-4 shadow-xl">
-          <h3 className="font-extrabold text-sm text-white">Handoff Task Not Found</h3>
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-4 shadow-sm text-slate-900">
+          <h3 className="font-extrabold text-sm text-slate-900">Handoff Task Not Found</h3>
           <p className="text-xs text-slate-500 max-w-xs mx-auto">
-            The active task ID `#{taskId}` could not be resolved.
+            The active task ID `#{taskId || 'N/A'}` could not be resolved.
           </p>
           <button
-            onClick={() => router.push('/tasks')}
-            className="px-4 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-700 text-xs font-bold rounded-xl"
+            onClick={() => router.push('/home')}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold rounded-xl text-slate-700 cursor-pointer"
           >
-            Return to Tasks Queue
+            Return to Home
           </button>
         </div>
       </PickerShell>
@@ -58,14 +70,14 @@ export default function HandoffClient({ taskId: propTaskId }: { taskId?: string 
 
   return (
     <PickerShell>
-      <div className="space-y-4">
+      <div className="space-y-4 text-slate-900">
         {/* Back Link */}
         <button
-          onClick={() => router.push('/home')}
-          className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer group pb-2"
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer group pb-2"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-          <span>Back to Home</span>
+          <span>Back</span>
         </button>
 
         <PackingHandoverModal
@@ -75,5 +87,22 @@ export default function HandoffClient({ taskId: propTaskId }: { taskId?: string 
         />
       </div>
     </PickerShell>
+  );
+}
+
+export default function HandoffClient({ taskId }: { taskId?: string }) {
+  return (
+    <Suspense
+      fallback={
+        <PickerShell>
+          <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3">
+            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+            <span className="text-xs font-bold">Loading handoff workflow...</span>
+          </div>
+        </PickerShell>
+      }
+    >
+      <HandoffContent taskId={taskId} />
+    </Suspense>
   );
 }

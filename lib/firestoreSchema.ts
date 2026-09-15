@@ -78,6 +78,11 @@ export const COLLECTIONS = {
   // Picker-initiated new product requests (low volume, admin review needed).
   NEW_PRODUCT_REQUESTS: 'newProductRequests',
 
+  // ── Financial Collections & Settlements ──────────────────────────────────
+  COD_COLLECTIONS: 'codCollections',
+  SETTLEMENTS: 'settlements',
+  DELIVERY_EXCEPTIONS: 'deliveryExceptions',
+
   // ── Immutable audit trail ─────────────────────────────────────────────────
   // Append-only log of all sensitive operations. Duplicated from PostgreSQL
   // audit_logs for fast Firebase Console inspection. PostgreSQL is primary.

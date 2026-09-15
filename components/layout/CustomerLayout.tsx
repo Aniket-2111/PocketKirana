@@ -3,13 +3,14 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Store, Search, ShoppingBag, Heart, User } from 'lucide-react';
+import { Store, LayoutGrid, ClipboardList, ShoppingBag, User } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { Header } from '@/components/customer/Header';
 import { CartDrawer } from '@/components/customer/CartDrawer';
 import { AuthModal } from '@/components/customer/AuthModal';
 import { ToastContainer } from '@/components/ui/Toast';
 import { NotificationSimulator } from '@/components/common/NotificationSimulator';
+import { Footer } from '@/components/layout/Footer';
 
 interface CustomerLayoutProps {
   children: React.ReactNode;
@@ -17,54 +18,69 @@ interface CustomerLayoutProps {
 
 const mobileNav = [
   { icon: Store, label: 'Shop', href: '/' },
-  { icon: Search, label: 'Explore', href: '/categories' },
+  { icon: LayoutGrid, label: 'Categories', href: '/categories' },
+  { icon: ClipboardList, label: 'Orders', href: '/orders' },
   { icon: ShoppingBag, label: 'Cart', href: '#cart' },
-  { icon: Heart, label: 'Favourite', href: '/wishlist' },
   { icon: User, label: 'Account', href: '/profile' },
 ];
 
 export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
   const [cartOpen, setCartOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const { cart, initializeFirebaseSync } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+  const { cart = [], initializeFirebaseSync } = useAppStore();
   const pathname = usePathname();
-  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+  const totalItems = (cart || []).reduce((s, i) => s + i.quantity, 0);
 
   React.useEffect(() => {
+    setMounted(true);
     initializeFirebaseSync();
   }, [initializeFirebaseSync]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900 selection:bg-emerald-100 selection:text-emerald-900">
       <Header onOpenCart={() => setCartOpen(true)} onOpenAuth={() => setAuthOpen(true)} />
 
-      <main className="flex-1 pb-16 md:pb-0">
+      <main className="flex-1 pb-24 md:pb-8">
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation (Matching Mockups 1-5) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200/80 md:hidden shadow-lg">
-        <div className="flex items-stretch justify-around h-15 py-1">
+      <Footer />
+
+      {/* ── Mobile Bottom Navigation Bar (Fixed 5-Tab Quick-Commerce Navigation) ── */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-safe"
+      >
+        <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto px-1">
           {mobileNav.map(({ icon: Icon, label, href }) => {
             const isCart = href === '#cart';
-            const isActive = !isCart && (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href));
+            const isActive =
+              !isCart &&
+              (href === '/'
+                ? pathname === '/'
+                : pathname === href || (href !== '/' && pathname.startsWith(href)));
 
             if (isCart) {
               return (
                 <button
-                  key="cart"
+                  key="cart-tab"
+                  type="button"
                   onClick={() => setCartOpen(true)}
-                  className="flex flex-col items-center justify-center gap-0.5 px-3 flex-1 relative"
+                  className="flex flex-col items-center justify-center gap-1 py-1 px-2 flex-1 relative active:scale-95 transition-transform cursor-pointer"
+                  aria-label={`Shopping Cart with ${totalItems} items`}
                 >
-                  <div className="relative">
-                    <Icon className="w-5 h-5 text-gray-500" />
-                    {totalItems > 0 && (
-                      <span className="absolute -top-1.5 -right-2 bg-[#53B175] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-2xs">
-                        {totalItems > 9 ? '9+' : totalItems}
+                  <div className="relative flex items-center justify-center">
+                    <Icon className="w-5 h-5 text-slate-600 stroke-[2]" />
+                    {mounted && totalItems > 0 && (
+                      <span className="absolute -top-1.5 -right-2.5 bg-[#E65100] text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-in zoom-in-50 duration-150">
+                        {totalItems > 99 ? '99+' : totalItems}
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] font-bold text-gray-500">{label}</span>
+                  <span className="text-[10px] font-bold text-slate-600 leading-none">
+                    {label}
+                  </span>
                 </button>
               );
             }
@@ -73,10 +89,25 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
               <Link
                 key={href}
                 href={href}
-                className="flex flex-col items-center justify-center gap-0.5 px-3 flex-1"
+                className={`relative flex flex-col items-center justify-center gap-1 py-1 px-2 flex-1 transition-colors cursor-pointer ${
+                  isActive ? 'text-[#0B8F5A]' : 'text-slate-500 hover:text-slate-800'
+                }`}
               >
-                <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-[#53B175]' : 'text-gray-500'}`} />
-                <span className={`text-[10px] transition-colors ${isActive ? 'text-[#53B175] font-black' : 'text-gray-500 font-bold'}`}>
+                {isActive && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#0B8F5A] rounded-b-full shadow-xs" />
+                )}
+                <div className="relative flex items-center justify-center">
+                  <Icon
+                    className={`w-5 h-5 transition-transform ${
+                      isActive ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'
+                    }`}
+                  />
+                </div>
+                <span
+                  className={`text-[10px] leading-none transition-all ${
+                    isActive ? 'font-black tracking-tight text-[#075C3C]' : 'font-semibold'
+                  }`}
+                >
                   {label}
                 </span>
               </Link>
@@ -85,7 +116,15 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
         </div>
       </nav>
 
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} onOpenAuth={() => { setCartOpen(false); setAuthOpen(true); }} />
+      {/* Cart Drawer & Auth Modal */}
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        onOpenAuth={() => {
+          setCartOpen(false);
+          setAuthOpen(true);
+        }}
+      />
 
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
       <ToastContainer />

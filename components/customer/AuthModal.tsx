@@ -117,7 +117,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         {/* Modal Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-[#006E2F] flex items-center justify-center mx-auto mb-3 shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#0B8F5A] border border-emerald-100 flex items-center justify-center mx-auto mb-3 shadow-2xs">
             {otpSent ? <KeyRound className="w-6 h-6" /> : <Smartphone className="w-6 h-6" />}
           </div>
           <h2 className="font-black text-gray-900 text-xl tracking-tight">
@@ -126,7 +126,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <p className="text-xs text-gray-500 mt-1">
             {otpSent
               ? `We sent a 6-digit SMS verification code to +91 ${phoneInput.slice(-10)}`
-              : 'Log in or sign up to get 8-min grocery deliveries'}
+              : 'Log in or sign up to get 10-15 min grocery deliveries'}
           </p>
         </div>
 
@@ -137,7 +137,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
                 Mobile Number
               </label>
-              <div className="flex rounded-xl border border-gray-300 overflow-hidden focus-within:border-[#006E2F] focus-within:ring-2 focus-within:ring-emerald-500/20 bg-gray-50/50">
+              <div className="flex rounded-xl border border-gray-300 overflow-hidden focus-within:border-[#0B8F5A] focus-within:ring-2 focus-within:ring-emerald-500/20 bg-gray-50/50">
                 <span className="bg-gray-100 text-gray-700 text-xs font-black px-3.5 flex items-center border-r border-gray-300">
                   +91
                 </span>
@@ -163,7 +163,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#006E2F] hover:bg-emerald-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full bg-[#0B8F5A] hover:bg-[#075C3C] disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -192,7 +192,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 placeholder="••••••"
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                className="w-full text-center tracking-[0.5em] text-2xl font-mono font-black py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#006E2F] focus:ring-2 focus:ring-emerald-500/20 bg-gray-50/50"
+                className="w-full text-center tracking-[0.5em] text-2xl font-mono font-black py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#0B8F5A] focus:ring-2 focus:ring-emerald-500/20 bg-gray-50/50"
                 suppressHydrationWarning
                 autoFocus
               />
@@ -216,7 +216,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#006E2F] hover:bg-emerald-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full bg-[#0B8F5A] hover:bg-[#075C3C] disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {isLoading ? (
                 <>
@@ -245,7 +245,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 className={`font-bold flex items-center gap-1 transition-colors ${
                   countdown > 0
                     ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-[#006E2F] hover:text-emerald-800 cursor-pointer'
+                    : 'text-[#0B8F5A] hover:text-[#075C3C] cursor-pointer'
                 }`}
               >
                 <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />

@@ -152,7 +152,7 @@ export default function ProductsCatalogPage() {
         product={selectedProductDetail}
         onClose={() => setSelectedProductDetail(null)}
       />
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onOpenAuth={() => setIsAuthOpen(true)} />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </div>
   );

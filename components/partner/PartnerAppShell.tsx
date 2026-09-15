@@ -159,9 +159,11 @@ export const PartnerAppShell: React.FC<PartnerAppShellProps> = ({
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-xl shadow-lg">
-                    PK
-                  </div>
+                  <img
+                    src="/logo-icon.png"
+                    alt="Pocket Kirana"
+                    className="w-12 h-12 object-contain rounded-2xl bg-white p-1.5 shadow-lg border border-slate-700"
+                  />
                   <div>
                     <h3 className="font-black text-sm">PocketKirana</h3>
                     <span className="text-[11px] text-emerald-400 font-bold uppercase">Rider Portal</span>

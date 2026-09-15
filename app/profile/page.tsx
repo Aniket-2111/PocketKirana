@@ -159,18 +159,18 @@ export default function UserProfilePage() {
           </div>
 
           {/* Page Title */}
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">My Account</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">My Account</h1>
 
           {/* User Profile Header Card */}
-          <div className="bg-gradient-to-r from-[#006E2F] via-emerald-800 to-teal-950 rounded-3xl p-6 text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl border-2 border-white/40 bg-white/20 flex items-center justify-center font-black text-white shadow-md">
-                <Phone className="w-7 h-7" />
+          <div className="bg-gradient-to-r from-[#006E2F] via-emerald-800 to-teal-950 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-lg flex flex-row items-center justify-between gap-3 sm:gap-6">
+            <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+              <div className="w-11 h-11 sm:w-16 sm:h-16 shrink-0 rounded-xl sm:rounded-2xl border-2 border-white/40 bg-white/20 flex items-center justify-center font-black text-white shadow-md">
+                <Phone className="w-5 h-5 sm:w-7 sm:h-7" />
               </div>
 
-              <div>
-                <h2 className="text-2xl font-black">{userMobile}</h2>
-                <p className="text-xs text-emerald-100 mt-1">Verified PocketKirana Account</p>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-2xl font-black truncate">{userMobile}</h2>
+                <p className="text-[10px] sm:text-xs text-emerald-100 mt-0.5">Verified PocketKirana Account</p>
               </div>
             </div>
 
@@ -179,18 +179,51 @@ export default function UserProfilePage() {
               type="button"
               onClick={handleLogout}
               suppressHydrationWarning
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl border border-white/20 backdrop-blur-xs transition-all active:scale-95 cursor-pointer"
+              className="shrink-0 flex items-center gap-1.5 sm:gap-2 bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl border border-white/20 backdrop-blur-xs transition-all active:scale-95 cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Logout</span>
             </button>
+          </div>
+
+          {/* ══ MOBILE HORIZONTAL SCROLL TAB BAR (hidden on lg+) ══ */}
+          <div className="lg:hidden -mx-1 px-1 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2 pb-1">
+              {navTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    suppressHydrationWarning
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-black transition-all cursor-pointer border ${
+                      isActive
+                        ? 'bg-[#006E2F] text-white border-[#006E2F] shadow-sm'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">{tab.label}</span>
+                    {tab.count !== undefined && tab.count > 0 && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                        isActive ? 'bg-white text-[#006E2F]' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Main 2-Column Grid: Left Sidebar Navigation + Right Content Area */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            {/* ══ LEFT SIDEBAR: Navigation Tabs ══ */}
-            <div className="lg:col-span-4 space-y-4">
+            {/* ══ LEFT SIDEBAR: Navigation Tabs (desktop only) ══ */}
+            <div className="hidden lg:block lg:col-span-4 space-y-4">
               <div className="bg-white border border-gray-200 rounded-3xl p-3 shadow-2xs space-y-1.5">
                 <p className="text-[11px] font-black uppercase tracking-wider text-gray-400 px-3 pt-2 pb-1">
                   Account Menu
@@ -229,7 +262,7 @@ export default function UserProfilePage() {
 
             {/* ══ RIGHT MAIN CONTENT AREA ══ */}
             <div className="lg:col-span-8">
-              <div className="bg-white border border-gray-200 rounded-3xl p-6 md:p-8 shadow-2xs">
+              <div className="bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xs">
             
             {/* ── TAB 1: MY ORDERS ── */}
             {activeTab === 'my_orders' && (

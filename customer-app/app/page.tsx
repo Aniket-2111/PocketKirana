@@ -25,9 +25,11 @@ export default function CustomerEntryPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-14 h-14 rounded-2xl bg-[#0B8F5A] text-white flex items-center justify-center font-black text-xl shadow-md animate-pulse">
-          PK
-        </div>
+        <img
+          src="/logo-icon.png"
+          alt="Pocket Kirana"
+          className="w-16 h-16 object-contain rounded-2xl bg-white p-1 border border-emerald-100 shadow-md animate-pulse"
+        />
         <span className="text-xs text-slate-500 font-bold tracking-wider uppercase">Loading…</span>
       </div>
     </div>

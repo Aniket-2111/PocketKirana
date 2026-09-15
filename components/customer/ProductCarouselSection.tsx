@@ -64,7 +64,7 @@ export const ProductCarouselSection: React.FC<ProductCarouselSectionProps> = ({
           type="button"
           suppressHydrationWarning
           onClick={() => scroll('left')}
-          className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#0B8F5A] text-white shadow-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+          className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#0B8F5A] text-white shadow-md items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
           title="Scroll Left"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -73,10 +73,10 @@ export const ProductCarouselSection: React.FC<ProductCarouselSectionProps> = ({
         {/* Product Cards Horizontal Row */}
         <div
           ref={scrollRef}
-          className="flex items-stretch gap-4 overflow-x-auto scrollbar-none no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-2 px-1 scroll-smooth"
+          className="flex items-stretch gap-3 sm:gap-4 overflow-x-auto scrollbar-none no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-2 px-0.5 scroll-smooth snap-x"
         >
           {products.map((product) => (
-            <div key={product.id} className="w-44 sm:w-52 shrink-0">
+            <div key={product.id} className="w-[162px] sm:w-52 shrink-0 snap-start">
               <ProductCard product={product} onOpenDetail={onOpenDetail} />
             </div>
           ))}
@@ -87,7 +87,7 @@ export const ProductCarouselSection: React.FC<ProductCarouselSectionProps> = ({
           type="button"
           suppressHydrationWarning
           onClick={() => scroll('right')}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#0B8F5A] text-white shadow-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+          className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#0B8F5A] text-white shadow-md items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
           title="Scroll Right"
         >
           <ChevronRight className="w-4 h-4" />

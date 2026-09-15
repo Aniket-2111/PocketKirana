@@ -151,16 +151,14 @@ export default function DeliveryPartnerPage() {
   }
 
   // ═════════════════════════════════════════════════════════════════
-  // 1. FIRST LAUNCH & UNAUTHENTICATED QR LOGIN SCREEN (ADMIN QR ONLY)
+  // 1. FIRST LAUNCH & UNAUTHENTICATED ID + PASSWORD LOGIN SCREEN
   // ═════════════════════════════════════════════════════════════════
   if (!isAuthenticated) {
-    const latestValidToken = partnerAuthTokens.find((t) => t.status === 'valid')?.token || 'PK-DP-AUTH-DEMO123';
-
     return (
       <div className="min-h-screen bg-[#0f172a] text-white flex flex-col justify-between p-6 font-sans selection:bg-emerald-500">
         <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center items-center text-center space-y-6 my-auto py-12">
           
-          <div className="w-20 h-20 bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.3)] animate-pulse">
+          <div className="w-20 h-20 bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.3)]">
             <Bike className="w-10 h-10" />
           </div>
 
@@ -168,93 +166,68 @@ export default function DeliveryPartnerPage() {
             <span className="text-xs font-black text-emerald-400 uppercase tracking-widest block">
               PocketKirana Delivery Partner
             </span>
-            <h1 className="text-3xl font-black tracking-tight">WELCOME</h1>
+            <h1 className="text-3xl font-black tracking-tight">PARTNER SIGN IN</h1>
             <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed font-medium">
-              Please scan the Admin Login QR code generated from the Admin Control Console to authenticate your device.
+              Enter your Login ID and Password provided by your Store Admin.
             </p>
           </div>
 
-          <div className="w-full max-w-xs pt-4 space-y-3">
-            <button
-              onClick={() => setShowLoginQRScanner(true)}
-              className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer"
-            >
-              <QrCode className="w-5 h-5" />
-              <span>SCAN ADMIN LOGIN QR</span>
-            </button>
-            <p className="text-[10px] text-slate-500 font-bold">
-              Only authorized Kirana delivery partners can log in.
-            </p>
-          </div>
-        </div>
-
-        {/* Admin Login QR Scanner Modal */}
-        {showLoginQRScanner && (
-          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full text-center space-y-5 text-white shadow-2xl">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 className="font-extrabold text-base flex items-center gap-2 text-emerald-400">
-                  <Camera className="w-5 h-5" /> Scan Admin Login QR
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowLoginQRScanner(false);
-                    setLoginErrorState(null);
-                  }}
-                  className="p-1 text-slate-400 hover:text-white rounded-full cursor-pointer"
-                >
-                  <XCircle className="w-5 h-5" />
-                </button>
-              </div>
-
-              {loginSuccessPartnerName ? (
-                <div className="bg-emerald-950/80 border border-emerald-500/50 p-6 rounded-2xl space-y-3 animate-in zoom-in-95 duration-200">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto animate-bounce" />
-                  <h4 className="font-black text-lg text-emerald-300">✓ LOGIN SUCCESSFUL</h4>
-                  <p className="text-xs text-slate-300 font-medium">Welcome, {loginSuccessPartnerName}</p>
-                </div>
-              ) : loginErrorState ? (
-                <div className="bg-rose-950/80 border border-rose-500/50 p-5 rounded-2xl space-y-3 text-left">
-                  <div className="flex items-center gap-2 text-rose-400 font-black text-sm">
-                    <AlertCircle className="w-5 h-5 shrink-0" />
-                    <span>{loginErrorState.title}</span>
-                  </div>
-                  <p className="text-xs text-slate-300 font-medium">"{loginErrorState.message}"</p>
-                  <button
-                    onClick={() => setLoginErrorState(null)}
-                    className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer mt-2"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> SCAN AGAIN
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-slate-950 border-2 border-dashed border-emerald-500/50 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3">
-                    <QrCode className="w-24 h-24 text-emerald-400 animate-pulse" />
-                    <span className="text-xs text-slate-400 font-semibold">Align camera over Admin Login QR</span>
-                  </div>
-
-                  <div className="space-y-2 text-xs">
-                    <input
-                      type="text"
-                      placeholder="Paste token or enter PK-DP-AUTH-..."
-                      value={loginInputToken}
-                      onChange={(e) => setLoginInputToken(e.target.value)}
-                      className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-
-                    <button
-                      onClick={() => handleProcessLoginQR(loginInputToken || latestValidToken)}
-                      className="w-full py-3 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs hover:bg-emerald-400 transition-colors shadow-md cursor-pointer"
-                    >
-                      VERIFY LOGIN QR CODE
-                    </button>
-                  </div>
-                </div>
-              )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const loginId = (form.elements.namedItem('loginId') as HTMLInputElement).value;
+              const loginPassword = (form.elements.namedItem('password') as HTMLInputElement).value;
+              const res = useAppStore.getState().loginPartnerByCredentials(loginId, loginPassword);
+              if (res.success) {
+                showToast(res.message, 'success');
+              } else {
+                showToast(res.message, 'error');
+              }
+            }}
+            className="w-full max-w-xs space-y-3 text-left"
+          >
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
+                Login ID / Mobile Number
+              </label>
+              <input
+                type="text"
+                name="loginId"
+                placeholder="e.g. DP001 or 9112009988"
+                defaultValue="DP001"
+                required
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              />
             </div>
-          </div>
-        )}
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                placeholder="Enter password"
+                defaultValue="pk1234"
+                required
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-xl flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer uppercase tracking-wider mt-2"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>SIGN IN TO SHIFT</span>
+            </button>
+          </form>
+
+          <p className="text-[10px] text-slate-500 font-bold">
+            Demo ID: <span className="text-slate-300 font-mono">DP001</span> | Password: <span className="text-slate-300 font-mono">pk1234</span>
+          </p>
+        </div>
       </div>
     );
   }
@@ -276,7 +249,7 @@ export default function DeliveryPartnerPage() {
           </p>
         </div>
         <button
-          onClick={logoutDeliveryPartner}
+          onClick={() => logoutDeliveryPartner()}
           className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold text-xs text-slate-300 cursor-pointer flex items-center gap-2"
         >
           <LogOut className="w-4 h-4" /> Return to Login
@@ -517,7 +490,7 @@ export default function DeliveryPartnerPage() {
 
           <div className="bg-white border border-slate-200 rounded-3xl p-4 divide-y divide-slate-100 shadow-xs text-xs font-bold">
             <button
-              onClick={logoutDeliveryPartner}
+              onClick={() => logoutDeliveryPartner()}
               className="w-full py-3.5 px-2 flex items-center justify-between text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">

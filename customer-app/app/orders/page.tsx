@@ -66,7 +66,7 @@ export default function CustomerOrdersPage() {
             return (
               <div
                 key={order.id}
-                onClick={() => router.push(`/orders/${order.id}`)}
+                onClick={() => router.push(`/orders/track?id=${order.id}`)}
                 className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-xs hover:border-emerald-400 transition-all cursor-pointer group"
               >
                 {/* Header Strip */}
@@ -97,7 +97,7 @@ export default function CustomerOrdersPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push(`/orders/${order.id}`);
+                      router.push(`/orders/track?id=${order.id}`);
                     }}
                     className="flex items-center gap-1.5 py-2 px-3.5 bg-emerald-50 text-emerald-800 font-black text-xs rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-colors cursor-pointer"
                   >

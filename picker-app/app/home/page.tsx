@@ -7,13 +7,10 @@ import { useAppStore } from '@/lib/store';
 import PickerShell from '../../components/PickerShell';
 import { 
   Package, 
-  Scan, 
-  Archive, 
   HelpCircle, 
   Clock, 
   ArrowRight,
   Sparkles,
-  ClipboardCheck,
   TrendingUp,
   AlertTriangle,
   Play,
@@ -54,6 +51,8 @@ export default function PickerDashboard() {
   (pickingTasks || []).forEach((t) => {
     const key = t.orderNumber || t.orderId || t.id;
     if (!key) return;
+    // Skip tasks with zero items
+    if (!t.items || t.items.length === 0) return;
     const existing = taskMap.get(key);
     if (!existing || (statusWeight[t.status] ?? 0) >= (statusWeight[existing.status] ?? 0)) {
       taskMap.set(key, t);
@@ -65,6 +64,8 @@ export default function PickerDashboard() {
     if (!key) return;
     const statusUpper = (o.orderStatus || '').toUpperCase();
     const isEligible = o.paymentMethod === 'cod' || o.paymentStatus === 'paid' || o.paymentStatus === 'completed';
+    // Skip orders with zero items to prevent empty order cards in the queue
+    if (!o.items || o.items.length === 0) return;
     if (isEligible && !finishedOrderStatuses.includes(statusUpper) && !taskMap.has(key)) {
       taskMap.set(key, {
         id: `task-${o.id}`,
@@ -130,7 +131,7 @@ export default function PickerDashboard() {
       }
       startPickingTask(taskId, picker.id);
       showToast('Order accepted! Picking route initialized.', 'success');
-      router.push(`/picking/${taskId}`);
+      router.push(`/picking?id=${encodeURIComponent(taskId)}`);
     } catch (err: any) {
       showToast(err.message || 'Failed to accept order & start picking route', 'error');
     }
@@ -290,7 +291,7 @@ export default function PickerDashboard() {
             {/* Action button based on status */}
             {activeTask.status === 'picking' || activeTask.status === 'assigned' ? (
               <Link
-                href={`/picking/${activeTask.id}`}
+                href={`/picking?id=${encodeURIComponent(activeTask.id)}`}
                 className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-md shadow-emerald-600/30 uppercase tracking-wider"
               >
                 <span>OPEN ORDER &amp; START PACKING</span>
@@ -380,45 +381,6 @@ export default function PickerDashboard() {
             </button>
           </div>
         )}
-
-        {/* Other Tasks Grid */}
-        <div className="space-y-3">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-            Operational Shortcuts
-          </span>
-          
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <Link 
-              href="/scan"
-              className="bg-white border border-slate-200 p-4 rounded-2xl hover:border-emerald-300 hover:bg-emerald-50/30 transition-all flex flex-col items-center gap-2 group cursor-pointer shadow-xs"
-            >
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <Scan className="w-5 h-5" />
-              </div>
-              <span className="text-[11px] font-black text-slate-700">Scan Bin</span>
-            </Link>
-
-            <Link 
-              href="/putaway"
-              className="bg-white border border-slate-200 p-4 rounded-2xl hover:border-sky-300 hover:bg-sky-50/30 transition-all flex flex-col items-center gap-2 group cursor-pointer shadow-xs"
-            >
-              <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 text-sky-600 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <Archive className="w-5 h-5" />
-              </div>
-              <span className="text-[11px] font-black text-slate-700">Putaway</span>
-            </Link>
-
-            <Link 
-              href="/profile?tab=audit"
-              className="bg-white border border-slate-200 p-4 rounded-2xl hover:border-amber-300 hover:bg-amber-50/30 transition-all flex flex-col items-center gap-2 group cursor-pointer shadow-xs"
-            >
-              <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <ClipboardCheck className="w-5 h-5" />
-              </div>
-              <span className="text-[11px] font-black text-slate-700">Stock Count</span>
-            </Link>
-          </div>
-        </div>
 
       </div>
     </PickerShell>
