@@ -153,7 +153,7 @@ export const INITIAL_FESTIVAL_TEMPLATES: FestivalTemplate[] = [
         id: 'sec-dw-hero',
         type: 'Hero',
         title: 'Grand Diwali Celebration 🪔',
-        subtitle: 'Illuminate your home with premium dry fruits, gift packs, diyas & pure mawa sweets delivered in 10 mins.',
+        subtitle: 'Illuminate your home with premium dry fruits, gift packs, diyas & pure mawa sweets delivered in 30 mins.',
         badge: 'SHUBH DEEPAVALI',
         ctaText: 'SHOP DIWALI SPECIALS',
         ctaLink: '/categories',

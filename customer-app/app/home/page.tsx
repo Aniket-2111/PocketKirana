@@ -91,10 +91,10 @@ export default function CustomerHome() {
         {/* ── SEARCH BAR PROMPT ── */}
         <div 
           onClick={() => router.push('/search')}
-          className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-2xs cursor-pointer hover:border-emerald-500 transition-colors"
+          className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-2xl p-3 flex items-center gap-3 shadow-2xs cursor-pointer hover:border-emerald-500 transition-colors"
         >
-          <Search className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="text-xs font-bold text-slate-400">
+          <Search className="w-5 h-5 text-[#008F5A] dark:text-[#22C55E] shrink-0" />
+          <span className="text-xs font-bold text-[#6B7280] dark:text-[#9CA3AF]">
             Search "Milk, Atta, Bread, Chips, Paneer"...
           </span>
         </div>
@@ -113,14 +113,14 @@ export default function CustomerHome() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#0B8F5A]" />
-              <h2 className="text-base sm:text-lg font-black text-[#075C3C] tracking-tight">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#008F5A]" />
+              <h2 className="text-base sm:text-lg font-black text-[#111827] dark:text-[#F9FAFB] tracking-tight">
                 Shop By Category
               </h2>
             </div>
             <Link
               href="/categories"
-              className="text-xs font-bold text-[#0B8F5A] hover:text-[#075C3C] flex items-center gap-1 hover:underline transition-colors"
+              className="text-xs font-bold text-[#008F5A] dark:text-[#22C55E] hover:underline flex items-center gap-1 transition-colors"
             >
               <span>View All</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -159,8 +159,8 @@ export default function CustomerHome() {
           <div className="space-y-3 my-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#0B8F5A]" />
-                <h2 className="text-base sm:text-lg font-black text-[#075C3C] tracking-tight">
+                <Building2 className="w-4 h-4 text-[#008F5A] dark:text-[#22C55E]" />
+                <h2 className="text-base sm:text-lg font-black text-[#111827] dark:text-[#F9FAFB] tracking-tight">
                   Featured Brands
                 </h2>
               </div>
@@ -171,7 +171,7 @@ export default function CustomerHome() {
                 <Link
                   key={brand.id}
                   href={`/categories`}
-                  className="group flex flex-col items-center gap-1.5 shrink-0 bg-white border border-slate-200/80 hover:border-[#0B8F5A] p-3 rounded-2xl shadow-2xs hover:shadow-md transition-all w-24 sm:w-28 text-center"
+                  className="group flex flex-col items-center gap-1.5 shrink-0 bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] hover:border-[#008F5A] dark:hover:border-[#22C55E] p-3 rounded-2xl shadow-2xs hover:shadow-md transition-all w-24 sm:w-28 text-center"
                 >
                   <div className="w-12 h-12 flex items-center justify-center p-1">
                     <img
@@ -180,7 +180,7 @@ export default function CustomerHome() {
                       className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
                     />
                   </div>
-                  <span className="text-[11px] font-bold text-slate-800 group-hover:text-[#0B8F5A] truncate w-full">
+                  <span className="text-[11px] font-bold text-[#111827] dark:text-[#D1D5DB] group-hover:text-[#008F5A] dark:group-hover:text-[#22C55E] truncate w-full">
                     {brand.name}
                   </span>
                 </Link>

@@ -151,16 +151,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
       {/* ── CARD ── */}
       <div
         onClick={() => onOpenDetail ? onOpenDetail(product) : undefined}
-        className="w-full h-[290px] sm:h-[315px] bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 hover:border-[#0B8F5A]/40 p-2.5 sm:p-3.5 flex flex-col justify-between group transition-all duration-200 shadow-2xs hover:shadow-md cursor-pointer relative overflow-hidden"
+        className="w-full h-[290px] sm:h-[315px] bg-white dark:bg-[#151B23] rounded-2xl sm:rounded-3xl border border-[#E5E7EB] dark:border-[#263241] hover:border-[#008F5A]/40 dark:hover:border-[#008F5A]/60 p-2.5 sm:p-3.5 flex flex-col justify-between group transition-all duration-200 shadow-2xs hover:shadow-md cursor-pointer relative overflow-hidden"
       >
         {/* ── TOP BADGE & WISHLIST ROW ── */}
         <div className="flex items-center justify-between gap-1 z-10 shrink-0">
           {discountPercent > 0 ? (
-            <span className="bg-[#E6F4EA] text-[#0B8F5A] border border-[#0B8F5A]/20 font-black text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-lg tracking-tight">
+            <span className="bg-[#E6F4EA] dark:bg-emerald-950/80 text-[#008F5A] dark:text-emerald-400 border border-[#008F5A]/20 font-black text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-lg tracking-tight">
               {discountPercent}% OFF
             </span>
           ) : badge ? (
-            <span className="bg-amber-50 text-amber-800 border border-amber-200/60 font-black text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-lg">
+            <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-700/50 font-black text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-lg">
               {badge}
             </span>
           ) : (
@@ -168,7 +168,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
           )}
 
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 border border-emerald-600 rounded-xs flex items-center justify-center p-0.5 bg-white">
+            <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 border border-emerald-600 rounded-xs flex items-center justify-center p-0.5 bg-white dark:bg-[#151B23]">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
             </div>
             <button
@@ -178,9 +178,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
                 e.stopPropagation();
                 toggleWishlist(product.id);
               }}
-              className={`p-1 rounded-full transition-transform active:scale-90 ${
-                isWishlisted ? 'text-rose-500 fill-rose-500' : 'text-slate-300 hover:text-rose-500'
-              }`}
+              className={`p-1 rounded-full transition-transform active:scale-90 ${isWishlisted ? 'text-rose-500 fill-rose-500' : 'text-slate-300 dark:text-slate-600 hover:text-rose-500'
+                }`}
               title="Wishlist"
               aria-label="Toggle wishlist"
             >
@@ -200,7 +199,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
             className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-xs"
           />
           {isOutOfStock && (
-            <div className="absolute inset-0 bg-white/85 backdrop-blur-[1px] rounded-xl sm:rounded-2xl flex items-center justify-center">
+            <div className="absolute inset-0 bg-white/85 dark:bg-[#151B23]/90 backdrop-blur-[1px] rounded-xl sm:rounded-2xl flex items-center justify-center">
               <span className="bg-rose-500 text-white font-black text-[9px] sm:text-[10px] px-2 py-0.5 sm:py-1 rounded-full uppercase tracking-wider shadow-xs">
                 Out of Stock
               </span>
@@ -216,42 +215,42 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
               <Link
                 href={`/brand/${brand.slug}`}
                 onClick={(e) => e.stopPropagation()}
-                className="text-[9px] sm:text-[10px] font-bold text-[#0B8F5A] hover:underline uppercase tracking-wider block truncate"
+                className="text-[9px] sm:text-[10px] font-bold text-[#008F5A] dark:text-[#22C55E] hover:underline uppercase tracking-wider block truncate"
               >
                 {brand.name}
               </Link>
             ) : (
-              <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+              <span className="text-[9px] sm:text-[10px] font-bold text-[#6B7280] dark:text-[#9CA3AF] uppercase tracking-wider block truncate">
                 PocketKirana
               </span>
             )}
 
             {/* Product Title */}
-            <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 leading-snug line-clamp-2 min-h-[32px] sm:min-h-[36px] group-hover:text-[#0B8F5A] transition-colors">
+            <h3 className="font-extrabold text-xs sm:text-sm text-[#111827] dark:text-[#F9FAFB] leading-snug line-clamp-2 min-h-[32px] sm:min-h-[36px] group-hover:text-[#008F5A] dark:group-hover:text-[#22C55E] transition-colors">
               {product.name}
             </h3>
 
             {/* Stock Status & Unit */}
-            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-semibold text-slate-500 pt-0.5">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-semibold text-[#6B7280] dark:text-[#D1D5DB] pt-0.5">
               <span className="truncate">{product.unit || '1 pc'}</span>
               {isOutOfStock ? (
-                <span className="text-rose-600 font-bold text-[9px] sm:text-[10px]">● Out of Stock</span>
+                <span className="text-rose-600 dark:text-rose-400 font-bold text-[9px] sm:text-[10px]">● Out of Stock</span>
               ) : isLowStock ? (
-                <span className="text-amber-600 font-bold text-[9px] sm:text-[10px]">● {product.stock} left</span>
+                <span className="text-amber-600 dark:text-amber-400 font-bold text-[9px] sm:text-[10px]">● {product.stock} left</span>
               ) : (
-                <span className="text-[#0B8F5A] font-bold text-[9px] sm:text-[10px]">● In Stock</span>
+                <span className="text-[#008F5A] dark:text-[#22C55E] font-bold text-[9px] sm:text-[10px]">● In Stock</span>
               )}
             </div>
           </div>
 
           {/* ── PRICING & CTA ── */}
-          <div className="pt-1.5 sm:pt-2 border-t border-slate-100 flex flex-col gap-1.5 sm:gap-2">
+          <div className="pt-1.5 sm:pt-2 border-t border-[#E5E7EB] dark:border-[#263241] flex flex-col gap-1.5 sm:gap-2">
             <div className="flex items-baseline gap-1.5 sm:gap-2">
-              <span className="text-xs sm:text-base font-black text-[#075C3C]">
+              <span className="text-xs sm:text-base font-black text-[#008F5A] dark:text-[#22C55E]">
                 ₹{product.sellingPrice}
               </span>
               {product.mrp > product.sellingPrice && (
-                <span className="text-[10px] sm:text-xs text-slate-400 font-semibold line-through">
+                <span className="text-[10px] sm:text-xs text-[#6B7280] dark:text-[#9CA3AF] font-semibold line-through">
                   ₹{product.mrp}
                 </span>
               )}
@@ -262,7 +261,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
                 disabled
                 type="button"
                 suppressHydrationWarning
-                className="w-full bg-slate-100 text-slate-400 font-bold text-[11px] sm:text-xs py-1.5 sm:py-2 rounded-xl cursor-not-allowed text-center"
+                className="w-full bg-slate-100 dark:bg-[#1B2430] text-slate-400 dark:text-[#6B7280] font-bold text-[11px] sm:text-xs py-1.5 sm:py-2 rounded-xl cursor-not-allowed text-center"
               >
                 Unavailable
               </button>
@@ -277,7 +276,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
                 <span>Add</span>
               </button>
             ) : (
-              <div className="w-full flex items-center justify-between bg-[#0B8F5A] text-white rounded-xl font-black text-xs p-0.5 sm:p-1 shadow-2xs">
+              <div className="w-full flex items-center justify-between bg-[#008F5A] text-white rounded-xl font-black text-xs p-0.5 sm:p-1 shadow-2xs">
                 <button
                   type="button"
                   suppressHydrationWarning

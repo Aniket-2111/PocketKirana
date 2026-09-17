@@ -84,6 +84,36 @@ public class MainActivity extends BridgeActivity {
     private boolean handleExternalPaymentSchemes(String url) {
         if (url == null) return false;
 
+        // Native Android Location Settings & App Settings Intent Triggers
+        if (url.startsWith("pocketkirana://location-settings") || url.contains("android.settings.LOCATION_SOURCE_SETTINGS")) {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                return true;
+            } catch (Exception e) {
+                try {
+                    Intent appSettings = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    appSettings.setData(Uri.parse("package:" + getPackageName()));
+                    appSettings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(appSettings);
+                    return true;
+                } catch (Exception ignored) {}
+            }
+            return true;
+        }
+
+        if (url.startsWith("pocketkirana://app-settings") || url.contains("application_details")) {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                return true;
+            } catch (Exception ignored) {}
+            return true;
+        }
+
         // Check for standard UPI and third-party payment intent schemes
         if (url.startsWith("upi://") ||
             url.startsWith("phonepe://") ||

@@ -37,7 +37,7 @@ export const ProductCarouselSection: React.FC<ProductCarouselSectionProps> = ({
       {/* ── SECTION HEADER (Matching Reference Style) ── */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5 flex-wrap">
-          <h2 className="text-xl sm:text-2xl font-black text-[#075C3C] tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-[#111827] dark:text-[#F9FAFB] tracking-tight">
             {title}
           </h2>
           {badge && (
@@ -50,7 +50,7 @@ export const ProductCarouselSection: React.FC<ProductCarouselSectionProps> = ({
         {/* View All Link */}
         <Link
           href={viewAllHref}
-          className="text-xs sm:text-sm font-bold text-[#0B8F5A] hover:text-[#075C3C] flex items-center gap-1 hover:underline transition-colors shrink-0"
+          className="text-xs sm:text-sm font-bold text-[#008F5A] dark:text-[#22C55E] hover:underline flex items-center gap-1 transition-colors shrink-0"
         >
           <span>View All</span>
           <ArrowRight className="w-3.5 h-3.5" />

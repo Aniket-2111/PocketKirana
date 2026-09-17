@@ -63,7 +63,7 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
       {
         heading: '5. Delivery & Estimated Arrival',
         content: [
-          'Delivery time estimates (e.g. 10–15 minutes) are estimates based on real-time darkstore proximity and delivery partner availability. Severe weather, road conditions, traffic, or sudden inventory shortages may affect delivery timelines.',
+          'Delivery time estimates (e.g. 30 minutes) are estimates based on real-time darkstore proximity and delivery partner availability. Severe weather, road conditions, traffic, or sudden inventory shortages may affect delivery timelines.',
         ],
       },
     ],
@@ -77,7 +77,7 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     effectiveDate: '12 September 2026',
     category: 'Legal',
     icon: 'FileText',
-    summary: 'Rules governing access to and use of Pocket Kirana website, customer mobile apps, and 10-minute grocery delivery services.',
+    summary: 'Rules governing access to and use of Pocket Kirana website, customer mobile apps, and 30-minute grocery delivery services.',
     sections: [
       {
         heading: '1. Acceptance of Terms',
@@ -280,7 +280,7 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
       {
         heading: '2. Express Delivery Timelines',
         content: [
-          'Pocket Kirana operates an ultra-fast fulfillment system with target delivery times of 10 to 15 minutes.',
+          'Pocket Kirana operates an ultra-fast fulfillment system with target delivery times of 30 minutes.',
           'Delivery timelines may be extended during peak rain, heavy traffic, night operations, or technical maintenance.',
         ],
       },

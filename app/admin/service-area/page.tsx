@@ -496,7 +496,7 @@ export default function AdminServiceAreaPage() {
                   <div className="w-3 h-3 rounded-full bg-emerald-400 shrink-0" />
                   <div>
                     <p className="text-xs font-black text-emerald-200">Inside Circle (≤ {deliveryRadiusKm} KM)</p>
-                    <p className="text-[10px] text-emerald-400">Delivery Available • 10-15 Mins</p>
+                    <p className="text-[10px] text-emerald-400">Delivery Available • 30 Mins</p>
                   </div>
                 </div>
 

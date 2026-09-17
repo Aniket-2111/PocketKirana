@@ -1,7 +1,7 @@
 {
-  "name": "PocketKirana – Fast 15-Min Local Grocery Delivery",
+  "name": "PocketKirana – Fast 30-Min Local Grocery Delivery",
   "short_name": "PocketKirana",
-  "description": "Get fresh groceries, dairy, snacks, and daily essentials delivered to your door in 8-15 minutes.",
+  "description": "Get fresh groceries, dairy, snacks, and daily essentials delivered to your door in 30 minutes.",
   "start_url": "/",
   "scope": "/",
   "id": "/",

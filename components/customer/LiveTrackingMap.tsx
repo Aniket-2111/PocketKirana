@@ -153,8 +153,8 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ orderId }) => 
   }, [liveOrder, orders, orderId]);
 
   // Order status logic
-  const statusUpper = (order?.orderStatus || '').toUpperCase();
-  const isOutForDelivery = ['OUT_FOR_DELIVERY', 'PICKED_UP', 'ARRIVED_AT_CUSTOMER', 'DELIVERED', 'COMPLETED'].includes(statusUpper);
+  const statusUpper = (order?.orderStatus || (order as any)?.status || (order as any)?.order_status || '').toString().toUpperCase();
+  const isOutForDelivery = ['OUT_FOR_DELIVERY', 'PICKED_UP', 'ORDER_PICKED_UP', 'ARRIVED_AT_CUSTOMER', 'DELIVERED', 'COMPLETED'].includes(statusUpper);
   const isDelivered = ['DELIVERED', 'COMPLETED'].includes(statusUpper);
 
   // 1b. Stale-location ticker — updates staleAgeSeconds every second when out for delivery
@@ -338,13 +338,15 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ orderId }) => 
 
   const isArrived = useMemo(() => {
     if (!isOutForDelivery) return false;
+    // Only show "Arrived" when delivery partner explicitly marks ARRIVED_AT_CUSTOMER
+    // Do NOT include DELIVERED/COMPLETED – those should show a delivered state, not "arrived"
+    // Only use distance as a proxy if genuinely very close (<50m) AND not already delivered
+    if (isDelivered) return false;
     return (
       statusUpper === 'ARRIVED_AT_CUSTOMER' ||
-      statusUpper === 'DELIVERED' ||
-      statusUpper === 'COMPLETED' ||
-      remainingDistanceKm <= 0.08
+      (remainingDistanceKm <= 0.05 && liveTracking != null)
     );
-  }, [isOutForDelivery, statusUpper, remainingDistanceKm]);
+  }, [isOutForDelivery, isDelivered, statusUpper, remainingDistanceKm, liveTracking]);
 
   // 2. Trigger Arrival Notification & Sound when Rider Arrives
   useEffect(() => {
@@ -691,7 +693,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ orderId }) => 
               ? 'Arrived'
               : isOutForDelivery
                 ? `${etaMinutes} min`
-                : '8–15 min'}
+                : '30 min'}
           </span>
           <span className="text-xs font-bold text-slate-500 font-mono">
             {isArrived

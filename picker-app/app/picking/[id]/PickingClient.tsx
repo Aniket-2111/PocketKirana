@@ -167,13 +167,23 @@ function PickingContent({ taskId: propTaskId }: { taskId?: string }) {
   };
 
   const handleCompleteOrderPacked = async (tId: string, bagsCount: number, bagTypes: string[]) => {
+    const cleanTaskId = tId.startsWith('task-') ? tId.slice(5) : tId;
     try {
-      const cleanTaskId = tId.startsWith('task-') ? tId.slice(5) : tId;
+      await fetch(`/api/picker/orders/${cleanTaskId}/pack`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pickerId: 'picker_01',
+          bagCount: bagsCount,
+          sealNumber: `PK-SEAL-${Date.now().toString().slice(-4)}`,
+        }),
+      }).catch(() => {});
+
       await fetch(`/api/picking/tasks/${cleanTaskId}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes: `Picked and packed in ${bagsCount} bags (${bagTypes.join(', ')})` }),
-      });
+      }).catch(() => {});
     } catch (e) {
       console.warn('API picking complete call fallback:', e);
     }

@@ -32,12 +32,12 @@ export const CategoryProductRow: React.FC<CategoryProductRowProps> = ({
     <div className="space-y-3 relative group/row my-6">
       {/* Category Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-[#F9FAFB] tracking-tight">
           {category.name}
         </h2>
         <Link
           href={`/category/${category.slug}`}
-          className="text-sm font-extrabold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 transition-colors"
+          className="text-sm font-extrabold text-[#008F5A] dark:text-[#22C55E] hover:underline flex items-center gap-1 transition-colors"
         >
           see all
         </Link>
@@ -47,7 +47,7 @@ export const CategoryProductRow: React.FC<CategoryProductRowProps> = ({
       <button
         type="button"
         onClick={() => scroll('left')}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/95 shadow-md border border-gray-200 text-gray-800 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-white"
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/95 dark:bg-[#151B23]/95 shadow-md border border-gray-200 dark:border-[#263241] text-gray-800 dark:text-gray-200 flex items-center justify-center opacity-0 group-row:opacity-100 transition-opacity hover:bg-white dark:hover:bg-[#1A2232]"
         title="Scroll Left"
       >
         <ChevronLeft className="w-5 h-5" />
@@ -57,7 +57,7 @@ export const CategoryProductRow: React.FC<CategoryProductRowProps> = ({
       <button
         type="button"
         onClick={() => scroll('right')}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/95 shadow-md border border-gray-200 text-gray-800 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-white"
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/95 dark:bg-[#151B23]/95 shadow-md border border-gray-200 dark:border-[#263241] text-gray-800 dark:text-gray-200 flex items-center justify-center opacity-0 group-row:opacity-100 transition-opacity hover:bg-white dark:hover:bg-[#1A2232]"
         title="Scroll Right"
       >
         <ChevronRight className="w-5 h-5" />

@@ -5,6 +5,8 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig: NextConfig = {
   ...(isProd ? { output: 'export', trailingSlash: true } : {}),
+  outputFileTracingRoot: path.join(__dirname),
+  transpilePackages: ['@msg91comm/sendotp-sdk'],
   reactStrictMode: false,
   devIndicators: false,
   typescript: {

@@ -77,11 +77,11 @@ export function ProductCard({ product, onOpenDetail }: ProductCardProps) {
   return (
     <div
       onClick={handleCardClick}
-      className="bg-[#1C1C22] border border-slate-800/60 rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform duration-150 flex flex-col"
+      className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform duration-150 flex flex-col shadow-2xs hover:shadow-md"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       {/* Product Image */}
-      <div className="relative bg-white w-full aspect-square flex items-center justify-center p-3 overflow-hidden">
+      <div className="relative bg-slate-50 dark:bg-[#111827] w-full aspect-square flex items-center justify-center p-3 overflow-hidden">
         <img
           src={thumbnail}
           alt={product.name}
@@ -89,35 +89,35 @@ export function ProductCard({ product, onOpenDetail }: ProductCardProps) {
           loading="lazy"
         />
         {/* Veg indicator */}
-        <div className="absolute bottom-2 right-2 bg-white/95 p-0.5 rounded border border-emerald-600 flex items-center justify-center">
+        <div className="absolute bottom-2 right-2 bg-white dark:bg-[#151B23] p-0.5 rounded border border-emerald-600 flex items-center justify-center">
           <div className="w-2 h-2 rounded-full bg-emerald-600" />
         </div>
         {/* Discount badge */}
         {discountPct > 0 && (
-          <div className="absolute top-2 left-2 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md">
+          <div className="absolute top-2 left-2 bg-[#008F5A] text-white text-[9px] font-black px-1.5 py-0.5 rounded-md">
             {discountPct}% OFF
           </div>
         )}
       </div>
 
       {/* Weight + ADD button row */}
-      <div className="bg-[#121215] px-2.5 py-2 flex items-center justify-between border-t border-slate-800/60">
-        <span className="text-xs text-slate-300 font-bold">
+      <div className="bg-white dark:bg-[#111827] px-2.5 py-2 flex items-center justify-between border-t border-[#E5E7EB] dark:border-[#263241]">
+        <span className="text-xs text-[#374151] dark:text-[#D1D5DB] font-bold">
           {product.unit || '1 pack'}
         </span>
 
         {qtyInCart === 0 ? (
           <button
             onClick={handleAddToCart}
-            className="bg-[#16A34A] hover:bg-[#15803D] active:scale-95 text-white font-black text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-md shadow-emerald-900/30"
+            className="bg-[#008F5A] hover:bg-[#007044] active:scale-95 text-white font-black text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-md shadow-emerald-900/20"
           >
             ADD
           </button>
         ) : (
-          <div className="flex items-center gap-1 bg-[#16A34A] rounded-lg overflow-hidden shadow-md shadow-emerald-900/30">
+          <div className="flex items-center gap-1 bg-[#008F5A] rounded-lg overflow-hidden shadow-md shadow-emerald-900/20">
             <button
               onClick={handleDecrease}
-              className="text-white px-2 py-1.5 hover:bg-[#15803D] active:scale-95 transition-all cursor-pointer font-black"
+              className="text-white px-2 py-1.5 hover:bg-black/15 active:scale-95 transition-all cursor-pointer font-black"
             >
               <Minus className="w-3 h-3" />
             </button>
@@ -126,7 +126,7 @@ export function ProductCard({ product, onOpenDetail }: ProductCardProps) {
             </span>
             <button
               onClick={handleIncrease}
-              className="text-white px-2 py-1.5 hover:bg-[#15803D] active:scale-95 transition-all cursor-pointer font-black"
+              className="text-white px-2 py-1.5 hover:bg-black/15 active:scale-95 transition-all cursor-pointer font-black"
             >
               <Plus className="w-3 h-3" />
             </button>
@@ -135,29 +135,29 @@ export function ProductCard({ product, onOpenDetail }: ProductCardProps) {
       </div>
 
       {/* Product Details */}
-      <div className="p-2.5 pt-2 flex flex-col gap-0.5 flex-1">
+      <div className="p-2.5 pt-2 flex flex-col gap-0.5 flex-1 bg-white dark:bg-[#151B23]">
         {/* Per 100g price */}
         {per100Text && (
-          <span className="text-[10px] text-slate-500 font-semibold">{per100Text}</span>
+          <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] font-semibold">{per100Text}</span>
         )}
 
         {/* Selling price + MRP */}
         <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className="text-sm font-black text-white">₹{product.sellingPrice}</span>
+          <span className="text-sm font-black text-[#111827] dark:text-[#F9FAFB]">₹{product.sellingPrice}</span>
           {product.mrp > product.sellingPrice && (
-            <span className="text-[11px] text-slate-500 line-through font-semibold">₹{product.mrp}</span>
+            <span className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF] line-through font-semibold">₹{product.mrp}</span>
           )}
         </div>
 
         {/* Discount label */}
         {discountPct > 0 && (
-          <span className="text-[10px] font-black text-emerald-400">
+          <span className="text-[10px] font-black text-[#008F5A] dark:text-[#45C483]">
             {discountPct}% OFF on MRP
           </span>
         )}
 
         {/* Product name */}
-        <p className="text-[11px] text-slate-200 font-bold leading-tight mt-0.5 line-clamp-2">
+        <p className="text-[11px] text-[#111827] dark:text-[#F9FAFB] font-bold leading-tight mt-0.5 line-clamp-2">
           {product.name}
         </p>
 
@@ -170,21 +170,21 @@ export function ProductCard({ product, onOpenDetail }: ProductCardProps) {
                 className={`w-2.5 h-2.5 ${
                   i < Math.round(product.rating || 4)
                     ? 'fill-amber-400 text-amber-400'
-                    : 'text-slate-600'
+                    : 'text-slate-300 dark:text-slate-700'
                 }`}
               />
             ))}
           </div>
           {product.reviewsCount != null && (
-            <span className="text-[9px] text-slate-500 font-semibold">
+            <span className="text-[9px] text-[#6B7280] dark:text-[#9CA3AF] font-semibold">
               {product.reviewsCount >= 1000
                 ? `${(product.reviewsCount / 1000).toFixed(1)}k`
                 : product.reviewsCount}
             </span>
           )}
           <div className="flex items-center gap-0.5 ml-auto">
-            <Clock className="w-2.5 h-2.5 text-slate-500" />
-            <span className="text-[9px] text-slate-500 font-semibold">9 mins</span>
+            <Clock className="w-2.5 h-2.5 text-[#6B7280] dark:text-[#9CA3AF]" />
+            <span className="text-[9px] text-[#6B7280] dark:text-[#9CA3AF] font-semibold">30 mins</span>
           </div>
         </div>
       </div>

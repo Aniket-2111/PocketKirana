@@ -551,6 +551,62 @@ export default function ActiveDeliveryPage() {
     }
   }, [statusUpper, activeOrder, isPrepaidOnline]);
 
+  // ─── Live Driver GPS Broadcast Hook ───────────────────────────────────────
+  useEffect(() => {
+    if (!activeOrder || !partner) return;
+
+    const startTracking = async () => {
+      const { locationManager } = await import('@/lib/locationManager');
+      locationManager.startLiveTracking(async (coords) => {
+        try {
+          const { getFirebaseDb } = await import('@/lib/firebase');
+          const db = getFirebaseDb();
+          if (db) {
+            const { doc, setDoc } = await import('firebase/firestore');
+            await setDoc(
+              doc(db, 'drivers', partner.id),
+              {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                heading: coords.heading,
+                speed: coords.speed,
+                accuracy: coords.accuracy,
+                lastUpdated: new Date().toISOString(),
+                activeOrderId: activeOrder.id,
+              },
+              { merge: true }
+            );
+
+            await setDoc(
+              doc(db, 'orders', activeOrder.id),
+              {
+                driverLocation: {
+                  latitude: coords.latitude,
+                  longitude: coords.longitude,
+                  heading: coords.heading,
+                  speed: coords.speed,
+                  accuracy: coords.accuracy,
+                  lastUpdated: new Date().toISOString(),
+                },
+              },
+              { merge: true }
+            );
+          }
+        } catch (e) {
+          console.warn('Driver live location sync warning:', e);
+        }
+      });
+    };
+
+    startTracking();
+
+    return () => {
+      import('@/lib/locationManager').then(({ locationManager }) => {
+        locationManager.stopLiveTracking();
+      });
+    };
+  }, [activeOrder?.id, partner?.id]);
+
   // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;

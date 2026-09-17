@@ -5,8 +5,8 @@ import { fetchShopsFS } from '@/lib/firebaseServices';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const lat = parseFloat(searchParams.get('lat') || '18.9876');
-    const lng = parseFloat(searchParams.get('lng') || '73.3210');
+    const lat = parseFloat(searchParams.get('lat') || '19.0224536');
+    const lng = parseFloat(searchParams.get('lng') || '73.3210018');
     const pincode = searchParams.get('pincode') || undefined;
     const storeId = searchParams.get('storeId') || undefined;
 

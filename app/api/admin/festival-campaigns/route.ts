@@ -2,50 +2,39 @@ import { NextResponse } from 'next/server';
 import { FestivalCampaign } from '@/types/festival';
 import { validateFestivalCampaign } from '@/lib/festivalValidator';
 import { INITIAL_FESTIVAL_TEMPLATES } from '@/lib/festivalTemplates';
+import { fetchFestivalCampaignsFS, saveFestivalCampaignFS } from '@/lib/firebaseServices';
 
-let inMemoryCampaigns: FestivalCampaign[] = [
-  {
-    id: 'cmp-ganesh-chaturthi-2026',
-    name: 'Ganesh Chaturthi Maha Utsav 2026',
+const fallbackCampaign: FestivalCampaign = {
+  id: 'cmp-ganesh-chaturthi-2026',
+  name: 'Ganesh Chaturthi Maha Utsav 2026',
+  festivalName: 'Ganesh Chaturthi',
+  templateId: 'tpl-ganesh-chaturthi-premium',
+  templateVersion: 1,
+  status: 'PUBLISHED',
+  priority: 100,
+  startAt: '2026-08-15T00:00:00.000Z',
+  endAt: '2026-10-15T23:59:59.000Z',
+  timezone: 'Asia/Kolkata',
+  configurationSnapshot: {
     festivalName: 'Ganesh Chaturthi',
-    templateId: 'tpl-ganesh-chaturthi-premium',
-    templateVersion: 1,
-    status: 'PUBLISHED',
-    priority: 100,
-    startAt: '2026-08-15T00:00:00.000Z',
-    endAt: '2026-10-15T23:59:59.000Z',
-    timezone: 'Asia/Kolkata',
-    configurationSnapshot: {
-      festivalName: 'Ganesh Chaturthi',
-      theme: INITIAL_FESTIVAL_TEMPLATES[0].theme,
-      sections: INITIAL_FESTIVAL_TEMPLATES[0].sections,
-    },
-    publishedAt: '2026-08-15T00:00:00.000Z',
-    publishedBy: 'Admin',
-    currentVersion: 1,
-    versionHistory: [
-      {
-        versionNumber: 1,
-        snapshot: {
-          name: 'Ganesh Chaturthi Maha Utsav 2026',
-          templateId: 'tpl-ganesh-chaturthi-premium',
-          theme: INITIAL_FESTIVAL_TEMPLATES[0].theme,
-          sections: INITIAL_FESTIVAL_TEMPLATES[0].sections,
-          festivalName: 'Ganesh Chaturthi',
-        },
-        savedAt: '2026-08-15T00:00:00.000Z',
-        savedBy: 'Admin',
-        notes: 'Initial publication',
-      },
-    ],
-    createdAt: '2026-08-15T00:00:00.000Z',
-    updatedAt: '2026-08-15T00:00:00.000Z',
+    theme: INITIAL_FESTIVAL_TEMPLATES[0].theme,
+    sections: INITIAL_FESTIVAL_TEMPLATES[0].sections,
   },
-];
+  publishedAt: '2026-08-15T00:00:00.000Z',
+  publishedBy: 'Admin',
+  currentVersion: 1,
+  versionHistory: [],
+  createdAt: '2026-08-15T00:00:00.000Z',
+  updatedAt: '2026-08-15T00:00:00.000Z',
+};
 
 export async function GET(req: Request) {
   try {
-    return NextResponse.json({ success: true, campaigns: inMemoryCampaigns });
+    let campaigns = await fetchFestivalCampaignsFS().catch(() => []);
+    if (!campaigns || campaigns.length === 0) {
+      campaigns = [fallbackCampaign];
+    }
+    return NextResponse.json({ success: true, campaigns });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -100,7 +89,7 @@ export async function POST(req: Request) {
       updatedAt: new Date().toISOString(),
     };
 
-    inMemoryCampaigns.unshift(newCampaign);
+    await saveFestivalCampaignFS(newCampaign).catch(() => {});
 
     return NextResponse.json({ success: true, campaign: newCampaign });
   } catch (error: any) {

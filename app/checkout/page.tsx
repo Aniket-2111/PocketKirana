@@ -823,7 +823,7 @@ export default function CheckoutPage() {
         {showSuccessAnimation && confirmedOrder && (
           <OrderConfirmationAnimation
             order={confirmedOrder}
-            onComplete={() => router.push(`/orders/${confirmedOrder.id}`)}
+            onComplete={() => router.push(`/orders/${confirmedOrder.id}/track`)}
             autoRedirectMs={3000}
           />
         )}

@@ -66,7 +66,7 @@ export const LiveDeliveryControlCenter: React.FC = () => {
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
           </div>
           <p className="text-2xl font-black text-gray-900">42</p>
-          <span className="text-[11px] font-bold text-emerald-600">⚡ 15-Min Express Live</span>
+          <span className="text-[11px] font-bold text-emerald-600">⚡ 30-Min Express Live</span>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs space-y-1">

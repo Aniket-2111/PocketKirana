@@ -1,183 +1,182 @@
-﻿'use client';
+'use client';
 
-import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, ShieldCheck, AlertCircle, Settings, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
+import {
+  MapPin,
+  Navigation,
+  ShieldCheck,
+  AlertCircle,
+  Settings,
+  RefreshCw,
+} from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import {
+  locationManager,
+  LocationManagerState,
+} from '@/lib/locationManager';
 
 interface LocationPermissionGuardProps {
   children?: React.ReactNode;
 }
 
 export function LocationPermissionGuard({ children }: LocationPermissionGuardProps) {
-  const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied' | 'permanently_denied'>('granted');
-  const [checking, setChecking] = useState(true);
-  const [denialCount, setDenialCount] = useState(0);
+  const pathname = usePathname();
+  const [locState, setLocState] = useState<LocationManagerState>(() => locationManager.getState());
+  const [requesting, setRequesting] = useState(false);
 
+  // Skip guard on login route
+  const isLoginRoute = pathname === '/login' || pathname === '/';
+
+  // ── Reactive subscription to Central Location Manager ──────────────────
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (isLoginRoute) return;
 
-    const storedGranted = localStorage.getItem('pk_delivery_location_granted');
-    const storedDenials = parseInt(localStorage.getItem('pk_delivery_loc_denials') || '0', 10);
-    setDenialCount(storedDenials);
+    const unsubscribe = locationManager.subscribe((nextState) => {
+      setLocState(nextState);
+    });
 
-    if (storedGranted === 'true') {
-      setPermissionState('granted');
-      setChecking(false);
+    // Check on mount
+    locationManager.checkState({ forceFresh: true });
+
+    return () => unsubscribe();
+  }, [isLoginRoute]);
+
+  // ── Handle Action ──────────────────────────────────────────────────────
+  const handleTurnOnLocation = useCallback(async () => {
+    if (locState.permission === 'DENIED') {
+      locationManager.openAppSettings();
       return;
     }
 
-    // Check navigator permissions if supported
-    if ('permissions' in navigator && navigator.permissions.query) {
-      navigator.permissions
-        .query({ name: 'geolocation' as PermissionName })
-        .then((result) => {
-          if (result.state === 'granted') {
-            localStorage.setItem('pk_delivery_location_granted', 'true');
-            setPermissionState('granted');
-          } else if (result.state === 'denied') {
-            setPermissionState(storedDenials >= 2 ? 'permanently_denied' : 'denied');
-          } else {
-            setPermissionState('prompt');
-          }
-        })
-        .catch(() => {
-          setPermissionState('prompt');
-        })
-        .finally(() => {
-          setChecking(false);
-        });
-    } else {
-      setPermissionState('prompt');
-      setChecking(false);
-    }
-  }, []);
-
-  const handleRequestLocation = () => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      showToast('Geolocation is not supported on this device.', 'error');
+    if (locState.gps === 'DISABLED' || locState.status === 'GPS_DISABLED') {
+      locationManager.openLocationSettings();
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        localStorage.setItem('pk_delivery_location_granted', 'true');
-        localStorage.removeItem('pk_delivery_loc_denials');
-        setPermissionState('granted');
-        showToast('📍 Location access enabled for delivery tracking!', 'success');
-      },
-      (err) => {
-        const nextDenials = denialCount + 1;
-        setDenialCount(nextDenials);
-        localStorage.setItem('pk_delivery_loc_denials', String(nextDenials));
-
-        if (err.code === err.PERMISSION_DENIED) {
-          if (nextDenials >= 2) {
-            setPermissionState('permanently_denied');
-          } else {
-            setPermissionState('denied');
-          }
-          showToast('Location permission is required for delivery navigation.', 'error');
-        } else {
-          showToast('Unable to acquire GPS signal. Please ensure device Location is ON.', 'error');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  };
-
-  const handleOpenSettings = () => {
-    showToast('Please enable Location permission in Device Settings > Apps > Pocket Kirana Delivery.', 'info');
-    // If running in Capacitor, we can also dispatch standard app settings intent if available
+    setRequesting(true);
     try {
-      if ((window as any).Capacitor?.Plugins?.App?.openUrl) {
-        (window as any).Capacitor.Plugins.App.openUrl({ url: 'package:com.pocketkirana.delivery' });
+      const granted = await locationManager.requestPermission();
+      if (granted) {
+        await locationManager.getCurrentCoordinates();
+        showToast('📍 Location access enabled for delivery tracking!', 'success');
+      } else {
+        await locationManager.checkState({ forceFresh: true });
       }
-    } catch (_) {}
-  };
+    } catch (err) {
+      console.warn('handleTurnOnLocation error:', err);
+    } finally {
+      setRequesting(false);
+    }
+  }, [locState]);
 
-  if (checking) return <>{children}</>;
+  // ── Render Conditions ──────────────────────────────────────────────────
+  if (isLoginRoute) return <>{children}</>;
+  if (locState.status === 'READY') return <>{children}</>;
 
-  if (permissionState === 'granted') {
-    return <>{children}</>;
-  }
+  const isHardDenied = locState.permission === 'DENIED';
+  const isGpsOff = locState.gps === 'DISABLED' || locState.status === 'GPS_DISABLED';
 
   return (
     <>
       {children}
 
-      {/* Location Permission Modal Overlay */}
-      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+      {/* ── Full-screen overlay for delivery partner ── */}
+      <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
         <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4 animate-in fade-in slide-in-from-bottom-6 duration-300">
-          
-          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#0F532B]">
-            <MapPin className="w-7 h-7 stroke-[2.5]" />
+
+          {/* Icon */}
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto ${
+            isHardDenied
+              ? 'bg-red-50 border border-red-200'
+              : isGpsOff
+              ? 'bg-amber-50 border border-amber-200'
+              : 'bg-emerald-50 border border-emerald-200'
+          }`}>
+            <MapPin className={`w-7 h-7 stroke-[2.5] ${
+              isHardDenied ? 'text-red-500' : isGpsOff ? 'text-amber-500' : 'text-[#0F532B]'
+            }`} />
           </div>
 
+          {/* Title + description */}
           <div className="text-center space-y-1.5">
             <h3 className="text-lg font-black text-slate-900 tracking-tight">
-              {permissionState === 'permanently_denied'
-                ? 'Location Permission Required'
+              {isHardDenied
+                ? 'Location Permission Blocked'
+                : isGpsOff
+                ? 'Device Location is Turned Off'
                 : 'Enable Location for Deliveries'}
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Pocket Kirana Delivery requires foreground location access to enable live GPS navigation, route tracking, and accurate grocery drop-offs.
+              {isHardDenied
+                ? 'Location is blocked in Android settings. Open Settings to enable Location for Pocket Kirana Delivery.'
+                : isGpsOff
+                ? 'Location is required while you are online and delivering orders.'
+                : 'Pocket Kirana Delivery requires GPS access to enable live delivery navigation and route tracking.'}
             </p>
           </div>
 
-          {permissionState === 'denied' && (
+          {/* Guidance Banner */}
+          {isGpsOff && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-start gap-2.5 text-left">
               <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
               <p className="text-[11px] text-amber-900 font-medium leading-snug">
-                Location permission was denied. Location is required to navigate to stores and customer addresses.
+                Tap <strong>Turn On Location</strong> to open device quick settings. The app will automatically resume once enabled.
               </p>
             </div>
           )}
 
-          {permissionState === 'permanently_denied' && (
+          {isHardDenied && (
             <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-start gap-2.5 text-left">
               <Settings className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
               <p className="text-[11px] text-rose-900 font-medium leading-snug">
-                Location access is blocked in Android settings. Please tap <strong>Open Settings</strong> and enable Location permissions.
+                Go to <strong>Settings → Apps → Pocket Kirana Delivery → Permissions → Location → Allow</strong>.
               </p>
             </div>
           )}
 
+          {/* Action button */}
           <div className="space-y-2 pt-2">
-            {permissionState === 'permanently_denied' ? (
-              <button
-                type="button"
-                onClick={handleOpenSettings}
-                className="w-full py-3.5 bg-[#0F532B] hover:bg-[#0c4323] text-white font-black text-xs rounded-2xl flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <Settings className="w-4 h-4" />
-                <span>Open App Settings</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleRequestLocation}
-                className="w-full py-3.5 bg-[#0F532B] hover:bg-[#0c4323] text-white font-black text-xs rounded-2xl flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <Navigation className="w-4 h-4 stroke-[2.5]" />
-                <span>Allow Location Access</span>
-              </button>
-            )}
-
             <button
               type="button"
-              onClick={() => {
-                setPermissionState('granted');
-                showToast('Continuing with limited offline features.', 'info');
-              }}
-              className="w-full py-2.5 text-slate-500 hover:text-slate-800 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              onClick={handleTurnOnLocation}
+              disabled={requesting}
+              className={`w-full py-3.5 text-white font-black text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all cursor-pointer disabled:opacity-70 ${
+                isHardDenied
+                  ? 'bg-red-600 hover:bg-red-700 shadow-red-600/20'
+                  : isGpsOff
+                  ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
+                  : 'bg-[#0F532B] hover:bg-[#0c4323] shadow-emerald-900/20'
+              }`}
             >
-              Continue Anyway
+              {requesting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Checking Location…
+                </>
+              ) : isHardDenied ? (
+                <>
+                  <Settings className="w-4 h-4" />
+                  Open App Settings
+                </>
+              ) : isGpsOff ? (
+                <>
+                  <Navigation className="w-4 h-4" />
+                  Turn On Location
+                </>
+              ) : (
+                <>
+                  <Navigation className="w-4 h-4 stroke-[2.5]" />
+                  Allow Location Access
+                </>
+              )}
             </button>
           </div>
 
+          {/* Privacy notice */}
           <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-medium pt-1 border-t border-slate-100">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Foreground location only • Privacy protected</span>
+            <span>Active foreground delivery tracking · Protected</span>
           </div>
 
         </div>

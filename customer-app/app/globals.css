@@ -1,4 +1,5 @@
 @import 'leaflet/dist/leaflet.css';
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,24 +7,56 @@
 
 @layer base {
   :root {
-    --background: #f8fafc;
-    --foreground: #0f172a;
+    --background: #FFFFFF;
+    --foreground: #111827;
+    --card: #FFFFFF;
+    --card-foreground: #111827;
+    --secondary-bg: #F9FAFB;
+    --elevated: #FFFFFF;
+    --muted: #F3F4F6;
+    --muted-foreground: #6B7280;
+    --secondary-foreground: #374151;
+    --disabled-foreground: #9CA3AF;
+    --border: #E5E7EB;
+    --input: #FFFFFF;
+    --input-border: #D1D5DB;
+    --nav-bg: #FFFFFF;
+    --primary: #008F5A;
+    --primary-foreground: #FFFFFF;
+    --promo-orange: #E65100;
   }
+
   .dark {
-    --background: #0d1117;
-    --foreground: #f8fafc;
+    --background: #0B0F14;
+    --foreground: #F9FAFB;
+    --card: #151B23;
+    --card-foreground: #F9FAFB;
+    --secondary-bg: #111827;
+    --elevated: #1B2430;
+    --muted: #1B2430;
+    --muted-foreground: #9CA3AF;
+    --secondary-foreground: #D1D5DB;
+    --disabled-foreground: #6B7280;
+    --border: #263241;
+    --input: #111827;
+    --input-border: #374151;
+    --nav-bg: #111827;
+    --primary: #008F5A;
+    --primary-foreground: #FFFFFF;
+    --promo-orange: #E65100;
   }
 }
 
 html {
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
   margin: 0;
   padding: 0;
@@ -39,14 +72,17 @@ body {
     opacity: 1;
     transform: translate(0, 0) scale(1);
   }
+
   30% {
     opacity: 1;
     transform: translate(calc(var(--tx) * 0.3), calc(var(--ty) * 0.3 - 40px)) scale(0.85);
   }
+
   70% {
     opacity: 0.9;
     transform: translate(calc(var(--tx) * 0.75), calc(var(--ty) * 0.75 + 10px)) scale(0.55);
   }
+
   100% {
     opacity: 0;
     transform: translate(var(--tx), var(--ty)) scale(0.2);
@@ -54,8 +90,14 @@ body {
 }
 
 /* ── Hide scrollbar utility ──────────────────────────────────────── */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 /* ── Order Confirmed Animations ───────────────────────────────────── */
 @keyframes popSuccess {
@@ -63,10 +105,12 @@ body {
     opacity: 0;
     transform: scale(0.4) translateY(20px);
   }
+
   60% {
     opacity: 1;
     transform: scale(1.08) translateY(-5px);
   }
+
   100% {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -78,10 +122,12 @@ body {
     transform: scale(0.85);
     opacity: 0.9;
   }
+
   50% {
     transform: scale(1.25);
     opacity: 0.35;
   }
+
   100% {
     transform: scale(1.55);
     opacity: 0;
@@ -89,14 +135,22 @@ body {
 }
 
 @keyframes fillProgress {
-  0% { width: 0%; }
-  100% { width: 100%; }
+  0% {
+    width: 0%;
+  }
+
+  100% {
+    width: 100%;
+  }
 }
 
 @keyframes floatScooter {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
+
   50% {
     transform: translateY(-6px) rotate(-1deg);
   }
@@ -106,6 +160,7 @@ body {
   0% {
     stroke-dashoffset: 50;
   }
+
   100% {
     stroke-dashoffset: 0;
   }
@@ -133,14 +188,17 @@ body {
     transform: translate(-50px, -80px) scale(0.5) rotate(-20deg);
     opacity: 0;
   }
+
   30% {
     opacity: 1;
     transform: translate(-30px, -40px) scale(1) rotate(-8deg);
   }
+
   80% {
     opacity: 0.9;
     transform: translate(-8px, 10px) scale(0.9) rotate(0deg);
   }
+
   100% {
     opacity: 0;
     transform: translate(0, 30px) scale(0.6);
@@ -152,14 +210,17 @@ body {
     transform: translate(50px, -80px) scale(0.5) rotate(20deg);
     opacity: 0;
   }
+
   30% {
     opacity: 1;
     transform: translate(30px, -40px) scale(1) rotate(8deg);
   }
+
   80% {
     opacity: 0.9;
     transform: translate(8px, 10px) scale(0.9) rotate(0deg);
   }
+
   100% {
     opacity: 0;
     transform: translate(0, 30px) scale(0.6);
@@ -171,14 +232,17 @@ body {
     transform: translate(-25px, -90px) scale(0.5) rotate(-10deg);
     opacity: 0;
   }
+
   35% {
     opacity: 1;
     transform: translate(-15px, -45px) scale(1) rotate(0deg);
   }
+
   80% {
     opacity: 0.9;
     transform: translate(-4px, 10px) scale(0.9);
   }
+
   100% {
     opacity: 0;
     transform: translate(0, 30px) scale(0.6);
@@ -190,14 +254,17 @@ body {
     transform: translate(25px, -90px) scale(0.5) rotate(15deg);
     opacity: 0;
   }
+
   35% {
     opacity: 1;
     transform: translate(15px, -45px) scale(1) rotate(0deg);
   }
+
   80% {
     opacity: 0.9;
     transform: translate(4px, 10px) scale(0.9);
   }
+
   100% {
     opacity: 0;
     transform: translate(0, 30px) scale(0.6);
@@ -209,14 +276,17 @@ body {
     transform: translate(0px, -95px) scale(0.5);
     opacity: 0;
   }
+
   35% {
     opacity: 1;
     transform: translate(0px, -50px) scale(1.05);
   }
+
   80% {
     opacity: 0.9;
     transform: translate(0px, 10px) scale(0.9);
   }
+
   100% {
     opacity: 0;
     transform: translate(0, 30px) scale(0.6);
@@ -227,19 +297,20 @@ body {
   0% {
     transform: scale(1) translateY(0);
   }
+
   20% {
     transform: scale(1.08, 0.92) translateY(4px);
   }
+
   45% {
     transform: scale(0.96, 1.04) translateY(-3px);
   }
+
   70% {
     transform: scale(1.02, 0.98) translateY(1px);
   }
+
   100% {
     transform: scale(1) translateY(0);
   }
 }
-
-
-

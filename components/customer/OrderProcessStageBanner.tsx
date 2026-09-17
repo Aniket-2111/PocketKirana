@@ -39,18 +39,18 @@ export const OrderProcessStageBanner: React.FC<OrderProcessStageBannerProps> = (
   let stageTitle = 'Order Placed & Confirmed';
   let stageSubtext = 'Dark store team has received your order and started inventory allocation.';
   let stageBadge = 'Order Confirmed';
-  let estimatedTime = '10-15 mins';
+  let estimatedTime = '30 mins';
 
   if (isAssigningStage) {
     stageTitle = 'Assigning Delivery Partner';
     stageSubtext = 'Your order is packed & sealed. Connecting with the nearest express delivery rider...';
     stageBadge = 'Assigning Rider';
-    estimatedTime = '8-12 mins';
+    estimatedTime = '20-25 mins';
   } else if (isPackingStage) {
     stageTitle = 'Packing Fresh Items at Dark Store';
     stageSubtext = 'Our warehouse picker is gathering your fresh groceries and sealing the delivery bag.';
     stageBadge = 'Items Being Packed';
-    estimatedTime = '10-14 mins';
+    estimatedTime = '25-30 mins';
   }
 
   const itemsCount = order?.items?.reduce((sum, i) => sum + (i.quantity || 1), 0) || order?.items?.length || 0;

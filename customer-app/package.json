@@ -10,6 +10,8 @@
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^8.5.0",
+    "@capacitor/geolocation": "^8.2.2",
+    "@msg91comm/sendotp-sdk": "^1.0.1",
     "clsx": "^2.1.1",
     "firebase": "^12.18.0",
     "jspdf": "^4.2.1",

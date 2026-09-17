@@ -51,9 +51,9 @@ export interface DriverLiveTrackingData {
   lastUpdated: string;
 }
 
-// Store Hub Anchor Coordinates (PocketKirana Main Warehouse Hub: Neral, Maharashtra)
-const STORE_HUB_LAT = 19.033;
-const STORE_HUB_LON = 73.317;
+// Store Hub Anchor Coordinates (PocketKirana Main Store: Maule Kirana, Neral, Maharashtra)
+const STORE_HUB_LAT = 19.0224536;
+const STORE_HUB_LON = 73.3210018;
 
 /**
  * Calculates Haversine distance in km between two GPS coordinates
@@ -764,7 +764,7 @@ export function checkZoneServiceability(
       layer3Passed,
       storeOperatingHours: operatingHours,
       isStoreOpen,
-      message: `✓ 10-15 Min Delivery Available (${roadDistanceKm} km via road from ${selectedStore.name})`,
+      message: `✓ 30 Min Delivery Available (${roadDistanceKm} km via road from ${selectedStore.name})`,
     };
   }
 
@@ -915,33 +915,35 @@ export async function validateDeliveryZoneServerSide(
     ZONE_CACHE.set(cacheKey, { result: zone, ts: Date.now() });
     return zone;
   } catch (err) {
-    // Fallback: local Haversine with fixed store coordinates
+    // Fallback: local Haversine with Maule Kirana store coordinates
     const STORE_LAT = 19.0224536;
     const STORE_LNG = 73.3210018;
-    const DELIVERY_RADIUS_KM = 3;
+    const DELIVERY_RADIUS_KM = 4.5;
 
     const distanceKm = calculateDistanceKm(STORE_LAT, STORE_LNG, latitude, longitude);
     const isServiceable = distanceKm <= DELIVERY_RADIUS_KM;
 
     const zone: ZoneServiceability = {
       isServiceable,
-      storeId: 'store-001',
-      storeName: 'PocketKirana',
-      zoneId: isServiceable ? 'zone-01' : '',
-      zoneName: isServiceable ? 'Neral Service Zone' : '',
+      storeId: 'store-1',
+      storeName: 'Maule Kirana',
+      zoneId: isServiceable ? 'ZONE_NERAL' : 'UNSERVICEABLE',
+      zoneName: isServiceable ? 'Neral Delivery Zone' : 'Outside Delivery Service Area',
       distanceKm,
       straightLineDistanceKm: distanceKm,
-      roadDistanceKm: Math.round(distanceKm * 1.3 * 10) / 10,
+      roadDistanceKm: Math.round(distanceKm * 1.35 * 10) / 10,
       radiusKm: DELIVERY_RADIUS_KM,
-      remainingKm: Math.max(0, DELIVERY_RADIUS_KM - distanceKm),
-      estimatedDeliveryMinutes: isServiceable ? Math.ceil(distanceKm * 4 + 10) : 0,
-      deliveryFee: distanceKm <= 1 ? 0 : 25,
+      remainingKm: Math.max(0, Number((DELIVERY_RADIUS_KM - distanceKm).toFixed(1))),
+      estimatedDeliveryMinutes: isServiceable ? Math.max(10, Math.round(10 + distanceKm * 4)) : 0,
+      deliveryFee: 15,
+      storeLatitude: STORE_LAT,
+      storeLongitude: STORE_LNG,
       layer1Passed: isServiceable,
       layer2Passed: isServiceable,
-      layer3Passed: isServiceable,
+      layer3Passed: true,
       message: isServiceable
-        ? `Delivery available (${distanceKm.toFixed(1)} km from store)`
-        : `Outside delivery area (${distanceKm.toFixed(1)} km, limit: ${DELIVERY_RADIUS_KM} km)`,
+        ? `✓ PocketKirana delivers to your location (${distanceKm.toFixed(1)} KM from Maule Kirana)`
+        : `PocketKirana currently delivers within ${DELIVERY_RADIUS_KM} KM of our Neral store. You are ${distanceKm.toFixed(1)} KM away.`,
     };
 
     ZONE_CACHE.set(cacheKey, { result: zone, ts: Date.now() });

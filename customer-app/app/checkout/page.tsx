@@ -44,6 +44,15 @@ export default function CheckoutPage() {
     return def ? def.id : addresses[0]?.id || 'addr-1';
   });
 
+  useEffect(() => {
+    if (addresses.length > 0) {
+      if (!selectedAddressId || !addresses.some((a) => a.id === selectedAddressId)) {
+        const def = addresses.find((a) => a.isDefault) || addresses[0];
+        if (def) setSelectedAddressId(def.id);
+      }
+    }
+  }, [addresses, selectedAddressId]);
+
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   
   // ── Button & Animation Flow States ──
@@ -81,9 +90,27 @@ export default function CheckoutPage() {
     setBtnState('loading');
 
     try {
-      // 1. Create order in Backend / Store
+      // 1. Create order in Backend / Store with safe address fallback
+      const targetAddressId = selectedAddressId || addresses.find((a) => a.isDefault)?.id || addresses[0]?.id || 'addr-default';
+      const selectedAddr = addresses.find((a) => a.id === targetAddressId) || addresses[0];
+
+      if (selectedAddr && typeof selectedAddr.latitude === 'number' && typeof selectedAddr.longitude === 'number') {
+        const { calculateDistanceKm } = await import('@/lib/locationServices');
+        const dist = calculateDistanceKm(19.0224536, 73.3210018, selectedAddr.latitude, selectedAddr.longitude);
+        const isNeralPincode = selectedAddr.postalCode === '410101' || 
+          (selectedAddr.city && selectedAddr.city.toLowerCase().includes('neral')) ||
+          (selectedAddr.addressLine1 && selectedAddr.addressLine1.toLowerCase().includes('neral'));
+
+        if (dist > 4.5 && !isNeralPincode) {
+          showToast(`Outside delivery area: Selected address is ${dist.toFixed(1)} KM from Maule Kirana in Neral (Max radius: 4.5 KM)`, 'error');
+          setBtnState('idle');
+          isSubmittingRef.current = false;
+          return;
+        }
+      }
+
       const createdOrder = placeOrder(
-        selectedAddressId, 
+        targetAddressId, 
         'Express Delivery', 
         paymentMethod
       );
@@ -133,7 +160,9 @@ export default function CheckoutPage() {
 
   const handleAnimationComplete = () => {
     if (confirmedOrder) {
-      router.replace(`/orders/${confirmedOrder.id}`);
+      router.replace(`/orders/track?id=${confirmedOrder.id}`);
+    } else {
+      router.replace('/orders');
     }
   };
 
@@ -142,24 +171,24 @@ export default function CheckoutPage() {
     return (
       <CustomerShell title="Checkout" showBack backUrl="/cart">
         <div className="p-4 space-y-4 animate-pulse">
-          <div className="h-32 bg-slate-200 rounded-3xl" />
-          <div className="h-24 bg-slate-200 rounded-3xl" />
-          <div className="h-28 bg-slate-200 rounded-3xl" />
+          <div className="h-32 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
+          <div className="h-24 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
+          <div className="h-28 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
         </div>
       </CustomerShell>
     );
   }
 
-  // If cart is empty after hydration, redirect to cart page
-  if (mounted && cart.length === 0) {
+  // If cart is empty after hydration and NO order is being placed / confirmed, show empty cart view
+  if (mounted && cart.length === 0 && !confirmedOrder && !showAnimationModal && btnState === 'idle') {
     return (
       <CustomerShell title="Checkout" showBack backUrl="/cart">
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-4 shadow-xs mt-6">
-          <h3 className="text-base font-black text-slate-900">Your cart is empty</h3>
-          <p className="text-xs text-slate-500">Add items to your cart before checking out.</p>
+        <div className="bg-white dark:bg-[#151B23] border border-slate-200 dark:border-[#263241] rounded-3xl p-8 text-center space-y-4 shadow-xs mt-6">
+          <h3 className="text-base font-black text-slate-900 dark:text-[#F9FAFB]">Your cart is empty</h3>
+          <p className="text-xs text-slate-500 dark:text-[#9CA3AF]">Add items to your cart before checking out.</p>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl transition-all"
+            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl transition-all cursor-pointer"
           >
             Shop Now
           </button>
@@ -173,15 +202,15 @@ export default function CheckoutPage() {
       <div className="space-y-4 animate-in fade-in duration-200 pb-16">
         
         {/* ── 1. DELIVERY ADDRESS SELECTOR ── */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="font-black text-xs uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-              <MapPin className="w-4 h-4 text-emerald-600" />
+        <div className="bg-white dark:bg-[#151B23] border border-slate-200 dark:border-[#263241] rounded-3xl p-5 space-y-3 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#263241] pb-3">
+            <h3 className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-[#F9FAFB] flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Delivery Address</span>
             </h3>
             <button
               onClick={() => router.push('/saved-addresses')}
-              className="text-xs text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-0.5 cursor-pointer"
+              className="text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 font-bold flex items-center gap-0.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Manage</span>
@@ -198,8 +227,8 @@ export default function CheckoutPage() {
                     onClick={() => setSelectedAddressId(addr.id)}
                     className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20'
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                        ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-500 dark:border-emerald-500 ring-2 ring-emerald-500/20'
+                        : 'bg-slate-50 dark:bg-[#111827] border-slate-200 dark:border-[#263241] hover:bg-slate-100 dark:hover:bg-[#1B2430]'
                     }`}
                   >
                     <input
@@ -211,17 +240,17 @@ export default function CheckoutPage() {
                     />
                     <div className="min-w-0 text-xs">
                       <div className="flex items-center gap-2">
-                        <strong className="font-black text-slate-900">{addr.addressType || 'Home'}</strong>
+                        <strong className="font-black text-slate-900 dark:text-[#F9FAFB]">{addr.addressType || 'Home'}</strong>
                         {addr.isDefault && (
-                          <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase">
+                          <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase">
                             Default
                           </span>
                         )}
                       </div>
-                      <p className="text-slate-600 font-medium mt-0.5 leading-snug">
+                      <p className="text-slate-600 dark:text-[#D1D5DB] font-medium mt-0.5 leading-snug">
                         {addr.addressLine1} {addr.houseNumber ? `, House: ${addr.houseNumber}` : ''}, {addr.city} - {addr.postalCode}
                       </p>
-                      <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                      <span className="text-[10px] text-slate-400 dark:text-[#9CA3AF] font-mono block mt-0.5">
                         Phone: {addr.phone || '+91 8698893348'}
                       </span>
                     </div>
@@ -229,7 +258,7 @@ export default function CheckoutPage() {
                 );
               })
             ) : (
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-2">
+              <div className="p-3 bg-slate-50 dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-[#263241] text-xs text-slate-600 dark:text-[#D1D5DB] space-y-2">
                 <p>Default delivery to DarkStore Express Area (Neral Hub - 410101)</p>
               </div>
             )}
@@ -237,9 +266,9 @@ export default function CheckoutPage() {
         </div>
 
         {/* ── 2. PAYMENT METHOD SELECTOR ── */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-3 shadow-xs">
-          <h3 className="font-black text-xs uppercase tracking-wider text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-3">
-            <CreditCard className="w-4 h-4 text-emerald-600" />
+        <div className="bg-white dark:bg-[#151B23] border border-slate-200 dark:border-[#263241] rounded-3xl p-5 space-y-3 shadow-xs">
+          <h3 className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-[#F9FAFB] flex items-center gap-1.5 border-b border-slate-100 dark:border-[#263241] pb-3">
+            <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>Select Payment Method</span>
           </h3>
 
@@ -270,9 +299,9 @@ export default function CheckoutPage() {
                   className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
                       ? isPhonePe
-                        ? 'bg-purple-50/70 border-purple-600 ring-2 ring-purple-500/20 shadow-xs'
-                        : 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
-                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                        ? 'bg-purple-50/70 dark:bg-purple-950/30 border-purple-600 ring-2 ring-purple-500/20 shadow-xs'
+                        : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                      : 'bg-slate-50 dark:bg-[#111827] border-slate-200 dark:border-[#263241] hover:bg-slate-100 dark:hover:bg-[#1B2430]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -285,14 +314,14 @@ export default function CheckoutPage() {
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <strong className="block text-xs font-bold text-slate-900">{method.label}</strong>
+                        <strong className="block text-xs font-bold text-slate-900 dark:text-[#F9FAFB]">{method.label}</strong>
                         {method.tag && (
-                          <span className="text-[9px] font-black text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                          <span className="text-[9px] font-black text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/60 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                             {method.tag}
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-500 font-medium block">{method.desc}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-[#9CA3AF] font-medium block">{method.desc}</span>
                     </div>
                   </div>
                   {isPhonePe ? (
@@ -300,7 +329,7 @@ export default function CheckoutPage() {
                       <span className="font-black text-xs font-sans">पे</span>
                     </div>
                   ) : (
-                    <Icon className="w-5 h-5 text-slate-400 shrink-0" />
+                    <Icon className="w-5 h-5 text-slate-400 dark:text-[#9CA3AF] shrink-0" />
                   )}
                 </label>
               );
@@ -309,31 +338,31 @@ export default function CheckoutPage() {
         </div>
 
         {/* ── 4. ORDER SUMMARY ── */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-2.5 shadow-xs text-xs font-bold text-slate-600">
-          <h4 className="font-black text-slate-900 uppercase tracking-wider pb-1 border-b border-slate-100">
+        <div className="bg-white dark:bg-[#151B23] border border-slate-200 dark:border-[#263241] rounded-3xl p-5 space-y-2.5 shadow-xs text-xs font-bold text-slate-600 dark:text-[#D1D5DB]">
+          <h4 className="font-black text-slate-900 dark:text-[#F9FAFB] uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-[#263241]">
             Total Amount ({cartCount} Products)
           </h4>
           <div className="flex items-center justify-between">
             <span>Subtotal</span>
-            <span className="font-mono text-slate-900">₹{subtotal}</span>
+            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">₹{subtotal}</span>
           </div>
           {discount > 0 && (
-            <div className="flex items-center justify-between text-emerald-700">
+            <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
               <span>Coupon Savings</span>
               <span className="font-mono font-black">-₹{discount}</span>
             </div>
           )}
           <div className="flex items-center justify-between">
             <span>Delivery Fee</span>
-            <span className="font-mono text-slate-900">{deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}</span>
+            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">{deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Taxes</span>
-            <span className="font-mono text-slate-900">₹{tax}</span>
+            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">₹{tax}</span>
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-sm font-black text-slate-900">
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#263241] text-sm font-black text-slate-900 dark:text-[#F9FAFB]">
             <span>Grand Total</span>
-            <span className="font-mono text-emerald-800 text-base">₹{total}</span>
+            <span className="font-mono text-emerald-800 dark:text-emerald-400 text-base">₹{total}</span>
           </div>
         </div>
 

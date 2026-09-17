@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,6 +10,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        card: 'var(--card)',
+        'card-foreground': 'var(--card-foreground)',
+        'secondary-bg': 'var(--secondary-bg)',
+        elevated: 'var(--elevated)',
+        muted: 'var(--muted)',
+        'muted-foreground': 'var(--muted-foreground)',
+        'secondary-foreground': 'var(--secondary-foreground)',
+        'disabled-foreground': 'var(--disabled-foreground)',
+        border: 'var(--border)',
+        input: 'var(--input)',
+        'input-border': 'var(--input-border)',
+        'nav-bg': 'var(--nav-bg)',
         primary: "#006e2f",
         "primary-container": "#22c55e",
         "on-primary": "#ffffff",

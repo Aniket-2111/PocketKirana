@@ -128,12 +128,18 @@ export function subscribeToStoreInventory(
       where('storeId', '==', storeId)
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map(
-        (d) => ({ inventoryId: d.id, ...d.data() }) as LiveInventory
-      );
-      callback(items);
-    });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map(
+          (d) => ({ inventoryId: d.id, ...d.data() }) as LiveInventory
+        );
+        callback(items);
+      },
+      (err) => {
+        console.warn('[InventoryService] subscribeToStoreInventory notice (non-fatal):', err?.message);
+      }
+    );
   } catch (err) {
     console.error('[InventoryService] subscribeToStoreInventory error:', err);
     return () => {};
@@ -154,13 +160,19 @@ export function subscribeToProductInventory(
 
   try {
     const docId = inventoryDocId(productId, storeId);
-    return onSnapshot(doc(db, COLLECTIONS.INVENTORY, docId), (snap) => {
-      if (!snap.exists()) {
-        callback(null);
-      } else {
-        callback({ inventoryId: snap.id, ...snap.data() } as LiveInventory);
+    return onSnapshot(
+      doc(db, COLLECTIONS.INVENTORY, docId),
+      (snap) => {
+        if (!snap.exists()) {
+          callback(null);
+        } else {
+          callback({ inventoryId: snap.id, ...snap.data() } as LiveInventory);
+        }
+      },
+      (err) => {
+        console.warn('[InventoryService] subscribeToProductInventory notice (non-fatal):', err?.message);
       }
-    });
+    );
   } catch (err) {
     console.error('[InventoryService] subscribeToProductInventory error:', err);
     return () => {};

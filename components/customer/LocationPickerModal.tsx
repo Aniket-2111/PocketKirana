@@ -353,28 +353,28 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm font-sans">
       {/* Wide split modal */}
-      <div className="bg-white w-full max-w-5xl h-[88vh] max-h-[720px] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 relative">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 w-full max-w-5xl h-[88vh] max-h-[720px] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 relative">
 
         {/* ── HEADER ── */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
-              <MapPin className="w-5 h-5 fill-amber-400 text-emerald-900" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center">
+              <MapPin className="w-5 h-5 fill-amber-400 text-emerald-900 dark:text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-base font-black text-slate-900 leading-tight">Select Delivery Location</h2>
-              <p className="text-[11px] font-semibold text-slate-500">Pin your exact spot on Google Maps</p>
+              <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">Select Delivery Location</h2>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Neral Express Delivery • Maule Kirana Hub (3 KM Radius)</p>
             </div>
           </div>
 
           {/* Tabs + Close */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
               <button
                 type="button"
                 onClick={() => setPanel('saved')}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
-                  panel === 'saved' ? 'bg-white text-emerald-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  panel === 'saved' ? 'bg-white dark:bg-slate-700 text-emerald-900 dark:text-emerald-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 Saved ({addresses.length})
@@ -383,7 +383,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                 type="button"
                 onClick={handleAddNewClick}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
-                  panel === 'new' ? 'bg-white text-emerald-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  panel === 'new' ? 'bg-white dark:bg-slate-700 text-emerald-900 dark:text-emerald-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 <Plus className="w-3 h-3" /> Add New
@@ -391,7 +391,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -399,21 +399,21 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
         </div>
 
         {/* ── SPLIT BODY ── */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
 
           {/* ══ LEFT: MAP PANEL (sticky) ══ */}
-          <div className="w-[55%] shrink-0 flex flex-col bg-slate-50 border-r border-slate-200 overflow-hidden">
+          <div className="w-full md:w-[55%] shrink-0 flex flex-col bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 overflow-hidden">
 
             {/* Search bar */}
-            <div className="p-3 border-b border-slate-200 bg-white relative">
+            <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 relative">
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search area, street or landmark..."
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl py-2.5 pl-9 pr-8 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 transition-all"
+                  placeholder="Search Neral area, landmark or street..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-emerald-500 rounded-xl py-2.5 pl-9 pr-8 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 transition-all"
                 />
                 {isSearching && <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
                 {searchQuery && !isSearching && (
@@ -425,18 +425,18 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
 
               {/* Autocomplete dropdown */}
               {showSearchResults && searchResults.length > 0 && (
-                <div className="absolute left-3 right-3 top-full mt-1 bg-white rounded-xl shadow-xl border border-slate-200 max-h-48 overflow-y-auto z-40 divide-y divide-slate-100">
+                <div className="absolute left-3 right-3 top-full mt-1 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 max-h-48 overflow-y-auto z-40 divide-y divide-slate-100 dark:divide-slate-800">
                   {searchResults.map((r, i) => (
                     <button
                       key={`${r.placeId}-${i}`}
                       type="button"
                       onClick={() => handleSelectSearchResult(r)}
-                      className="w-full text-left p-3 hover:bg-emerald-50 transition-colors flex items-start gap-2.5"
+                      className="w-full text-left p-3 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors flex items-start gap-2.5"
                     >
                       <MapPin className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-xs font-bold text-slate-900">{r.addressLine}</p>
-                        <p className="text-[11px] text-slate-500 line-clamp-1">{r.displayName}</p>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">{r.addressLine}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">{r.displayName}</p>
                       </div>
                     </button>
                   ))}
@@ -445,7 +445,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
             </div>
 
             {/* Map canvas (fills remaining height) */}
-            <div className="flex-1 relative overflow-hidden min-h-[360px] h-full">
+            <div className="flex-1 relative overflow-hidden min-h-[300px] h-full">
               <InteractiveMapCanvas
                 lat={lat}
                 lng={lng}
@@ -453,40 +453,40 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                 isServiceable={isServiceable}
                 etaText={zoneInfo ? `${zoneInfo.estimatedDeliveryMinutes}-${zoneInfo.estimatedDeliveryMinutes + 5} mins` : '15-20 mins'}
                 radiusKm={zoneInfo?.radiusKm || 3.0}
-                storeLat={zoneInfo?.storeLatitude ?? 19.033}
-                storeLng={zoneInfo?.storeLongitude ?? 73.317}
-                storeName={zoneInfo?.storeName || 'PocketKirana Store'}
+                storeLat={zoneInfo?.storeLatitude ?? 19.0224536}
+                storeLng={zoneInfo?.storeLongitude ?? 73.3210018}
+                storeName="Maule Kirana (Neral Store)"
                 showStoreCircle={true}
                 isAdminView={false}
-                hintText="Move map to place pin at your exact delivery address"
+                hintText="Move map pin to check 3 KM delivery serviceability from Maule Kirana"
               />
             </div>
 
             {/* Use current location + serviceability bar */}
-            <div className="shrink-0 bg-white border-t border-slate-200">
+            <div className="shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={handleUseCurrentLocation}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition-colors"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors"
               >
                 <Navigation2 className="w-3.5 h-3.5" />
-                Use my current location
+                Detect My Current GPS Location
               </button>
 
               {zoneInfo && (
                 <div className={`px-4 py-2.5 flex items-center justify-between border-t ${
-                  isServiceable ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50/70 border-amber-200'
+                  isServiceable ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-800/40' : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/40'
                 }`}>
                   <div className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full ${isServiceable ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                    <p className="text-[11px] font-bold text-slate-800 truncate max-w-[220px]">
-                      {zoneInfo.storeName} • {zoneInfo.roadDistanceKm || zoneInfo.distanceKm} KM
+                    <div className={`w-2.5 h-2.5 rounded-full ${isServiceable ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                    <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-[220px]">
+                      Maule Kirana • {zoneInfo.distanceKm} KM away
                     </p>
                   </div>
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
-                    isServiceable ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 font-extrabold'
+                    isServiceable ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
                   }`}>
-                    {isServiceable ? `${zoneInfo.estimatedDeliveryMinutes} MIN EXPRESS` : 'SERVICE COMING SOON'}
+                    {isServiceable ? `✓ SERVICE AVAILABLE (≤ ${zoneInfo.radiusKm} KM)` : `OUT OF RANGE (> ${zoneInfo.radiusKm} KM)`}
                   </span>
                 </div>
               )}
@@ -494,7 +494,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
           </div>
 
           {/* ══ RIGHT: DETAILS PANEL (scrollable) ══ */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
 
             {panel === 'saved' ? (
               /* SAVED ADDRESSES */
@@ -503,35 +503,44 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
 
                 {addresses.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                      <MapPin className="w-7 h-7 text-slate-300" />
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <MapPin className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                     </div>
-                    <p className="text-sm font-bold text-slate-500">No saved addresses</p>
+                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400">No saved addresses</p>
                     <button
                       type="button"
                       onClick={handleAddNewClick}
-                      className="flex items-center gap-1.5 bg-emerald-700 text-white font-black text-xs px-4 py-2.5 rounded-xl hover:bg-emerald-800 transition-all"
+                      className="flex items-center gap-1.5 bg-[#006E2F] text-white font-black text-xs px-4 py-2.5 rounded-xl hover:bg-emerald-800 transition-all"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Pin on Google Map
+                      <Plus className="w-3.5 h-3.5" /> Pin on Map
                     </button>
                   </div>
                 ) : (
                   addresses.map((addr) => {
                     const isSelected = addr.id === activeAddressId;
+                    const addrZone = checkZoneServiceability(addr.latitude, addr.longitude);
+                    const addrServiceable = addrZone.isServiceable;
+
                     return (
                       <div
                         key={addr.id}
-                        onClick={() => handleSelectSaved(addr)}
-                        className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/25 shadow-sm'
-                            : 'bg-white border-slate-200 hover:border-emerald-300 hover:shadow-sm'
+                        onClick={() => addrServiceable && handleSelectSaved(addr)}
+                        className={`p-4 rounded-2xl border transition-all ${
+                          !addrServiceable
+                            ? 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40 opacity-80'
+                            : isSelected
+                            ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-400/25 shadow-sm'
+                            : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-emerald-300 hover:shadow-sm cursor-pointer'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                              isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+                              !addrServiceable
+                                ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400'
+                                : isSelected
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                             }`}>
                               {addr.addressType === 'Home' ? <Home className="w-4 h-4" /> :
                                addr.addressType === 'Work' || addr.addressType === 'Office' ? <Briefcase className="w-4 h-4" /> :
@@ -539,32 +548,55 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                             </div>
                             <div>
                               <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-sm font-black text-slate-900">{addr.addressType}</span>
+                                <span className="text-sm font-black text-slate-900 dark:text-white">{addr.addressType}</span>
                                 {isSelected && <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">ACTIVE</span>}
-                                {addr.isDefault && !isSelected && <span className="bg-slate-200 text-slate-600 text-[9px] font-black px-1.5 py-0.5 rounded-full">DEFAULT</span>}
+                                {addr.isDefault && !isSelected && <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black px-1.5 py-0.5 rounded-full">DEFAULT</span>}
                               </div>
-                              <p className="text-xs text-slate-600 leading-snug">{addr.fullName} • {addr.phone}</p>
-                              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                              <p className="text-xs text-slate-600 dark:text-slate-300 leading-snug">{addr.fullName} • {addr.phone}</p>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
                                 {addr.houseNumber ? `${addr.houseNumber}, ` : ''}{addr.addressLine1}
                               </p>
-                              <p className="text-[11px] text-slate-400">{addr.city} {addr.postalCode}</p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">{addr.city} {addr.postalCode}</p>
                             </div>
                           </div>
                           {isSelected && <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-1" />}
                         </div>
 
-                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
-                            <Zap className="w-3 h-3" />
-                            <span>15-20 mins express delivery</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleSelectSaved(addr); }}
-                            className="bg-amber-400 hover:bg-amber-500 text-emerald-950 font-black text-[11px] px-3 py-1.5 rounded-lg transition-all active:scale-95"
-                          >
-                            Deliver here
-                          </button>
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                          {addrServiceable ? (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                              <Zap className="w-3 h-3" />
+                              <span>✓ Within 3 KM Neral Delivery Zone</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-red-600 dark:text-red-400">
+                              <AlertCircle className="w-3 h-3" />
+                              <span>Outside 3 KM delivery zone ({addrZone.distanceKm} KM)</span>
+                            </div>
+                          )}
+
+                          {addrServiceable ? (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleSelectSaved(addr); }}
+                              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg transition-all active:scale-95"
+                            >
+                              Deliver here
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLat(addr.latitude);
+                                setLng(addr.longitude);
+                                setPanel('new');
+                              }}
+                              className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold text-[11px] px-3 py-1.5 rounded-lg transition-all"
+                            >
+                              Change Pin
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -574,170 +606,208 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                 <button
                   type="button"
                   onClick={handleAddNewClick}
-                  className="w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs py-3 rounded-xl transition-colors mt-2"
+                  className="w-full flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs py-3 rounded-xl transition-colors mt-2"
                 >
                   <Plus className="w-4 h-4 text-emerald-600" />
-                  Pin a new location on Google Maps
+                  Pin a new location in Neral
                 </button>
               </div>
 
             ) : (
-              /* NEW LOCATION FORM */
-              <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-4 space-y-4">
+              /* NEW LOCATION FORM OR DEDICATED OUT-OF-RANGE SCREEN */
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                
+                {/* ── OUT-OF-RANGE DEDICATED BLOCK (Section 5) ── */}
+                {!isServiceable && (
+                  <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border-2 border-red-300 dark:border-red-800 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/60 flex items-center justify-center shrink-0">
+                        <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-red-900 dark:text-red-200">
+                          You&apos;re outside our delivery area
+                        </h4>
+                        <p className="text-xs font-semibold text-red-700 dark:text-red-300 mt-0.5 leading-relaxed">
+                          PocketKirana currently delivers within 3 KM of our Neral store (Maule Kirana).
+                        </p>
+                      </div>
+                    </div>
 
-                {/* Geocoded preview & Serviceability Indicator */}
-                {loadingGeocode ? (
-                  <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-                    <span className="text-xs font-semibold text-slate-500">Detecting address from Google Maps pin...</span>
+                    <div className="grid grid-cols-2 gap-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-red-200 dark:border-red-900/40 text-xs">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">Your Distance</span>
+                        <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">
+                          {zoneInfo?.distanceKm} KM
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">Max Delivery Radius</span>
+                        <span className="font-mono font-black text-slate-800 dark:text-slate-200 text-sm">
+                          3.0 KM
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setShowSearchResults(false);
+                          // center back to Maule Kirana
+                          setLat(19.0224536);
+                          setLng(73.3210018);
+                        }}
+                        className="flex-1 py-2 px-3 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl transition-all text-center shadow-xs"
+                      >
+                        Change Location
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('Neral Station');
+                          searchLocationsAutocomplete('Neral Station').then((res) => {
+                            if (res[0]) {
+                              setLat(res[0].latitude);
+                              setLng(res[0].longitude);
+                            }
+                          });
+                        }}
+                        className="flex-1 py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl transition-all text-center"
+                      >
+                        Try Another Location
+                      </button>
+                    </div>
                   </div>
-                ) : geocoded && (
-                  <div className={`p-3.5 rounded-2xl border ${
-                    isServiceable ? 'bg-emerald-50/80 border-emerald-200' : 'bg-amber-50 border-amber-200'
-                  }`}>
-                    <div className="flex items-start gap-2.5">
-                      <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${isServiceable ? 'text-emerald-700' : 'text-amber-600'}`} />
-                      <div className="flex-1">
-                        <p className="text-xs font-black text-slate-900 leading-snug">{geocoded.displayName}</p>
-                        
-                        {isServiceable ? (
-                          <div className="mt-1 flex items-center gap-2">
-                            <span className="text-[11px] font-bold text-emerald-800">
-                              🟢 Delivery Available · {zoneInfo?.estimatedDeliveryMinutes || 15} Min Express Drop
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="mt-2 space-y-2">
-                            <div className="p-2.5 bg-white/80 rounded-xl border border-amber-200/80">
-                              <div className="flex items-center gap-1.5 text-amber-800 font-extrabold text-xs">
-                                <span>📍 We&apos;re Coming Soon!</span>
-                              </div>
-                              <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
-                                PocketKirana is not delivering to your location yet ({zoneInfo?.distanceKm} KM away vs {zoneInfo?.radiusKm} KM radius). We&apos;re expanding fast!
-                              </p>
-                            </div>
+                )}
 
-                            {/* Notify Me Button */}
-                            {!notifySubmitted ? (
-                              <button
-                                type="button"
-                                onClick={() => handleSendNotifyRequest()}
-                                disabled={notifySubmitting}
-                                className="w-full bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs py-2 px-3 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                              >
-                                {notifySubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BellRing className="w-3.5 h-3.5" />}
-                                <span>Notify Me When Available in My Area</span>
-                              </button>
-                            ) : (
-                              <div className="bg-emerald-100 text-emerald-800 text-[11px] font-bold py-1.5 px-3 rounded-xl flex items-center gap-1.5">
-                                <Check className="w-3.5 h-3.5" />
-                                <span>Thanks! We&apos;ll notify you when we launch here.</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                {/* Geocoded preview & Service Available Indicator */}
+                {loadingGeocode ? (
+                  <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Detecting address from map coordinates...</span>
+                  </div>
+                ) : geocoded && isServiceable && (
+                  <div className="p-3.5 rounded-2xl border bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800">
+                    <div className="flex items-start gap-2.5">
+                      <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                      <div className="flex-1">
+                        <p className="text-xs font-black text-slate-900 dark:text-white leading-snug">{geocoded.displayName}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                            ✓ PocketKirana delivers to your location ({zoneInfo?.distanceKm} KM from Maule Kirana)
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Address label */}
-                <div>
-                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider block mb-2">Save as</label>
-                  <div className="flex gap-2">
-                    {(['Home', 'Work', 'Other'] as const).map((lbl) => (
-                      <button
-                        key={lbl}
-                        type="button"
-                        onClick={() => setAddressLabel(lbl)}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
-                          addressLabel === lbl
-                            ? 'bg-emerald-700 text-white border-emerald-800 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        {lbl === 'Home' ? <Home className="w-3 h-3" /> : lbl === 'Work' ? <Briefcase className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Form fields grid */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Receiver Name */}
-                  <div className="col-span-2 space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><User className="w-3 h-3" /> Receiver Name *</label>
-                    <input type="text" required value={receiverName} onChange={(e) => setReceiverName(e.target.value)} placeholder="e.g. Rahul Sharma"
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                <form onSubmit={handleSave} className="space-y-4">
+                  {/* Address label */}
+                  <div>
+                    <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">Save as</label>
+                    <div className="flex gap-2">
+                      {(['Home', 'Work', 'Other'] as const).map((lbl) => (
+                        <button
+                          key={lbl}
+                          type="button"
+                          onClick={() => setAddressLabel(lbl)}
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                            addressLabel === lbl
+                              ? 'bg-[#006E2F] text-white border-emerald-800 shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          {lbl === 'Home' ? <Home className="w-3 h-3" /> : lbl === 'Work' ? <Briefcase className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Phone */}
-                  <div className="col-span-2 space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><Phone className="w-3 h-3" /> Mobile Number</label>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +91 98765 43210"
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                  {/* Form fields grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Receiver Name */}
+                    <div className="col-span-2 space-y-1">
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1"><User className="w-3 h-3" /> Receiver Name *</label>
+                      <input type="text" required value={receiverName} onChange={(e) => setReceiverName(e.target.value)} placeholder="e.g. Rahul Sharma"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                    </div>
+
+                    {/* Phone */}
+                    <div className="col-span-2 space-y-1">
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1"><Phone className="w-3 h-3" /> Mobile Number</label>
+                      <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +91 98765 43210"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                    </div>
+
+                    {/* Flat/House No */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1"><Hash className="w-3 h-3" /> Flat / House No. *</label>
+                      <input type="text" required value={houseNumber} onChange={(e) => setHouseNumber(e.target.value)} placeholder="e.g. Flat 302, B Wing"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                    </div>
+
+                    {/* Building */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1"><Building2 className="w-3 h-3" /> Building / Apt</label>
+                      <input type="text" value={buildingName} onChange={(e) => setBuildingName(e.target.value)} placeholder="e.g. Sai Residency (Optional)"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                    </div>
+
+                    {/* Area */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1"><MapPin className="w-3 h-3" /> Area / Street *</label>
+                      <input type="text" required value={area} onChange={(e) => setArea(e.target.value)} placeholder="e.g. Station Road"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                    </div>
+
+                    {/* Landmark */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1"><Landmark className="w-3 h-3" /> Landmark</label>
+                      <input type="text" value={landmark} onChange={(e) => setLandmark(e.target.value)} placeholder="e.g. Near HDFC Bank (Optional)"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                    </div>
+
+                    {/* City */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400">City *</label>
+                      <input type="text" required value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Neral"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                    </div>
+
+                    {/* Pincode */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Pincode *</label>
+                      <input type="text" required value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="e.g. 410101"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                    </div>
                   </div>
 
-                  {/* Flat/House No */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><Hash className="w-3 h-3" /> Flat / House No. *</label>
-                    <input type="text" required value={houseNumber} onChange={(e) => setHouseNumber(e.target.value)} placeholder="e.g. Flat 302, B Wing"
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                  {/* Primary CTA */}
+                  <div className="pt-2 pb-1">
+                    <button
+                      type="submit"
+                      disabled={!isServiceable}
+                      className={`w-full font-black text-sm py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 ${
+                        isServiceable
+                          ? 'bg-[#006E2F] hover:bg-emerald-800 text-white cursor-pointer active:scale-95'
+                          : 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      <span>{isServiceable ? 'Save & Deliver to this Location' : 'Location Outside 3 KM Delivery Range'}</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    {!isServiceable && (
+                      <p className="text-[11px] text-center text-red-600 dark:text-red-400 font-bold mt-2">
+                        Orders cannot be delivered to locations outside the 3 KM Neral delivery zone.
+                      </p>
+                    )}
                   </div>
-
-                  {/* Building */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><Building2 className="w-3 h-3" /> Building / Apt</label>
-                    <input type="text" value={buildingName} onChange={(e) => setBuildingName(e.target.value)} placeholder="e.g. Sai Residency (Optional)"
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
-                  </div>
-
-                  {/* Area */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> Area / Street *</label>
-                    <input type="text" required value={area} onChange={(e) => setArea(e.target.value)} placeholder="e.g. Station Road"
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
-                  </div>
-
-                  {/* Landmark */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1"><Landmark className="w-3 h-3" /> Landmark</label>
-                    <input type="text" value={landmark} onChange={(e) => setLandmark(e.target.value)} placeholder="e.g. Near HDFC Bank (Optional)"
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
-                  </div>
-
-                  {/* City */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500">City *</label>
-                    <input type="text" required value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Neral / Karjat"
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
-                  </div>
-
-                  {/* Pincode */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-500">Pincode *</label>
-                    <input type="text" required value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="e.g. 410101"
-                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all" />
-                  </div>
-                </div>
-
-                {/* Primary CTA (Never blocks user from saving address & continuing browsing) */}
-                <div className="pt-2 pb-1">
-                  <button
-                    type="submit"
-                    className="w-full bg-[#006E2F] hover:bg-emerald-800 text-white font-black text-sm py-3.5 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>{isServiceable ? 'Save & Deliver to this Location' : 'Save Address & Browse Products'}</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  {!isServiceable && (
-                    <p className="text-[10px] text-center text-slate-500 mt-1.5">
-                      You can explore products and save items to your wishlist. Delivery checkout will unlock when your area becomes serviceable.
-                    </p>
-                  )}
-                </div>
-              </form>
+                </form>
+              </div>
             )}
           </div>
         </div>
@@ -745,3 +815,4 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
     </div>
   );
 };
+

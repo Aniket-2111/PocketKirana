@@ -72,8 +72,8 @@ export const InteractiveMapCanvas: React.FC<InteractiveMapCanvasProps> = ({
 
   // If in Admin view, the shop location IS the selected pin (lat, lng)
   // If in Customer view, the shop location is FIXED to the admin-defined shop coordinates (storeLat, storeLng)
-  const actualStoreLat = isAdminView ? lat : (storeLat ?? 19.033);
-  const actualStoreLng = isAdminView ? lng : (storeLng ?? 73.317);
+  const actualStoreLat = isAdminView ? lat : (storeLat ?? 19.0224536);
+  const actualStoreLng = isAdminView ? lng : (storeLng ?? 73.3210018);
 
   const prevPropsRef = useRef<{ lat: number; lng: number; storeLat?: number; storeLng?: number; radiusKm?: number }>({
     lat: 0,

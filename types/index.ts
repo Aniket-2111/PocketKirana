@@ -152,6 +152,36 @@ export interface NutritionalInfo {
   [key: string]: string | undefined;
 }
 
+export type ProductPublishStatus = 'DRAFT' | 'PREVIEW' | 'PUBLISHED';
+
+export interface ProductAttribute {
+  id: string;
+  sectionId?: string;
+  label: string;
+  value: string;
+  unit?: string;
+  displayOrder: number;
+  isVisible: boolean;
+}
+
+export interface ProductSection {
+  id: string;
+  productId?: string;
+  title: string;
+  displayOrder: number;
+  isVisible: boolean;
+  defaultExpanded: boolean;
+  attributes: ProductAttribute[];
+}
+
+export interface ProductImage {
+  id: string;
+  productId: string;
+  imageUrl: string;
+  displayOrder: number;
+  isPrimary?: boolean;
+}
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -192,6 +222,7 @@ export interface Product {
   nutritionalInfo?: NutritionalInfo;
   category?: string;
   status: 'active' | 'out_of_stock' | 'discontinued';
+  publishStatus?: ProductPublishStatus;
   stock?: number;
   rating: number;
   reviewsCount: number;
@@ -199,13 +230,8 @@ export interface Product {
   isFeatured?: boolean;
   storageLocation?: StorageLocation;
   variants?: ProductVariant[];
-}
-
-export interface ProductImage {
-  id: string;
-  productId: string;
-  imageUrl: string;
-  displayOrder: number;
+  maxDisplayImages?: number;
+  sections?: ProductSection[];
 }
 
 export interface ProductVariant {

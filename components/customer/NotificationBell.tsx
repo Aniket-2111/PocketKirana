@@ -160,25 +160,22 @@ export const NotificationBell: React.FC = () => {
           <div className="flex border-b border-slate-100 bg-slate-50/70 p-1 gap-1 text-xs font-bold text-slate-600">
             <button
               onClick={() => setFilter('all')}
-              className={`flex-1 py-1.5 rounded-lg transition-all ${
-                filter === 'all' ? 'bg-white shadow-xs text-emerald-700' : 'hover:bg-slate-200/50'
-              }`}
+              className={`flex-1 py-1.5 rounded-lg transition-all ${filter === 'all' ? 'bg-white shadow-xs text-emerald-700' : 'hover:bg-slate-200/50'
+                }`}
             >
               All ({notifications.length})
             </button>
             <button
               onClick={() => setFilter('order')}
-              className={`flex-1 py-1.5 rounded-lg transition-all ${
-                filter === 'order' ? 'bg-white shadow-xs text-emerald-700' : 'hover:bg-slate-200/50'
-              }`}
+              className={`flex-1 py-1.5 rounded-lg transition-all ${filter === 'order' ? 'bg-white shadow-xs text-emerald-700' : 'hover:bg-slate-200/50'
+                }`}
             >
               Orders
             </button>
             <button
               onClick={() => setFilter('offer')}
-              className={`flex-1 py-1.5 rounded-lg transition-all ${
-                filter === 'offer' ? 'bg-white shadow-xs text-amber-700' : 'hover:bg-slate-200/50'
-              }`}
+              className={`flex-1 py-1.5 rounded-lg transition-all ${filter === 'offer' ? 'bg-white shadow-xs text-amber-700' : 'hover:bg-slate-200/50'
+                }`}
             >
               Offers
             </button>
@@ -201,19 +198,17 @@ export const NotificationBell: React.FC = () => {
                 <div
                   key={notif.id}
                   onClick={() => handleNotificationClick(notif)}
-                  className={`p-3.5 hover:bg-slate-50 transition-colors cursor-pointer relative group flex gap-3 ${
-                    !notif.isRead ? 'bg-emerald-50/30' : ''
-                  }`}
+                  className={`p-3.5 hover:bg-slate-50 transition-colors cursor-pointer relative group flex gap-3 ${!notif.isRead ? 'bg-emerald-50/30' : ''
+                    }`}
                 >
                   {/* Icon */}
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
-                      notif.category === 'offer'
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${notif.category === 'offer'
                         ? 'bg-amber-100'
                         : notif.category === 'delivery'
-                        ? 'bg-emerald-100'
-                        : 'bg-emerald-100/70'
-                    }`}
+                          ? 'bg-emerald-100'
+                          : 'bg-emerald-100/70'
+                      }`}
                   >
                     {getNotificationIcon(notif.type, notif.category)}
                   </div>
@@ -222,9 +217,8 @@ export const NotificationBell: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-1 mb-0.5">
                       <h4
-                        className={`text-xs leading-tight truncate ${
-                          !notif.isRead ? 'font-black text-slate-900' : 'font-bold text-slate-700'
-                        }`}
+                        className={`text-xs leading-tight truncate ${!notif.isRead ? 'font-black text-slate-900' : 'font-bold text-slate-700'
+                          }`}
                       >
                         {notif.title}
                       </h4>

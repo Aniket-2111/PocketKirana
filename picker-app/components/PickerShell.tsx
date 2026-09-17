@@ -4,16 +4,16 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { 
-  Home, 
-  Package, 
-  Scan, 
-  Archive, 
-  User, 
-  Menu, 
-  X, 
-  LogOut, 
-  Bell, 
+import {
+  Home,
+  Package,
+  Scan,
+  Archive,
+  User,
+  Menu,
+  X,
+  LogOut,
+  Bell,
   Store,
   Sliders,
   ChevronRight,
@@ -29,14 +29,14 @@ interface PickerShellProps {
 export default function PickerShell({ children }: PickerShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { 
-    pickers, 
-    activePickerId, 
-    isLoggedIn, 
-    currentUser, 
+  const {
+    pickers,
+    activePickerId,
+    isLoggedIn,
+    currentUser,
     logout,
     togglePickerStatus,
-    initializeFirebaseSync 
+    initializeFirebaseSync
   } = useAppStore();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -52,7 +52,7 @@ export default function PickerShell({ children }: PickerShellProps) {
         if (!err) return false;
         const msg = String(err.message || err.reason?.message || err || '').toLowerCase();
         const name = String(err.name || err.reason?.name || '').toLowerCase();
-        
+
         return (
           name === 'aborterror' ||
           msg.includes('signal is aborted') ||
@@ -186,7 +186,7 @@ export default function PickerShell({ children }: PickerShellProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row font-sans selection:bg-emerald-600 selection:text-white">
-      
+
       {/* ── DESKTOP SIDEBAR NAVIGATION ── */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 shrink-0 h-screen sticky top-0 p-5 justify-between shadow-xs">
         <div className="space-y-6">
@@ -215,13 +215,12 @@ export default function PickerShell({ children }: PickerShellProps) {
           </div>
 
           {/* Duty Status Pill */}
-          <button 
+          <button
             onClick={handleToggleDuty}
-            className={`w-full py-2.5 px-4 rounded-xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
-              picker.status === 'active' || picker.status === 'busy'
+            className={`w-full py-2.5 px-4 rounded-xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${picker.status === 'active' || picker.status === 'busy'
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : 'bg-rose-50 border-rose-200 text-rose-700'
-            }`}
+              }`}
           >
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${picker.status === 'active' || picker.status === 'busy' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
@@ -239,11 +238,10 @@ export default function PickerShell({ children }: PickerShellProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all ${
-                    isActive
+                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all ${isActive
                       ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-4.5 h-4.5 shrink-0" />
                   <span>{item.name}</span>
@@ -292,13 +290,12 @@ export default function PickerShell({ children }: PickerShellProps) {
           </div>
 
           {/* Duty toggle on mobile */}
-          <button 
+          <button
             onClick={handleToggleDuty}
-            className={`px-3 py-1 rounded-full border flex items-center gap-1.5 text-[10px] font-black font-mono transition-all cursor-pointer ${
-              picker.status === 'active' || picker.status === 'busy'
+            className={`px-3 py-1 rounded-full border flex items-center gap-1.5 text-[10px] font-black font-mono transition-all cursor-pointer ${picker.status === 'active' || picker.status === 'busy'
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : 'bg-rose-50 border-rose-200 text-rose-700'
-            }`}
+              }`}
           >
             <span className={`w-2 h-2 rounded-full ${picker.status === 'active' || picker.status === 'busy' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
             <span>{picker.status === 'active' || picker.status === 'busy' ? 'ON DUTY' : 'OFF DUTY'}</span>
@@ -332,11 +329,10 @@ export default function PickerShell({ children }: PickerShellProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
-                  isActive
+                className={`flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${isActive
                     ? 'text-emerald-700 font-black scale-105'
                     : 'text-slate-400 hover:text-slate-700 font-bold'
-                }`}
+                  }`}
               >
                 <Icon className="w-4.5 h-4.5" />
                 <span className="text-[10px]">{item.name}</span>

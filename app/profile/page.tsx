@@ -36,9 +36,18 @@ import {
   Truck,
   Sparkles,
   Copy,
-  Clock
+  Clock,
+  Download,
+  RotateCcw,
+  Loader2,
+  ChevronRight,
+  Sun,
+  Moon,
+  Laptop,
+  Check
 } from 'lucide-react';
 import { requestFCMNotificationPermission } from '@/lib/fcmClient';
+import { ThemeMode, getStoredTheme, setAppTheme, initThemeListener } from '@/lib/themeUtils';
 
 export default function UserProfilePage() {
   const router = useRouter();
@@ -63,7 +72,8 @@ export default function UserProfilePage() {
     updateNotificationPreferences,
     markNotificationRead,
     markAllNotificationsRead,
-    deleteNotification
+    deleteNotification,
+    downloadInvoicePDF
   } = useAppStore();
 
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -78,14 +88,35 @@ export default function UserProfilePage() {
 
   // Active Tab State (Default: My Orders or from query param)
   const [activeTab, setActiveTab] = useState<
-    'my_orders' | 'notifications' | 'notification_settings' | 'manage_address' | 'payment_method' | 'wishlist' | 'faq'
-  >(initialTab);
+    'my_orders' | 'notifications' | 'notification_settings' | 'manage_address' | 'appearance' | 'wishlist' | 'faq'
+  >(initialTab === 'payment_method' ? 'appearance' : initialTab);
+
+  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+
+  React.useEffect(() => {
+    setThemeMode(getStoredTheme());
+    const cleanup = initThemeListener((m) => {
+      setThemeMode(m);
+    });
+    return cleanup;
+  }, []);
+
+  const handleSelectTheme = (mode: ThemeMode) => {
+    setThemeMode(mode);
+    setAppTheme(mode);
+    const modeName = mode === 'system' ? 'System Default' : mode === 'dark' ? 'Dark' : 'Light';
+    showToast(`Appearance set to ${modeName} Mode`, 'success');
+  };
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlTab = new URLSearchParams(window.location.search).get('tab');
       if (urlTab) {
-        setActiveTab(urlTab as any);
+        if (urlTab === 'payment_method') {
+          setActiveTab('appearance');
+        } else {
+          setActiveTab(urlTab as any);
+        }
       }
     }
   }, []);
@@ -113,6 +144,80 @@ export default function UserProfilePage() {
   // Order Details Modal State
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<Order | null>(null);
 
+  // Downloading invoice state tracking
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+
+  const formatOrderDate = (dateStr?: string) => {
+    if (!dateStr || dateStr.toLowerCase().includes('invalid')) return 'Delivered recently';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return 'Delivered recently';
+      return `${d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })} at ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+    } catch {
+      return 'Delivered recently';
+    }
+  };
+
+  const handleRepeatOrder = (e: React.MouseEvent, ord: Order) => {
+    e.stopPropagation();
+    if (!ord.items || ord.items.length === 0) {
+      showToast('No items to reorder', 'error');
+      return;
+    }
+    let count = 0;
+    ord.items.forEach((item) => {
+      const resolvedProduct = item.product || products.find((p) => p.id === item.productId);
+      if (resolvedProduct) {
+        addToCart(resolvedProduct, item.quantity || 1);
+        count += 1;
+      }
+    });
+    showToast(`Added ${count || ord.items.length} items to your cart!`, 'success');
+    router.push('/cart');
+  };
+
+  const handleDownloadInvoice = async (e: React.MouseEvent, ord: Order) => {
+    e.stopPropagation();
+    setDownloadingInvoiceId(ord.id);
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(ord.id)}/invoice?format=pdf`, {
+        headers: { Accept: 'application/pdf' },
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `PocketKirana-Invoice-${ord.orderNumber || ord.id}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+        showToast('Invoice downloaded successfully!', 'success');
+      } else {
+        const res = await downloadInvoicePDF(ord.id);
+        if (res.success) {
+          showToast('Invoice downloaded successfully!', 'success');
+        } else {
+          showToast('Unable to download invoice.', 'error');
+        }
+      }
+    } catch {
+      try {
+        const res = await downloadInvoicePDF(ord.id);
+        if (res.success) {
+          showToast('Invoice downloaded successfully!', 'success');
+        } else {
+          showToast('Unable to download invoice.', 'error');
+        }
+      } catch {
+        showToast('Unable to download invoice.', 'error');
+      }
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
+
   const handleRaiseTicket = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketSubject || !ticketDesc) {
@@ -138,7 +243,7 @@ export default function UserProfilePage() {
     { id: 'notifications', label: 'Notifications', icon: Bell, count: unreadNotifsCount > 0 ? unreadNotifsCount : undefined },
     { id: 'notification_settings', label: 'Notification Settings', icon: Sliders },
     { id: 'manage_address', label: 'Manage Address', icon: MapPin, count: addresses.length },
-    { id: 'payment_method', label: 'Payment Method', icon: CreditCard },
+    { id: 'appearance', label: 'Appearance', icon: Moon },
     { id: 'wishlist', label: 'My Wishlist', icon: Heart, count: wishlistedProducts.length },
     { id: 'faq', label: 'FAQ & Help', icon: HelpCircle },
   ];
@@ -149,17 +254,17 @@ export default function UserProfilePage() {
     <>
       <RoleSwitcher />
       <CustomerLayout>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 font-sans">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 font-sans transition-colors duration-200">
           
           {/* Breadcrumb Path */}
-          <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-            <Link href="/" className="hover:text-gray-900">Home</Link>
+          <div className="flex items-center gap-2 text-xs font-bold text-gray-500 dark:text-gray-400">
+            <Link href="/" className="hover:text-gray-900 dark:hover:text-white transition-colors">Home</Link>
             <span>/</span>
-            <span className="text-gray-900 font-extrabold">My Account</span>
+            <span className="text-gray-900 dark:text-white font-extrabold">My Account</span>
           </div>
 
           {/* Page Title */}
-          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">My Account</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight">My Account</h1>
 
           {/* User Profile Header Card */}
           <div className="bg-gradient-to-r from-[#006E2F] via-emerald-800 to-teal-950 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-lg flex flex-row items-center justify-between gap-3 sm:gap-6">
@@ -201,14 +306,14 @@ export default function UserProfilePage() {
                     className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-black transition-all cursor-pointer border ${
                       isActive
                         ? 'bg-[#006E2F] text-white border-[#006E2F] shadow-sm'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50'
+                        : 'bg-white dark:bg-[#151B23] text-gray-600 dark:text-gray-300 border-gray-200 dark:border-[#263241] hover:border-emerald-300 dark:hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-[#1B2430]'
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5 shrink-0" />
                     <span className="whitespace-nowrap">{tab.label}</span>
                     {tab.count !== undefined && tab.count > 0 && (
                       <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-extrabold ${
-                        isActive ? 'bg-white text-[#006E2F]' : 'bg-emerald-100 text-emerald-800'
+                        isActive ? 'bg-white text-[#006E2F]' : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300'
                       }`}>
                         {tab.count}
                       </span>
@@ -224,8 +329,8 @@ export default function UserProfilePage() {
             
             {/* ══ LEFT SIDEBAR: Navigation Tabs (desktop only) ══ */}
             <div className="hidden lg:block lg:col-span-4 space-y-4">
-              <div className="bg-white border border-gray-200 rounded-3xl p-3 shadow-2xs space-y-1.5">
-                <p className="text-[11px] font-black uppercase tracking-wider text-gray-400 px-3 pt-2 pb-1">
+              <div className="bg-white dark:bg-[#151B23] border border-gray-200 dark:border-[#263241] rounded-3xl p-3 shadow-2xs space-y-1.5 transition-colors duration-200">
+                <p className="text-[11px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 px-3 pt-2 pb-1">
                   Account Menu
                 </p>
                 {navTabs.map((tab) => {
@@ -240,16 +345,16 @@ export default function UserProfilePage() {
                       className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black transition-all cursor-pointer ${
                         isActive
                           ? 'bg-[#006E2F] text-white shadow-md'
-                          : 'text-gray-700 hover:bg-emerald-50/60'
+                          : 'text-gray-700 dark:text-[#D1D5DB] hover:bg-emerald-50/60 dark:hover:bg-[#1B2430]'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
                         <span>{tab.label}</span>
                       </div>
                       {tab.count !== undefined && (
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
-                          isActive ? 'bg-white text-[#006E2F]' : 'bg-gray-100 text-gray-600'
+                          isActive ? 'bg-white text-[#006E2F]' : 'bg-gray-100 dark:bg-[#1A2232] text-gray-600 dark:text-gray-300'
                         }`}>
                           {tab.count}
                         </span>
@@ -262,22 +367,22 @@ export default function UserProfilePage() {
 
             {/* ══ RIGHT MAIN CONTENT AREA ══ */}
             <div className="lg:col-span-8">
-              <div className="bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xs">
+              <div className="bg-white dark:bg-[#151B23] border border-gray-200 dark:border-[#263241] rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xs transition-colors duration-200">
             
             {/* ── TAB 1: MY ORDERS ── */}
             {activeTab === 'my_orders' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-[#263241]">
                   <div>
-                    <h3 className="text-lg font-black text-gray-900">Order History ({orders.length})</h3>
-                    <p className="text-xs text-gray-500">Track current express deliveries or reorder past items</p>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white">Order History ({orders.length})</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Track current express deliveries or reorder past items</p>
                   </div>
                 </div>
 
                 {orders.length === 0 ? (
                   <div className="text-center py-12 space-y-3">
-                    <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto" />
-                    <p className="text-sm font-bold text-gray-700">No orders placed yet</p>
+                    <ShoppingBag className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto" />
+                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No orders placed yet</p>
                     <Link
                       href="/"
                       className="inline-block bg-[#006E2F] text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md hover:bg-emerald-800 transition-colors"
@@ -287,42 +392,135 @@ export default function UserProfilePage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {orders.map((ord, idx) => (
-                      <div
-                        key={`${ord.id}-${idx}`}
-                        className="border border-gray-200 rounded-2xl p-5 hover:border-emerald-400 transition-all space-y-3 bg-gray-50/50"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200/60 pb-3">
-                          <div>
-                            <span className="font-black text-gray-900 text-xs block">Order #{ord.orderNumber}</span>
-                            <span className="text-[11px] text-gray-500">{new Date(ord.placedAt).toLocaleString()}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase">
-                              {ord.orderStatus.replace('_', ' ')}
-                            </span>
-                            <span className="text-xs font-black text-gray-900">₹{ord.total}</span>
-                          </div>
-                        </div>
+                    {orders.map((ord, idx) => {
+                      const statusStr = (ord.orderStatus || '').toLowerCase();
+                      const isDelivered = statusStr === 'delivered' || statusStr === 'completed';
+                      const isCancelled = statusStr === 'cancelled';
+                      const isOutForDelivery = statusStr === 'out_for_delivery' || statusStr === 'arrived_at_customer';
+                      const itemsCount = ord.items?.reduce((sum, i) => sum + (i.quantity || 1), 0) || ord.items?.length || 1;
+                      const itemsSummary = ord.items && ord.items.length > 0
+                        ? ord.items.map((i) => i.product?.name || (i as any).name || 'Item').join(', ')
+                        : 'Grocery items';
 
-                        <div className="flex items-center justify-between gap-4 text-xs">
-                          <div className="text-gray-600 font-medium">
-                            <span>{ord.items.length} Items: </span>
-                            <span className="font-bold text-gray-800">
-                              {ord.items.map((i) => i.product?.name || 'Item').join(', ').slice(0, 45)}...
-                            </span>
+                      return (
+                        <div
+                          key={`${ord.id}-${idx}`}
+                          onClick={() => router.push(isDelivered ? `/orders/${ord.id}` : `/orders/${ord.id}/track`)}
+                          className="border border-gray-200 dark:border-[#263241] rounded-3xl p-5 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all space-y-3.5 bg-white dark:bg-[#1A2232] hover:shadow-sm cursor-pointer group"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 dark:border-[#263241] pb-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-gray-900 dark:text-white text-sm">Order #{ord.orderNumber}</span>
+                                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase border ${
+                                  isDelivered
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-[#006E2F] dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
+                                    : isCancelled
+                                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800'
+                                    : isOutForDelivery
+                                    ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800 animate-pulse'
+                                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800'
+                                }`}>
+                                  {ord.orderStatus.replace('_', ' ')}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium block mt-0.5">
+                                {formatOrderDate(ord.placedAt)}
+                              </span>
+                            </div>
+
+                            <span className="text-base font-black text-gray-900 dark:text-white font-mono">₹{ord.total}</span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Link
-                              href={`/orders/${ord.id}/track`}
-                              className="bg-[#006E2F] text-white font-extrabold text-[11px] px-3.5 py-1.5 rounded-lg hover:bg-emerald-800 transition-colors shadow-2xs"
-                            >
-                              Track Order
-                            </Link>
+
+                          {/* Items Preview with Thumbnails */}
+                          <div className="flex items-center justify-between gap-4 text-xs">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {/* Preview Avatars */}
+                              <div className="flex items-center -space-x-2 shrink-0">
+                                {ord.items && ord.items.length > 0 ? (
+                                  ord.items.slice(0, 3).map((item, itemIdx) => {
+                                    const img = item.product?.image || item.product?.thumbnail;
+                                    return (
+                                      <div
+                                        key={itemIdx}
+                                        className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 border-2 border-white dark:border-[#1A2232] flex items-center justify-center overflow-hidden shadow-2xs"
+                                      >
+                                        {img ? (
+                                          <img src={img} alt="" className="w-full h-full object-contain" />
+                                        ) : (
+                                          <Package className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                                        )}
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-400">
+                                    <Package className="w-4 h-4" />
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <span className="font-bold text-gray-800 dark:text-gray-200">{itemsCount} Items: </span>
+                                <span className="text-gray-500 dark:text-gray-400 truncate inline-block max-w-xs align-bottom">
+                                  {itemsSummary}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isDelivered ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDownloadInvoice(e, ord)}
+                                    disabled={downloadingInvoiceId === ord.id}
+                                    className="flex items-center gap-1 border border-gray-200 dark:border-[#263241] hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-gray-700 dark:text-gray-300 hover:text-emerald-800 dark:hover:text-emerald-300 font-black text-[11px] px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs"
+                                    title="Download Tax Invoice"
+                                  >
+                                    {downloadingInvoiceId === ord.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#006E2F] dark:text-emerald-400" />
+                                    ) : (
+                                      <Download className="w-3.5 h-3.5 text-[#006E2F] dark:text-emerald-400" />
+                                    )}
+                                    <span>Invoice</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleRepeatOrder(e, ord)}
+                                    className="flex items-center gap-1 bg-[#006E2F] hover:bg-emerald-800 active:scale-95 text-white font-black text-[11px] px-3.5 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>Reorder</span>
+                                  </button>
+
+                                  <Link
+                                    href={`/orders/${ord.id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-1 border border-gray-300 dark:border-[#263241] hover:border-[#006E2F] text-gray-700 dark:text-gray-300 hover:text-[#006E2F] dark:hover:text-emerald-400 font-black text-[11px] px-3 py-1.5 rounded-xl transition-all shadow-2xs"
+                                  >
+                                    <span>View Details</span>
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </Link>
+                                </>
+                              ) : (
+                                <Link
+                                  href={`/orders/${ord.id}/track`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center gap-1.5 bg-[#006E2F] hover:bg-emerald-800 text-white font-black text-xs px-4 py-2 rounded-xl transition-all shadow-2xs hover:shadow-md cursor-pointer"
+                                >
+                                  <Truck className="w-3.5 h-3.5" />
+                                  <span>Track Order</span>
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </Link>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -331,16 +529,16 @@ export default function UserProfilePage() {
             {/* ── TAB: NOTIFICATIONS FEED ── */}
             {activeTab === 'notifications' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-[#263241]">
                   <div>
-                    <h3 className="text-lg font-black text-gray-900">Notifications Center</h3>
-                    <p className="text-xs text-gray-500">All your order milestones, delivery alerts, and offer updates</p>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white">Notifications Center</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">All your order milestones, delivery alerts, and offer updates</p>
                   </div>
                   {customerNotifs.length > 0 && (
                     <button
                       type="button"
                       onClick={() => markAllNotificationsRead('customer')}
-                      className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
                     >
                       <CheckCheck className="w-4 h-4" />
                       <span>Mark all as read</span>
@@ -350,11 +548,11 @@ export default function UserProfilePage() {
 
                 {customerNotifs.length === 0 ? (
                   <div className="text-center py-16 space-y-3">
-                    <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                    <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
                       <Bell className="w-7 h-7" />
                     </div>
-                    <p className="text-sm font-bold text-gray-700">No notifications yet</p>
-                    <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No notifications yet</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto">
                       We will notify you about your order progress, dispatch status, and exclusive discount codes here.
                     </p>
                   </div>
@@ -369,17 +567,17 @@ export default function UserProfilePage() {
                         }}
                         className={`p-4 rounded-2xl border transition-all cursor-pointer flex gap-4 items-start ${
                           !notif.isRead
-                            ? 'bg-emerald-50/40 border-emerald-300 ring-2 ring-emerald-500/10'
-                            : 'bg-white border-gray-200 hover:border-gray-300'
+                            ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800 ring-2 ring-emerald-500/10'
+                            : 'bg-white dark:bg-[#1A2232] border-gray-200 dark:border-[#263241] hover:border-gray-300 dark:hover:border-gray-600'
                         }`}
                       >
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
                             notif.category === 'offer'
-                              ? 'bg-amber-100 text-amber-700'
+                              ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400'
                               : notif.category === 'delivery'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400'
+                              : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                           }`}
                         >
                           {notif.category === 'offer' ? (
@@ -393,25 +591,25 @@ export default function UserProfilePage() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <h4 className={`text-xs ${!notif.isRead ? 'font-black text-gray-900' : 'font-bold text-gray-800'}`}>
+                            <h4 className={`text-xs ${!notif.isRead ? 'font-black text-gray-900 dark:text-white' : 'font-bold text-gray-800 dark:text-gray-200'}`}>
                               {notif.title}
                             </h4>
-                            <span className="text-[11px] text-gray-400 shrink-0 font-medium">
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0 font-medium">
                               {new Date(notif.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
 
-                          <p className="text-xs text-gray-600 leading-relaxed mb-2">{notif.message}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-2">{notif.message}</p>
 
                           {notif.couponCode && (
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 rounded-lg text-xs font-bold text-amber-900">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-lg text-xs font-bold text-amber-900 dark:text-amber-300">
                               <span>Promo Code:</span>
-                              <span className="font-mono font-black text-amber-800">{notif.couponCode}</span>
+                              <span className="font-mono font-black text-amber-800 dark:text-amber-400">{notif.couponCode}</span>
                             </div>
                           )}
 
                           {notif.imageUrl && (
-                            <div className="mt-2 rounded-xl overflow-hidden max-w-sm border border-gray-200">
+                            <div className="mt-2 rounded-xl overflow-hidden max-w-sm border border-gray-200 dark:border-[#263241]">
                               <img src={notif.imageUrl} alt="Offer" className="w-full h-32 object-cover" />
                             </div>
                           )}
@@ -423,7 +621,7 @@ export default function UserProfilePage() {
                             e.stopPropagation();
                             deleteNotification(notif.id);
                           }}
-                          className="text-gray-400 hover:text-rose-500 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                          className="text-gray-400 hover:text-rose-500 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                           title="Delete notification"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -438,10 +636,10 @@ export default function UserProfilePage() {
             {/* ── TAB: NOTIFICATION SETTINGS (Preferences) ── */}
             {activeTab === 'notification_settings' && (
               <div className="space-y-6">
-                <div className="pb-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="pb-4 border-b border-gray-100 dark:border-[#263241] flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-black text-gray-900">Notification Settings</h3>
-                    <p className="text-xs text-gray-500">Customize which alerts and channels you want to receive</p>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white">Notification Settings</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Customize which alerts and channels you want to receive</p>
                   </div>
 
                   <button
@@ -462,15 +660,15 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Section A: Event Types */}
-                <div className="bg-gray-50/70 border border-gray-200 rounded-2xl p-5 space-y-4">
-                  <h4 className="font-black text-xs text-gray-900 uppercase tracking-wider">Alert Categories</h4>
+                <div className="bg-gray-50/70 dark:bg-[#1A2232]/70 border border-gray-200 dark:border-[#263241] rounded-2xl p-5 space-y-4">
+                  <h4 className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-wider">Alert Categories</h4>
                   
-                  <div className="space-y-3 divide-y divide-gray-200/60 text-xs">
+                  <div className="space-y-3 divide-y divide-gray-200/60 dark:divide-[#263241] text-xs">
                     {/* Order Updates */}
                     <div className="flex items-center justify-between pt-2">
                       <div>
-                        <strong className="font-bold text-gray-900 block">Order Updates (Mandatory)</strong>
-                        <span className="text-gray-500 text-[11px]">Order confirmed, preparing, delivered, cancellations &amp; refunds.</span>
+                        <strong className="font-bold text-gray-900 dark:text-white block">Order Updates (Mandatory)</strong>
+                        <span className="text-gray-500 dark:text-gray-400 text-[11px]">Order confirmed, preparing, delivered, cancellations &amp; refunds.</span>
                       </div>
                       <input
                         type="checkbox"
@@ -483,8 +681,8 @@ export default function UserProfilePage() {
                     {/* Delivery Updates */}
                     <div className="flex items-center justify-between pt-3">
                       <div>
-                        <strong className="font-bold text-gray-900 block">Delivery Updates</strong>
-                        <span className="text-gray-500 text-[11px]">Live driver assignment, out for delivery, and 200m nearby alerts.</span>
+                        <strong className="font-bold text-gray-900 dark:text-white block">Delivery Updates</strong>
+                        <span className="text-gray-500 dark:text-gray-400 text-[11px]">Live driver assignment, out for delivery, and 200m nearby alerts.</span>
                       </div>
                       <input
                         type="checkbox"
@@ -497,8 +695,8 @@ export default function UserProfilePage() {
                     {/* Offers & Discounts */}
                     <div className="flex items-center justify-between pt-3">
                       <div>
-                        <strong className="font-bold text-gray-900 block">Offers &amp; Discounts</strong>
-                        <span className="text-gray-500 text-[11px]">Exclusive promo coupons, wallet cashback, and flash savings.</span>
+                        <strong className="font-bold text-gray-900 dark:text-white block">Offers &amp; Discounts</strong>
+                        <span className="text-gray-500 dark:text-gray-400 text-[11px]">Exclusive promo coupons, wallet cashback, and flash savings.</span>
                       </div>
                       <input
                         type="checkbox"
@@ -511,8 +709,8 @@ export default function UserProfilePage() {
                     {/* New Products */}
                     <div className="flex items-center justify-between pt-3">
                       <div>
-                        <strong className="font-bold text-gray-900 block">New Products &amp; Categories</strong>
-                        <span className="text-gray-500 text-[11px]">Fresh farm arrivals, seasonal fruits, and new brand additions.</span>
+                        <strong className="font-bold text-gray-900 dark:text-white block">New Products &amp; Categories</strong>
+                        <span className="text-gray-500 dark:text-gray-400 text-[11px]">Fresh farm arrivals, seasonal fruits, and new brand additions.</span>
                       </div>
                       <input
                         type="checkbox"
@@ -525,8 +723,8 @@ export default function UserProfilePage() {
                     {/* Festival Offers */}
                     <div className="flex items-center justify-between pt-3">
                       <div>
-                        <strong className="font-bold text-gray-900 block">Festival &amp; Holiday Specials</strong>
-                        <span className="text-gray-500 text-[11px]">Diwali, Holi, New Year, and seasonal festive discounts.</span>
+                        <strong className="font-bold text-gray-900 dark:text-white block">Festival &amp; Holiday Specials</strong>
+                        <span className="text-gray-500 dark:text-gray-400 text-[11px]">Diwali, Holi, New Year, and seasonal festive discounts.</span>
                       </div>
                       <input
                         type="checkbox"
@@ -539,17 +737,17 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Section B: Delivery Channels */}
-                <div className="bg-gray-50/70 border border-gray-200 rounded-2xl p-5 space-y-4">
-                  <h4 className="font-black text-xs text-gray-900 uppercase tracking-wider">Notification Channels</h4>
+                <div className="bg-gray-50/70 dark:bg-[#1A2232]/70 border border-gray-200 dark:border-[#263241] rounded-2xl p-5 space-y-4">
+                  <h4 className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-wider">Notification Channels</h4>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     {/* Web Push */}
-                    <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
+                    <div className="flex items-center justify-between p-3 bg-white dark:bg-[#151B23] border border-gray-200 dark:border-[#263241] rounded-xl">
                       <div className="flex items-center gap-2.5">
-                        <Smartphone className="w-4 h-4 text-emerald-600" />
+                        <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <div>
-                          <strong className="font-bold text-gray-900 block">Push Notifications</strong>
-                          <span className="text-gray-500 text-[10px]">Browser &amp; Device popups</span>
+                          <strong className="font-bold text-gray-900 dark:text-white block">Push Notifications</strong>
+                          <span className="text-gray-500 dark:text-gray-400 text-[10px]">Browser &amp; Device popups</span>
                         </div>
                       </div>
                       <input
@@ -561,12 +759,12 @@ export default function UserProfilePage() {
                     </div>
 
                     {/* Sound Alert Chimes */}
-                    <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
+                    <div className="flex items-center justify-between p-3 bg-white dark:bg-[#151B23] border border-gray-200 dark:border-[#263241] rounded-xl">
                       <div className="flex items-center gap-2.5">
-                        <Volume2 className="w-4 h-4 text-amber-600" />
+                        <Volume2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                         <div>
-                          <strong className="font-bold text-gray-900 block">Audio Chimes</strong>
-                          <span className="text-gray-500 text-[10px]">In-app sound effects</span>
+                          <strong className="font-bold text-gray-900 dark:text-white block">Audio Chimes</strong>
+                          <span className="text-gray-500 dark:text-gray-400 text-[10px]">In-app sound effects</span>
                         </div>
                       </div>
                       <input
@@ -578,12 +776,12 @@ export default function UserProfilePage() {
                     </div>
 
                     {/* Email Notifications */}
-                    <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
+                    <div className="flex items-center justify-between p-3 bg-white dark:bg-[#151B23] border border-gray-200 dark:border-[#263241] rounded-xl">
                       <div className="flex items-center gap-2.5">
-                        <Mail className="w-4 h-4 text-indigo-600" />
+                        <Mail className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                         <div>
-                          <strong className="font-bold text-gray-900 block">Email Invoices</strong>
-                          <span className="text-gray-500 text-[10px]">Order PDF &amp; statements</span>
+                          <strong className="font-bold text-gray-900 dark:text-white block">Email Invoices</strong>
+                          <span className="text-gray-500 dark:text-gray-400 text-[10px]">Order PDF &amp; statements</span>
                         </div>
                       </div>
                       <input
@@ -595,12 +793,12 @@ export default function UserProfilePage() {
                     </div>
 
                     {/* SMS Notifications */}
-                    <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl">
+                    <div className="flex items-center justify-between p-3 bg-white dark:bg-[#151B23] border border-gray-200 dark:border-[#263241] rounded-xl">
                       <div className="flex items-center gap-2.5">
-                        <MessageSquare className="w-4 h-4 text-slate-600" />
+                        <MessageSquare className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                         <div>
-                          <strong className="font-bold text-gray-900 block">SMS Alerts</strong>
-                          <span className="text-gray-500 text-[10px]">OTP &amp; dispatch SMS</span>
+                          <strong className="font-bold text-gray-900 dark:text-white block">SMS Alerts</strong>
+                          <span className="text-gray-500 dark:text-gray-400 text-[10px]">OTP &amp; dispatch SMS</span>
                         </div>
                       </div>
                       <input
@@ -618,10 +816,10 @@ export default function UserProfilePage() {
             {/* ── TAB 2: MANAGE ADDRESS ── */}
             {activeTab === 'manage_address' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-[#263241]">
                   <div>
-                    <h3 className="text-lg font-black text-gray-900">Saved Addresses ({addresses.length})</h3>
-                    <p className="text-xs text-gray-500">Manage delivery locations for 8-min grocery drop</p>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white">Saved Addresses ({addresses.length})</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Manage delivery locations for 8-min grocery drop</p>
                   </div>
                   {addresses.length > 0 && (
                     <button
@@ -638,8 +836,8 @@ export default function UserProfilePage() {
 
                 {addresses.length === 0 ? (
                   <div className="text-center py-12 space-y-3">
-                    <MapPin className="w-12 h-12 text-gray-300 mx-auto" />
-                    <p className="text-sm font-bold text-gray-700">No saved addresses yet</p>
+                    <MapPin className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto" />
+                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No saved addresses yet</p>
                     <button
                       type="button"
                       onClick={() => handleOpenLocationPicker()}
@@ -656,12 +854,12 @@ export default function UserProfilePage() {
                       key={addr.id}
                       className={`p-4 rounded-2xl border transition-all space-y-2 relative ${
                         addr.isDefault
-                          ? 'border-[#006E2F] bg-emerald-50/40 ring-2 ring-emerald-500/20'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-[#006E2F] dark:border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 ring-2 ring-emerald-500/20'
+                          : 'border-gray-200 dark:border-[#263241] bg-white dark:bg-[#1A2232] hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-black text-xs text-gray-900 uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded-md">
+                        <span className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-wider bg-gray-100 dark:bg-[#151B23] border border-gray-200 dark:border-[#263241] px-2 py-0.5 rounded-md">
                           {addr.addressType}
                         </span>
                         {addr.isDefault && (
@@ -670,22 +868,22 @@ export default function UserProfilePage() {
                           </span>
                         )}
                       </div>
-                      <h4 className="font-extrabold text-xs text-gray-900">{addr.fullName}</h4>
-                      <p className="text-xs text-gray-600">{addr.addressLine1}, {addr.addressLine2 ? `${addr.addressLine2}, ` : ''}{addr.city}, {addr.state} - {addr.postalCode}</p>
-                      <p className="text-[11px] font-bold text-gray-500">Phone: {addr.phone}</p>
+                      <h4 className="font-extrabold text-xs text-gray-900 dark:text-white">{addr.fullName}</h4>
+                      <p className="text-xs text-gray-600 dark:text-gray-300">{addr.addressLine1}, {addr.addressLine2 ? `${addr.addressLine2}, ` : ''}{addr.city}, {addr.state} - {addr.postalCode}</p>
+                      <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Phone: {addr.phone}</p>
 
-                      <div className="pt-2 border-t border-gray-100 flex items-center gap-3 text-xs font-bold text-gray-700">
+                      <div className="pt-2 border-t border-gray-100 dark:border-[#263241] flex items-center gap-3 text-xs font-bold text-gray-700 dark:text-gray-300">
                         <button
                           type="button"
                           onClick={() => handleOpenLocationPicker(addr)}
-                          className="text-emerald-700 hover:text-emerald-900 font-extrabold cursor-pointer"
+                          className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 font-extrabold cursor-pointer"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
                           onClick={() => deleteAddress(addr.id)}
-                          className="hover:text-red-600 cursor-pointer"
+                          className="hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
                         >
                           Delete
                         </button>
@@ -693,7 +891,7 @@ export default function UserProfilePage() {
                           <button
                             type="button"
                             onClick={() => setDefaultAddress(addr.id)}
-                            className="text-emerald-700 hover:text-emerald-900 font-extrabold ml-auto cursor-pointer"
+                            className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 font-extrabold ml-auto cursor-pointer"
                           >
                             Set as Default
                           </button>
@@ -706,40 +904,97 @@ export default function UserProfilePage() {
               </div>
             )}
 
-            {/* ── TAB 3: PAYMENT METHOD ── */}
-            {activeTab === 'payment_method' && (
+            {/* ── TAB 3: APPEARANCE (Light, Dark, System) ── */}
+            {activeTab === 'appearance' && (
               <div className="space-y-6">
-                <div className="pb-4 border-b border-gray-100">
-                  <h3 className="text-lg font-black text-gray-900">Payment Methods</h3>
-                  <p className="text-xs text-gray-500">Saved UPI IDs, Wallets &amp; Cards for 1-click checkout</p>
+                <div className="pb-4 border-b border-gray-100 dark:border-[#263241]">
+                  <h3 className="text-lg font-black text-gray-900 dark:text-white">Theme &amp; Appearance</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Choose your preferred visual theme for PocketKirana</p>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="p-4 rounded-2xl border border-gray-200 flex items-center justify-between bg-gray-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black">
-                        UPI
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Light Theme Card */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTheme('light')}
+                    className={`p-5 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between h-44 ${
+                      themeMode === 'light'
+                        ? 'border-[#008F5A] ring-2 ring-[#008F5A]/20 bg-emerald-50/40 dark:bg-emerald-950/20'
+                        : 'border-gray-200 dark:border-[#263241] bg-white dark:bg-[#1A2232] hover:border-emerald-300 dark:hover:border-emerald-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <Sun className="w-5 h-5" />
                       </div>
-                      <div>
-                        <h4 className="font-extrabold text-xs text-gray-900">Google Pay / PhonePe</h4>
-                        <span className="text-[11px] text-gray-500">{userMobile}@upi (Primary)</span>
-                      </div>
+                      {themeMode === 'light' && (
+                        <span className="w-5 h-5 rounded-full bg-[#008F5A] text-white flex items-center justify-center shadow-xs">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      )}
                     </div>
-                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">Verified</span>
-                  </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-gray-900 dark:text-white">Light Mode</h4>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Clean warm cream &amp; white colors, easy on eyes during daytime</p>
+                    </div>
+                  </button>
 
-                  <div className="p-4 rounded-2xl border border-gray-200 flex items-center justify-between bg-gray-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-black">
-                        💳
+                  {/* Dark Theme Card */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTheme('dark')}
+                    className={`p-5 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between h-44 ${
+                      themeMode === 'dark'
+                        ? 'border-[#008F5A] ring-2 ring-[#008F5A]/20 bg-emerald-50/40 dark:bg-emerald-950/20'
+                        : 'border-gray-200 dark:border-[#263241] bg-white dark:bg-[#1A2232] hover:border-emerald-300 dark:hover:border-emerald-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                        <Moon className="w-5 h-5" />
                       </div>
-                      <div>
-                        <h4 className="font-extrabold text-xs text-gray-900">HDFC Bank Credit Card</h4>
-                        <span className="text-[11px] text-gray-500">•••• •••• •••• 4829</span>
-                      </div>
+                      {themeMode === 'dark' && (
+                        <span className="w-5 h-5 rounded-full bg-[#008F5A] text-white flex items-center justify-center shadow-xs">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      )}
                     </div>
-                    <button type="button" className="text-xs font-bold text-red-600 hover:underline cursor-pointer">Remove</button>
-                  </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-gray-900 dark:text-white">Dark Mode</h4>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Sleek charcoal &amp; dark slate palette for low-light environments</p>
+                    </div>
+                  </button>
+
+                  {/* System Default Theme Card */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTheme('system')}
+                    className={`p-5 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between h-44 ${
+                      themeMode === 'system'
+                        ? 'border-[#008F5A] ring-2 ring-[#008F5A]/20 bg-emerald-50/40 dark:bg-emerald-950/20'
+                        : 'border-gray-200 dark:border-[#263241] bg-white dark:bg-[#1A2232] hover:border-emerald-300 dark:hover:border-emerald-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center">
+                        <Laptop className="w-5 h-5" />
+                      </div>
+                      {themeMode === 'system' && (
+                        <span className="w-5 h-5 rounded-full bg-[#008F5A] text-white flex items-center justify-center shadow-xs">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-gray-900 dark:text-white">System Default</h4>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Sync automatically with your device OS settings</p>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-3">
+                  <Sparkles className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>Theme preferences are saved automatically and applied across the entire PocketKirana website.</span>
                 </div>
               </div>
             )}
@@ -747,19 +1002,19 @@ export default function UserProfilePage() {
             {/* ── TAB 4: MY WISHLIST ── */}
             {activeTab === 'wishlist' && (
               <div className="space-y-6">
-                <div className="pb-4 border-b border-gray-100">
-                  <h3 className="text-lg font-black text-gray-900">My Wishlist ({wishlistedProducts.length})</h3>
-                  <p className="text-xs text-gray-500">Products you saved for future grocery orders</p>
+                <div className="pb-4 border-b border-gray-100 dark:border-[#263241]">
+                  <h3 className="text-lg font-black text-gray-900 dark:text-white">My Wishlist ({wishlistedProducts.length})</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Products you saved for future grocery orders</p>
                 </div>
 
                 {wishlistedProducts.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {wishlistedProducts.map((prod) => (
-                      <div key={prod.id} className="border border-gray-200 rounded-2xl p-3 bg-white space-y-2 relative">
+                      <div key={prod.id} className="border border-gray-200 dark:border-[#263241] rounded-2xl p-3 bg-white dark:bg-[#1A2232] space-y-2 relative">
                         <img src={prod.thumbnail} alt={prod.name} className="w-full h-24 object-contain" />
-                        <h4 className="font-bold text-xs text-gray-900 line-clamp-1">{prod.name}</h4>
+                        <h4 className="font-bold text-xs text-gray-900 dark:text-white line-clamp-1">{prod.name}</h4>
                         <div className="flex items-center justify-between">
-                          <span className="font-black text-xs text-gray-900">₹{prod.price}</span>
+                          <span className="font-black text-xs text-gray-900 dark:text-white">₹{prod.price}</span>
                           <button
                             type="button"
                             onClick={() => addToCart(prod, 1)}
@@ -773,8 +1028,8 @@ export default function UserProfilePage() {
                   </div>
                 ) : (
                   <div className="text-center py-12 space-y-2">
-                    <Heart className="w-10 h-10 text-gray-300 mx-auto" />
-                    <p className="text-xs font-bold text-gray-500">Your wishlist is currently empty</p>
+                    <Heart className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto" />
+                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Your wishlist is currently empty</p>
                   </div>
                 )}
               </div>
@@ -783,9 +1038,9 @@ export default function UserProfilePage() {
             {/* ── TAB 5: FAQ & HELP ── */}
             {activeTab === 'faq' && (
               <div className="space-y-6">
-                <div className="pb-4 border-b border-gray-100">
-                  <h3 className="text-lg font-black text-gray-900">FAQ &amp; Customer Support</h3>
-                  <p className="text-xs text-gray-500">Frequently asked questions and direct resolution desk</p>
+                <div className="pb-4 border-b border-gray-100 dark:border-[#263241]">
+                  <h3 className="text-lg font-black text-gray-900 dark:text-white">FAQ &amp; Customer Support</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Frequently asked questions and direct resolution desk</p>
                 </div>
 
                 {/* FAQ Accordion */}
@@ -804,17 +1059,17 @@ export default function UserProfilePage() {
                       a: 'Yes, all leafy greens and vegetables are directly sourced every morning from certified local farm clusters.'
                     }
                   ].map((faq, idx) => (
-                    <div key={idx} className="border border-gray-200 rounded-2xl overflow-hidden">
+                    <div key={idx} className="border border-gray-200 dark:border-[#263241] rounded-2xl overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setOpenFaqIdx(openFaqIdx === idx ? null : idx)}
-                        className="w-full p-4 text-left flex items-center justify-between font-bold text-xs text-gray-900 bg-gray-50/50 hover:bg-gray-50 transition-colors cursor-pointer"
+                        className="w-full p-4 text-left flex items-center justify-between font-bold text-xs text-gray-900 dark:text-white bg-gray-50/50 dark:bg-[#1A2232] hover:bg-gray-50 dark:hover:bg-[#1B2430] transition-colors cursor-pointer"
                       >
                         <span>{faq.q}</span>
-                        {openFaqIdx === idx ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                        {openFaqIdx === idx ? <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
                       </button>
                       {openFaqIdx === idx && (
-                        <div className="p-4 text-xs text-gray-600 bg-white border-t border-gray-100 leading-relaxed">
+                        <div className="p-4 text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-[#151B23] border-t border-gray-100 dark:border-[#263241] leading-relaxed">
                           {faq.a}
                         </div>
                       )}
@@ -823,27 +1078,27 @@ export default function UserProfilePage() {
                 </div>
 
                 {/* Support Ticket */}
-                <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 space-y-4 mt-6">
-                  <h4 className="font-black text-sm text-gray-900">Need more help? Raise a Support Ticket</h4>
+                <div className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-2xl p-5 space-y-4 mt-6">
+                  <h4 className="font-black text-sm text-gray-900 dark:text-white">Need more help? Raise a Support Ticket</h4>
                   <form onSubmit={handleRaiseTicket} className="space-y-3 text-xs">
                     <div>
-                      <label className="font-bold text-gray-700 mb-1 block">Subject</label>
+                      <label className="font-bold text-gray-700 dark:text-gray-300 mb-1 block">Subject</label>
                       <input
                         type="text"
                         placeholder="e.g., Issue with Order #PK-8921"
                         value={ticketSubject}
                         onChange={(e) => setTicketSubject(e.target.value)}
-                        className="w-full bg-white border border-gray-200 rounded-xl p-2.5 text-gray-900 font-bold focus:outline-none focus:border-[#006E2F]"
+                        className="w-full bg-white dark:bg-[#1A2232] border border-gray-200 dark:border-[#263241] rounded-xl p-2.5 text-gray-900 dark:text-white font-bold focus:outline-none focus:border-[#006E2F]"
                       />
                     </div>
                     <div>
-                      <label className="font-bold text-gray-700 mb-1 block">Description</label>
+                      <label className="font-bold text-gray-700 dark:text-gray-300 mb-1 block">Description</label>
                       <textarea
                         rows={3}
                         placeholder="Describe your query or issue in detail..."
                         value={ticketDesc}
                         onChange={(e) => setTicketDesc(e.target.value)}
-                        className="w-full bg-white border border-gray-200 rounded-xl p-2.5 text-gray-900 font-medium focus:outline-none focus:border-[#006E2F]"
+                        className="w-full bg-white dark:bg-[#1A2232] border border-gray-200 dark:border-[#263241] rounded-xl p-2.5 text-gray-900 dark:text-white font-medium focus:outline-none focus:border-[#006E2F]"
                       />
                     </div>
                     <button

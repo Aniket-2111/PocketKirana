@@ -7,7 +7,7 @@ import { useAppStore } from '@/lib/store';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { showToast } from '@/components/ui/Toast';
-import { Product, ProductVariant } from '@/types';
+import { Product, ProductVariant, ProductSection } from '@/types';
 import {
   Star,
   ShoppingBag,
@@ -20,7 +20,11 @@ import {
   Package,
   Plus,
   Minus,
+  ChevronDown,
+  ChevronUp,
+  Layers,
 } from 'lucide-react';
+import { normalizeProductSections, sanitizeVisibleSectionsForCustomer } from '@/lib/productSectionUtils';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -31,24 +35,24 @@ export default function ProductDetailPage() {
   const { products, categories, brands, cart, addToCart, updateQuantity, removeFromCart, wishlist, toggleWishlist } = useAppStore();
 
   const [fetchedProduct, setFetchedProduct] = useState<Product | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   // Find product from store or fetched
-  const storeProduct = products.find((p) => p.slug === slug);
+  const storeProduct = products.find((p) => p.slug === slug || p.id === slug);
   const product = storeProduct || fetchedProduct || (products.length > 0 ? products[0] : null);
 
-  // If not found in store on direct navigation, fetch from API
+  // If not found in store on direct navigation, fetch from versioned API
   useEffect(() => {
     if (!storeProduct && slug) {
-      fetch(`/api/products`)
+      fetch(`/api/v1/products/${slug}`)
         .then((res) => res.json())
         .then((data) => {
-          if (data.products) {
-            const match = data.products.find((p: Product) => p.slug === slug);
-            if (match) setFetchedProduct(match);
+          if (data.success && data.data) {
+            setFetchedProduct(data.data);
           }
         })
         .catch(() => {});
@@ -67,7 +71,28 @@ export default function ProductDetailPage() {
   // Gallery / UI state
   const [selectedImgIndex, setSelectedImgIndex] = useState(0);
   const [localQty, setLocalQty] = useState(1);
-  const [activeTab, setActiveTab] = useState<'description' | 'nutrition' | 'reviews'>('description');
+  const [activeTab, setActiveTab] = useState<'specifications' | 'description' | 'reviews'>('specifications');
+
+  // Product Gallery — Dynamic multi-photo with deduplication & display limit support (must be before early returns)
+  const productGallery = React.useMemo(() => {
+    if (!product) return ['https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80'];
+    const list: string[] = [];
+    if (product.thumbnail) list.push(product.thumbnail);
+    if (product.image && !list.includes(product.image)) list.push(product.image);
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      product.images.forEach((img) => {
+        if (img && !list.includes(img)) list.push(img);
+      });
+    }
+    if (list.length === 0) {
+      list.push('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80');
+    }
+    // Respect admin display limit if set
+    if (product.maxDisplayImages && product.maxDisplayImages > 0) {
+      return list.slice(0, product.maxDisplayImages);
+    }
+    return list;
+  }, [product]);
 
   // ── Load Dynamic Variants from API / Product ──
   useEffect(() => {
@@ -157,13 +182,6 @@ export default function ProductDetailPage() {
     ? `${product.id}::${selectedVariant.id}`
     : `${product.id}::default`;
   const cartItem = cart.find((item) => item.id === cartItemId);
-
-  // Product Gallery
-  const productGallery = [
-    product.thumbnail,
-    'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=600&q=80',
-  ];
 
   const relatedProducts = products.filter((p) => p.id !== product.id).slice(0, 4);
 
@@ -380,7 +398,7 @@ export default function ProductDetailPage() {
                   {/* Stock Badge */}
                   <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600 pt-1">
                     <span className="text-gray-900">
-                      Delivered: <strong className="font-black">Today, in 10-15 mins</strong>
+                      Delivered: <strong className="font-black">Today, in 30 mins</strong>
                     </span>
                     {isOutOfStock ? (
                       <span className="flex items-center gap-1 text-rose-700 font-black bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full text-[10px]">
@@ -479,22 +497,75 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* ── TABBED INFO BAR ── */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200/80 p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 shadow-2xs">
-              <div className="bg-gray-100/80 p-1.5 rounded-2xl flex items-center gap-1 sm:gap-2 max-w-md">
-                {(['description', 'nutrition', 'reviews'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    suppressHydrationWarning
-                    className={`flex-1 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all text-center capitalize ${
-                      activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
+            {/* ── DYNAMIC SPECIFICATIONS & TABBED INFO BAR ── */}
+            <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200/80 p-4 sm:p-6 md:p-8 space-y-5 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                <div className="bg-gray-100/80 p-1.5 rounded-2xl flex items-center gap-1 sm:gap-2 max-w-lg">
+                  {(['specifications', 'description', 'reviews'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab as any)}
+                      suppressHydrationWarning
+                      className={`flex-1 px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all text-center capitalize cursor-pointer ${
+                        activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      {tab === 'specifications' ? 'All Details & Specs' : tab}
+                    </button>
+                  ))}
+                </div>
+
+                <span className="text-[11px] text-gray-400 font-bold hidden sm:inline-block">
+                  Verified FMCG Specifications
+                </span>
               </div>
+
+              {/* TAB: Specifications & Dynamic Sections */}
+              {activeTab === 'specifications' && (
+                <div className="space-y-3 max-w-3xl">
+                  {sanitizeVisibleSectionsForCustomer(normalizeProductSections(product)).map((sec) => {
+                    const isSecOpen = openSections[sec.id] ?? sec.defaultExpanded;
+                    return (
+                      <div
+                        key={sec.id}
+                        className="bg-slate-50/80 border border-gray-200 rounded-2xl overflow-hidden transition-all shadow-2xs"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setOpenSections((prev) => ({ ...prev, [sec.id]: !isSecOpen }))}
+                          className="w-full px-4 py-3.5 flex items-center justify-between text-left font-black text-gray-900 text-xs sm:text-sm hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                            {sec.title}
+                          </span>
+                          {isSecOpen ? (
+                            <ChevronUp className="w-4 h-4 text-gray-600" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+
+                        {isSecOpen && (
+                          <div className="px-4 pb-4 pt-2 border-t border-gray-200/60 bg-white divide-y divide-gray-100">
+                            {(sec.attributes || []).map((attr) => (
+                              <div
+                                key={attr.id}
+                                className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1"
+                              >
+                                <span className="font-bold text-gray-600 sm:w-1/2">{attr.label}</span>
+                                <span className="font-semibold text-gray-900 sm:w-1/2 sm:text-right font-mono">
+                                  {attr.value} {attr.unit ? <span className="text-gray-500 font-normal">{attr.unit}</span> : null}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {activeTab === 'description' && (
                 <div className="space-y-3 text-xs text-gray-600 leading-relaxed max-w-3xl">
@@ -515,26 +586,6 @@ export default function ProductDetailPage() {
                       <span>Great for boosting immunity &amp; overall wellness</span>
                     </li>
                   </ul>
-                </div>
-              )}
-
-              {activeTab === 'nutrition' && (
-                <div className="max-w-md border border-gray-200 rounded-2xl overflow-hidden text-xs">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
-                      <tr>
-                        <th className="p-2.5 sm:p-3">Nutrient</th>
-                        <th className="p-2.5 sm:p-3">Value per 100g</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      <tr><td className="p-2.5 sm:p-3 font-semibold text-gray-600">Energy</td><td className="p-2.5 sm:p-3 font-bold text-gray-900">34 kcal</td></tr>
-                      <tr><td className="p-2.5 sm:p-3 font-semibold text-gray-600">Protein</td><td className="p-2.5 sm:p-3 font-bold text-gray-900">2.8 g</td></tr>
-                      <tr><td className="p-2.5 sm:p-3 font-semibold text-gray-600">Carbohydrates</td><td className="p-2.5 sm:p-3 font-bold text-gray-900">6.6 g</td></tr>
-                      <tr><td className="p-2.5 sm:p-3 font-semibold text-gray-600">Dietary Fiber</td><td className="p-2.5 sm:p-3 font-bold text-gray-900">2.6 g</td></tr>
-                      <tr><td className="p-2.5 sm:p-3 font-semibold text-gray-600">Calcium / Vitamin C</td><td className="p-2.5 sm:p-3 font-bold text-emerald-700">High (89% DV)</td></tr>
-                    </tbody>
-                  </table>
                 </div>
               )}
 

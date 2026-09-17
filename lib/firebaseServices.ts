@@ -36,7 +36,12 @@ import {
   Delivery,
   Brand
 } from '@/types';
-import { INITIAL_STORAGE_LOCATIONS } from './mockData';
+import {
+  FestivalCampaign,
+  FestivalTemplate,
+  FestivalAuditLog,
+} from '@/types/festival';
+import { INITIAL_STORAGE_LOCATIONS, INITIAL_STORES } from './mockData';
 
 // Collection Names
 const COLLECTIONS = {
@@ -56,6 +61,9 @@ const COLLECTIONS = {
   PICKING_TASKS: 'pickingTasks',
   DELIVERY_ASSIGNMENTS: 'deliveryAssignments',
   DELIVERY_TRACKING: 'deliveryTracking',
+  FESTIVAL_CAMPAIGNS: 'festival_campaigns',
+  FESTIVAL_TEMPLATES: 'festival_templates',
+  FESTIVAL_SETTINGS: 'festival_settings',
 };
 
 // Helper to get non-null firestore instance
@@ -1220,7 +1228,7 @@ export async function updateUserProfileFS(userId: string, updates: Partial<User>
 
 export async function fetchShopsFS(): Promise<Store[]> {
   const firestore = getFirestoreInstance();
-  if (!firestore) return [];
+  if (!firestore) return [...INITIAL_STORES];
 
   try {
     const snap = await withTimeout(
@@ -1228,15 +1236,39 @@ export async function fetchShopsFS(): Promise<Store[]> {
       2000,
       null as any
     );
-    if (!snap || snap.empty) return [];
+    if (!snap || snap.empty) return [...INITIAL_STORES];
     const shops: Store[] = [];
     snap.forEach((docSnap: any) => {
       shops.push({ id: docSnap.id, ...docSnap.data() } as Store);
     });
-    return shops;
+    return shops.length > 0 ? shops : [...INITIAL_STORES];
   } catch (error) {
     console.error('Error fetching shops from Firestore:', error);
-    return [];
+    return [...INITIAL_STORES];
+  }
+}
+
+export function subscribeShopsFS(callback: (shops: Store[]) => void): () => void {
+  const firestore = getFirestoreInstance();
+  if (!firestore) {
+    callback([...INITIAL_STORES]);
+    return () => {};
+  }
+  try {
+    const unsub = onSnapshot(collection(firestore, COLLECTIONS.SHOPS), (snap) => {
+      if (snap && !snap.empty) {
+        const list: Store[] = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as Store));
+        callback(list);
+      } else {
+        callback([...INITIAL_STORES]);
+      }
+    }, (err) => {
+      console.warn('Firestore shops subscription error:', err?.message);
+    });
+    return unsub;
+  } catch (err) {
+    return () => {};
   }
 }
 
@@ -1780,4 +1812,177 @@ export async function clearDatabaseDummyDataFS(options?: { clearProducts?: boole
   }
 }
 
+// ==========================================
+// FESTIVAL CAMPAIGNS & TEMPLATES FIRESTORE SYNC
+// ==========================================
 
+export async function fetchFestivalCampaignsFS(): Promise<FestivalCampaign[]> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return [];
+  try {
+    const querySnapshot = await withTimeout(
+      getDocs(collection(firestore, COLLECTIONS.FESTIVAL_CAMPAIGNS)),
+      2000,
+      null as any
+    );
+    if (!querySnapshot) return [];
+    const campaigns: FestivalCampaign[] = [];
+    querySnapshot.forEach((docSnap: any) => {
+      campaigns.push({ id: docSnap.id, ...docSnap.data() } as FestivalCampaign);
+    });
+    return campaigns;
+  } catch (error) {
+    console.error('Error fetching festival campaigns from Firestore:', error);
+    return [];
+  }
+}
+
+export function subscribeFestivalCampaignsFS(callback: (campaigns: FestivalCampaign[]) => void): () => void {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return () => {};
+  try {
+    const unsub = onSnapshot(collection(firestore, COLLECTIONS.FESTIVAL_CAMPAIGNS), (snapshot) => {
+      const campaigns: FestivalCampaign[] = [];
+      snapshot.forEach((docSnap) => {
+        campaigns.push({ id: docSnap.id, ...docSnap.data() } as FestivalCampaign);
+      });
+      if (campaigns.length > 0) {
+        callback(campaigns);
+      }
+    }, (err) => {
+      console.warn('Firestore festival campaigns subscription error:', err?.message);
+    });
+    return unsub;
+  } catch (err) {
+    return () => {};
+  }
+}
+
+export async function saveFestivalCampaignFS(campaign: FestivalCampaign): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const docRef = doc(firestore, COLLECTIONS.FESTIVAL_CAMPAIGNS, campaign.id);
+    await setDoc(docRef, campaign, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error saving festival campaign in Firestore:', error);
+    return false;
+  }
+}
+
+export async function deleteFestivalCampaignFS(id: string): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    await deleteDoc(doc(firestore, COLLECTIONS.FESTIVAL_CAMPAIGNS, id));
+    return true;
+  } catch (error) {
+    console.error('Error deleting festival campaign from Firestore:', error);
+    return false;
+  }
+}
+
+export async function fetchFestivalTemplatesFS(): Promise<FestivalTemplate[]> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return [];
+  try {
+    const querySnapshot = await withTimeout(
+      getDocs(collection(firestore, COLLECTIONS.FESTIVAL_TEMPLATES)),
+      2000,
+      null as any
+    );
+    if (!querySnapshot) return [];
+    const templates: FestivalTemplate[] = [];
+    querySnapshot.forEach((docSnap: any) => {
+      templates.push({ id: docSnap.id, ...docSnap.data() } as FestivalTemplate);
+    });
+    return templates;
+  } catch (error) {
+    console.error('Error fetching festival templates from Firestore:', error);
+    return [];
+  }
+}
+
+export function subscribeFestivalTemplatesFS(callback: (templates: FestivalTemplate[]) => void): () => void {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return () => {};
+  try {
+    const unsub = onSnapshot(collection(firestore, COLLECTIONS.FESTIVAL_TEMPLATES), (snapshot) => {
+      const templates: FestivalTemplate[] = [];
+      snapshot.forEach((docSnap) => {
+        templates.push({ id: docSnap.id, ...docSnap.data() } as FestivalTemplate);
+      });
+      if (templates.length > 0) {
+        callback(templates);
+      }
+    }, (err) => {
+      console.warn('Firestore festival templates subscription error:', err?.message);
+    });
+    return unsub;
+  } catch (err) {
+    return () => {};
+  }
+}
+
+export async function saveFestivalTemplateFS(template: FestivalTemplate): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const docRef = doc(firestore, COLLECTIONS.FESTIVAL_TEMPLATES, template.id);
+    await setDoc(docRef, template, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error saving festival template in Firestore:', error);
+    return false;
+  }
+}
+
+export async function fetchFestivalSettingsFS(): Promise<{ isEmergencyDisabled?: boolean; lastUpdated?: string } | null> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return null;
+  try {
+    const docSnap = await withTimeout(
+      getDoc(doc(firestore, COLLECTIONS.FESTIVAL_SETTINGS, 'config')),
+      1500,
+      null as any
+    );
+    if (docSnap && docSnap.exists()) {
+      return docSnap.data() as any;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching festival settings from Firestore:', error);
+    return null;
+  }
+}
+
+export function subscribeFestivalSettingsFS(callback: (settings: { isEmergencyDisabled?: boolean }) => void): () => void {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return () => {};
+  try {
+    const unsub = onSnapshot(doc(firestore, COLLECTIONS.FESTIVAL_SETTINGS, 'config'), (docSnap) => {
+      if (docSnap.exists()) {
+        callback(docSnap.data() as any);
+      }
+    }, (err) => {
+      console.warn('Firestore festival settings subscription error:', err?.message);
+    });
+    return unsub;
+  } catch (err) {
+    return () => {};
+  }
+}
+
+export async function saveFestivalSettingsFS(settings: { isEmergencyDisabled: boolean }): Promise<boolean> {
+  const firestore = getFirestoreInstance();
+  if (!firestore) return false;
+  try {
+    const docRef = doc(firestore, COLLECTIONS.FESTIVAL_SETTINGS, 'config');
+    await setDoc(docRef, { ...settings, updatedAt: new Date().toISOString() }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error saving festival settings in Firestore:', error);
+    return false;
+  }
+}

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
 import { PWARegister } from '@/components/common/PWARegister';
+import { RealtimeNotificationToast } from '@/components/customer/RealtimeNotificationToast';
 import './globals.css';
 
 const inter = Inter({
@@ -18,11 +19,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'PocketKirana – Fast 15-Min Local Grocery Delivery',
+    default: 'PocketKirana – Fast 30-Min Local Grocery Delivery',
     template: '%s | PocketKirana',
   },
   description:
-    'PocketKirana connects customers with neighborhood grocery stores for fresh fruits, vegetables, dairy, atta, rice, and snacks delivered in 8 minutes.',
+    'PocketKirana connects customers with neighborhood grocery stores for fresh fruits, vegetables, dairy, atta, rice, and snacks delivered in 30 minutes.',
   keywords: [
     'grocery delivery',
     'kirana delivery',
@@ -30,8 +31,8 @@ export const metadata: Metadata = {
     'fresh vegetables',
     'express delivery',
     'PocketKirana',
-    '8 minute delivery',
-    'Bengaluru grocery',
+    '30 minute delivery',
+    'grocery darkstore',
   ],
   metadataBase: new URL('https://pocketkirana.com'),
   openGraph: {
@@ -39,15 +40,15 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     url: 'https://pocketkirana.com',
     siteName: 'PocketKirana',
-    title: 'PocketKirana – Fast 15-Min Local Grocery Delivery',
+    title: 'PocketKirana – Fast 30-Min Local Grocery Delivery',
     description:
-      'Get fresh groceries, dairy, snacks, and daily essentials delivered to your door in just 8 minutes.',
+      'Get fresh groceries, dairy, snacks, and daily essentials delivered to your door in 30 minutes.',
   },
   twitter: {
     card: 'summary_large_image',
     site: '@PocketKirana',
-    title: 'PocketKirana – Fast Grocery Delivery',
-    description: 'Order groceries online. Delivered in 8 minutes.',
+    title: 'PocketKirana – Fast 30-Min Grocery Delivery',
+    description: 'Order groceries online. Delivered in 30 minutes.',
   },
   robots: {
     index: true,
@@ -84,10 +85,28 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var t = localStorage.getItem('pk_theme') || 'system';
+                  var isDark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  if (isDark) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
-      <body className="min-h-screen bg-gray-50 flex flex-col font-sans antialiased text-gray-900" suppressHydrationWarning>
+      <body className="min-h-screen bg-background flex flex-col font-sans antialiased text-foreground" suppressHydrationWarning>
         <PWARegister />
         <GlobalErrorSuppressor />
+        <RealtimeNotificationToast />
         {children}
       </body>
     </html>

@@ -96,7 +96,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
               <div className="grid grid-cols-2 gap-2 mt-4 text-[11px] text-gray-600">
                 <div className="flex items-center gap-1.5 p-2 bg-emerald-50/50 rounded-lg text-emerald-900">
                   <Truck className="w-4 h-4 text-emerald-600" />
-                  <span>15-Min Express Delivery</span>
+                  <span>30-Min Express Delivery</span>
                 </div>
                 <div className="flex items-center gap-1.5 p-2 bg-blue-50/50 rounded-lg text-blue-900">
                   <RefreshCw className="w-4 h-4 text-blue-600" />

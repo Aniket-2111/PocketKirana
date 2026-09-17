@@ -11,28 +11,40 @@ import {
   EyeOff, 
   ShieldCheck, 
   MapPin, 
-  Navigation, 
+  Navigation,
+  Loader2,
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 
 export default function DeliveryLoginPage() {
   const router = useRouter();
-  const { loginPartnerByCredentials, authenticatedPartnerId } = useAppStore();
+  const { 
+    loginPartnerByCredentials, 
+    authenticatedPartnerId,
+    initializeFirebaseSync,
+    deliveryPartners,
+  } = useAppStore();
 
   const [step, setStep] = useState<'login' | 'location'>('login');
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
 
-  // If already authenticated and location is granted, auto-redirect to home
+  // ── On mount: initialize Firebase sync so partners are loaded before login ──
+  useEffect(() => {
+    // Trigger sync — it's idempotent (won't double-run if already synced)
+    setIsSyncing(true);
+    initializeFirebaseSync().finally(() => setIsSyncing(false));
+  }, [initializeFirebaseSync]);
+
+  // If already authenticated, auto-redirect to home
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const storedAuth = localStorage.getItem('pk_delivery_authenticated_partner');
-    const storedLoc = localStorage.getItem('pk_delivery_location_granted');
-
-    if ((authenticatedPartnerId || storedAuth) && storedLoc === 'true') {
+    if (authenticatedPartnerId || storedAuth) {
       router.replace('/home');
     }
   }, [authenticatedPartnerId, router]);
@@ -49,23 +61,25 @@ export default function DeliveryLoginPage() {
     }
 
     setIsLoading(true);
+
+    // If Firebase sync is still running and we have no partners yet, wait briefly
+    if (deliveryPartners.length === 0 && isSyncing) {
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
     const res = loginPartnerByCredentials(loginId, password);
     setIsLoading(false);
 
     if (res.success) {
       showToast(res.message, 'success');
-      
-      const locGranted = typeof window !== 'undefined' && localStorage.getItem('pk_delivery_location_granted') === 'true';
-      if (locGranted) {
-        router.replace('/home');
-      } else {
-        // Proceed to Location Permission step
-        setStep('location');
-      }
+      // LocationPermissionGuard on the home route handles location from here on.
+      // Skip the in-login location step — just go to home directly.
+      router.replace('/home');
     } else {
       showToast(res.message, 'error');
     }
   };
+
 
   const handleAllowLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
@@ -246,13 +260,28 @@ export default function DeliveryLoginPage() {
 
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full py-3.5 bg-[#0F532B] hover:bg-[#0c4323] active:scale-[0.98] text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider mt-2 disabled:opacity-50"
+            disabled={isLoading || isSyncing}
+            className="w-full py-3.5 bg-[#0F532B] hover:bg-[#0c4323] active:scale-[0.98] text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider mt-2 disabled:opacity-60"
           >
-            <ShieldCheck className="w-4 h-4" />
-            <span>{isLoading ? 'VERIFYING CREDENTIALS...' : 'SIGN IN TO SHIFT'}</span>
+            {isSyncing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>LOADING ACCOUNT DATA...</span>
+              </>
+            ) : isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>VERIFYING CREDENTIALS...</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="w-4 h-4" />
+                <span>SIGN IN TO SHIFT</span>
+              </>
+            )}
           </button>
         </form>
+
 
       </div>
 

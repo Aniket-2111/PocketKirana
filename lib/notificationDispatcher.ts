@@ -81,8 +81,29 @@ function getAdminApp(): any {
 
 export type OrderNotificationEvent =
   | 'ORDER_PLACED'
+  | 'ORDER_CONFIRMED'
   | 'PAYMENT_CONFIRMED'
+  | 'ORDER_ACCEPTED'
   | 'PICKING_STARTED'
+  | 'PICKING_COMPLETED'
+  | 'ORDER_PACKED'
+  | 'DELIVERY_ASSIGNED'
+  | 'ORDER_OUT_FOR_DELIVERY'
+  | 'DELIVERY_ARRIVING'
+  | 'ORDER_DELIVERED'
+  | 'ORDER_CANCELLED'
+  | 'REFUND_INITIATED'
+  | 'REFUND_COMPLETED'
+  | 'NEW_PICKER_ORDER'
+  | 'PICKER_ALERT'
+  | 'NEW_DELIVERY_ASSIGNMENT'
+  | 'DELIVERY_ALERT'
+  | 'ADMIN_OFFER'
+  | 'ADMIN_ANNOUNCEMENT'
+  | 'PAYMENT_SUCCESS'
+  | 'PAYMENT_FAILED'
+  | 'SYSTEM_ALERT'
+  // Legacy aliases
   | 'PACKED'
   | 'READY_FOR_PICKUP'
   | 'PARTNER_ASSIGNED'
@@ -90,100 +111,325 @@ export type OrderNotificationEvent =
   | 'OUT_FOR_DELIVERY'
   | 'ARRIVING_SOON'
   | 'DELIVERED'
-  | 'ORDER_CANCELLED'
-  | 'REFUND_INITIATED'
-  // Internal ops notifications
   | 'NEW_ORDER_ADMIN'
-  | 'NEW_PICKING_TASK'
-  | 'NEW_DELIVERY_ASSIGNMENT';
+  | 'NEW_PICKING_TASK';
 
 export interface NotificationPayload {
   title: string;
   body: string;
+  deepLink?: string;
+  sound?: string;
+  priority?: 'high' | 'normal';
+  channelId?: string;
   data?: Record<string, string>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NOTIFICATION TEMPLATES
+// NOTIFICATION TEMPLATES & BUILDER
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildPayload(
   event: OrderNotificationEvent,
   context: {
     orderNumber: string;
+    customerName?: string;
     totalAmount?: string;
     itemCount?: number;
     partnerName?: string;
+    storeName?: string;
     distanceKm?: string;
+    estimatedDeliveryTime?: string;
+    offerTitle?: string;
+    offerMessage?: string;
+    deepLink?: string;
+    customMessage?: string;
   }
 ): NotificationPayload {
-  const { orderNumber, totalAmount, itemCount, partnerName, distanceKm } = context;
+  const {
+    orderNumber,
+    customerName = 'Customer',
+    totalAmount = '0',
+    itemCount = 1,
+    partnerName = 'Express Agent',
+    storeName = 'PocketKirana Hub (Neral)',
+    distanceKm = '1.5',
+    estimatedDeliveryTime = '15-20 mins',
+    offerTitle,
+    offerMessage,
+    deepLink,
+    customMessage,
+  } = context;
 
-  const TEMPLATES: Record<OrderNotificationEvent, NotificationPayload> = {
+  const defaultOrderLink = orderNumber ? `/orders/${orderNumber}/track` : '/orders';
+
+  const TEMPLATES: Record<string, NotificationPayload> = {
     ORDER_PLACED: {
-      title: '🛒 Order Placed',
-      body: `Your order ${orderNumber} has been placed successfully.`,
+      title: 'Order Placed 🎉',
+      body: `Your PocketKirana order #${orderNumber} has been received and is being verified.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
+    },
+    ORDER_CONFIRMED: {
+      title: 'Order Confirmed 🎉',
+      body: `Your PocketKirana order #${orderNumber} has been confirmed. Stock reserved at ${storeName}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
     },
     PAYMENT_CONFIRMED: {
-      title: '✅ Payment Confirmed',
-      body: `Payment received for ${orderNumber}. We're preparing your order!`,
+      title: 'Payment Confirmed 🎉',
+      body: `Your PocketKirana order #${orderNumber} has been confirmed. Stock reserved at ${storeName}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
+    },
+    ORDER_ACCEPTED: {
+      title: 'Order Accepted 📋',
+      body: `Your order #${orderNumber} has been accepted and store preparation has started.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'normal',
+      sound: 'default',
     },
     PICKING_STARTED: {
-      title: '🛒 Picking Started',
-      body: `We're collecting items for your order ${orderNumber}.`,
+      title: 'Order in Preparation 🧺',
+      body: `Your order #${orderNumber} is being hand-picked with care by our store staff.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'normal',
+      sound: 'default',
+    },
+    PICKING_COMPLETED: {
+      title: 'Order Picked 📦',
+      body: `All items for order #${orderNumber} have been picked and moved to the packing station.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'normal',
+      sound: 'default',
+    },
+    ORDER_PACKED: {
+      title: 'Order Packed 📦',
+      body: `Your order #${orderNumber} is packed and ready for delivery.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
     },
     PACKED: {
-      title: '📦 Order Packed',
-      body: `Your order ${orderNumber} is packed and ready for dispatch.`,
+      title: 'Order Packed 📦',
+      body: `Your order #${orderNumber} is packed and ready for delivery.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
     },
     READY_FOR_PICKUP: {
-      title: '🔔 Ready for Pickup',
-      body: `Order ${orderNumber} is packed and waiting for a delivery partner.`,
+      title: 'Order Ready for Pickup 📦',
+      body: `Order #${orderNumber} is sealed and waiting for express rider pickup at hub.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'normal',
+      sound: 'default',
+    },
+    DELIVERY_ASSIGNED: {
+      title: 'Delivery Partner Assigned 🛵',
+      body: `${partnerName} has been assigned to deliver your order #${orderNumber}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'partner_dispatch',
     },
     PARTNER_ASSIGNED: {
-      title: '🛵 Delivery Partner Assigned',
-      body: `A delivery partner has been assigned for ${orderNumber}.`,
+      title: 'Delivery Partner Assigned 🛵',
+      body: `${partnerName} has been assigned to deliver your order #${orderNumber}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'partner_dispatch',
     },
     PARTNER_ACCEPTED: {
-      title: '🛵 Partner on the Way',
-      body: `${partnerName ?? 'Your delivery partner'} is heading to pick up ${orderNumber}.`,
+      title: 'Rider Heading to Store 🛵',
+      body: `${partnerName} is heading to Store Hub to collect order #${orderNumber}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'normal',
+      sound: 'default',
+    },
+    ORDER_OUT_FOR_DELIVERY: {
+      title: 'Out for Delivery 🛵',
+      body: `Your PocketKirana order #${orderNumber} is on the way. Expected in ${estimatedDeliveryTime}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
     },
     OUT_FOR_DELIVERY: {
-      title: '🚴 Out for Delivery',
-      body: `Your order ${orderNumber} is on the way to you!`,
+      title: 'Out for Delivery 🛵',
+      body: `Your PocketKirana order #${orderNumber} is on the way. Expected in ${estimatedDeliveryTime}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
+    },
+    DELIVERY_ARRIVING: {
+      title: 'Delivery Arriving Soon 📍',
+      body: `Your delivery partner ${partnerName} is arriving at your doorstep for order #${orderNumber}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
     },
     ARRIVING_SOON: {
-      title: '📍 Arriving Soon',
-      body: `Your delivery partner is nearby. Please be available to receive ${orderNumber}.`,
+      title: 'Delivery Arriving Soon 📍',
+      body: `Your delivery partner ${partnerName} is arriving at your doorstep for order #${orderNumber}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
+    },
+    ORDER_DELIVERED: {
+      title: 'Order Delivered ✅',
+      body: `Your PocketKirana order #${orderNumber} has been delivered successfully. Thank you!`,
+      deepLink: `/orders/${orderNumber}`,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
     },
     DELIVERED: {
-      title: '✅ Delivered!',
-      body: `Order ${orderNumber} has been delivered. Enjoy! Rate your experience.`,
+      title: 'Order Delivered ✅',
+      body: `Your PocketKirana order #${orderNumber} has been delivered successfully. Thank you!`,
+      deepLink: `/orders/${orderNumber}`,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
     },
     ORDER_CANCELLED: {
-      title: '❌ Order Cancelled',
-      body: `Your order ${orderNumber} has been cancelled. A refund will be processed if applicable.`,
+      title: 'Order Cancelled ❌',
+      body: customMessage || `Your order #${orderNumber} has been cancelled. Refund will be processed if applicable.`,
+      deepLink: `/orders/${orderNumber}`,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'default',
     },
     REFUND_INITIATED: {
-      title: '💚 Refund Initiated',
-      body: `Refund for order ${orderNumber} of ₹${totalAmount} has been initiated.`,
+      title: 'Refund Initiated 💚',
+      body: `Your refund of ₹${totalAmount} for order #${orderNumber} has been initiated.`,
+      deepLink: `/orders/${orderNumber}`,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'default',
     },
-    // Internal / ops
-    NEW_ORDER_ADMIN: {
-      title: '🔔 New Order',
-      body: `New order ${orderNumber} — ₹${totalAmount}, ${itemCount} items`,
+    REFUND_COMPLETED: {
+      title: 'Refund Completed ✅',
+      body: `Your refund of ₹${totalAmount} for order #${orderNumber} has been successfully credited.`,
+      deepLink: `/orders/${orderNumber}`,
+      channelId: 'pocketkirana_orders',
+      priority: 'normal',
+      sound: 'default',
+    },
+    PAYMENT_SUCCESS: {
+      title: 'Payment Successful 💳',
+      body: `Payment of ₹${totalAmount} received for order #${orderNumber}.`,
+      deepLink: defaultOrderLink,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'order_chime',
+    },
+    PAYMENT_FAILED: {
+      title: 'Payment Failed ⚠',
+      body: `Payment attempt for order #${orderNumber} failed. Tap to retry payment.`,
+      deepLink: `/checkout?orderId=${orderNumber}`,
+      channelId: 'pocketkirana_orders',
+      priority: 'high',
+      sound: 'default',
+    },
+
+    // ── Picker Operations ──
+    NEW_PICKER_ORDER: {
+      title: '🔔 New Order Received',
+      body: `New order #${orderNumber} is ready for picking (${itemCount} items).`,
+      deepLink: `/picking?id=${orderNumber}`,
+      channelId: 'pocketkirana_picker',
+      priority: 'high',
+      sound: 'picker_new_order',
     },
     NEW_PICKING_TASK: {
-      title: '📋 New Picking Task',
-      body: `Order ${orderNumber} — ${itemCount} items to pick.`,
+      title: '🔔 New Picking Task',
+      body: `Order #${orderNumber} — ${itemCount} items to pick.`,
+      deepLink: `/picking?id=${orderNumber}`,
+      channelId: 'pocketkirana_picker',
+      priority: 'high',
+      sound: 'picker_new_order',
     },
+    PICKER_ALERT: {
+      title: '⚠ Picker Alert',
+      body: customMessage || `Order #${orderNumber} status changed. Please check task dashboard.`,
+      deepLink: `/tasks`,
+      channelId: 'pocketkirana_picker',
+      priority: 'high',
+      sound: 'default',
+    },
+
+    // ── Delivery Partner Operations ──
     NEW_DELIVERY_ASSIGNMENT: {
-      title: '🛵 New Delivery',
-      body: `Order ${orderNumber} — ₹${totalAmount}, ${distanceKm ?? '?'} km`,
+      title: '🛵 New Order to Deliver',
+      body: `Order #${orderNumber} is ready for delivery (₹${totalAmount}, ~${distanceKm} km).`,
+      deepLink: `/active?orderId=${orderNumber}`,
+      channelId: 'pocketkirana_delivery',
+      priority: 'high',
+      sound: 'partner_dispatch',
+    },
+    DELIVERY_ALERT: {
+      title: '🛵 Delivery Task Alert',
+      body: customMessage || `Order #${orderNumber} task update. Please check delivery app.`,
+      deepLink: `/active`,
+      channelId: 'pocketkirana_delivery',
+      priority: 'high',
+      sound: 'partner_dispatch',
+    },
+
+    // ── Admin Offers & Announcements ──
+    ADMIN_OFFER: {
+      title: offerTitle || '🔥 Special Offer',
+      body: offerMessage || 'Get ₹100 OFF on your next PocketKirana order!',
+      deepLink: deepLink || '/home',
+      channelId: 'pocketkirana_offers',
+      priority: 'normal',
+      sound: 'default',
+    },
+    ADMIN_ANNOUNCEMENT: {
+      title: offerTitle || '📢 PocketKirana Announcement',
+      body: offerMessage || 'Exciting new groceries and faster delivery available in Neral.',
+      deepLink: deepLink || '/home',
+      channelId: 'pocketkirana_offers',
+      priority: 'normal',
+      sound: 'default',
+    },
+    SYSTEM_ALERT: {
+      title: offerTitle || 'PocketKirana System Alert',
+      body: customMessage || offerMessage || 'Operational system update.',
+      deepLink: deepLink || '/',
+      channelId: 'pocketkirana_system',
+      priority: 'normal',
+      sound: 'default',
     },
   };
 
-  return TEMPLATES[event];
+  const payload = TEMPLATES[event] || {
+    title: 'PocketKirana Update',
+    body: customMessage || `Update for order #${orderNumber}`,
+    deepLink: defaultOrderLink,
+    channelId: 'pocketkirana_orders',
+    priority: 'normal',
+    sound: 'default',
+  };
+
+  if (deepLink) payload.deepLink = deepLink;
+  return payload;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -267,7 +513,14 @@ export interface DispatchOptions {
     totalAmount?: string;
     itemCount?: number;
     partnerName?: string;
+    storeName?: string;
     distanceKm?: string;
+    estimatedDeliveryTime?: string;
+    offerTitle?: string;
+    offerMessage?: string;
+    deepLink?: string;
+    customMessage?: string;
+    [key: string]: any;
   };
 }
 

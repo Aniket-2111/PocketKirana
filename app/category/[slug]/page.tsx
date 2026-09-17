@@ -29,10 +29,15 @@ export default function DedicatedCategoryPage() {
   const slugParam = (params?.slug as string) || 'fruits-vegetables';
   const subQuery = searchParams.get('sub');
 
+  const [mounted, setMounted] = useState(false);
   const { categories, products, brands } = useAppStore();
   const [activeSubTab, setActiveSubTab] = useState<string>(subQuery || 'all');
   const [activeBrandId, setActiveBrandId] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortKey>('relevance');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Top-level active categories
   const activeTopCategories = useMemo(() => {
@@ -185,7 +190,7 @@ export default function DedicatedCategoryPage() {
     <>
       <RoleSwitcher />
       <CustomerLayout>
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-5 space-y-4 sm:space-y-5 font-sans">
+        <div suppressHydrationWarning className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-5 space-y-4 sm:space-y-5 font-sans">
           {/* ── 1. DYNAMIC BREADCRUMB PATH ── */}
           <nav className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold text-slate-500 overflow-x-auto no-scrollbar scrollbar-none">
             <Link href="/" className="hover:text-emerald-700 transition-colors shrink-0">
@@ -239,7 +244,7 @@ export default function DedicatedCategoryPage() {
           </div>
 
           {/* ── 3. MAIN CONTENT AREA ── */}
-          <main className="w-full space-y-4 sm:space-y-6">
+          <main className="w-full space-y-4 sm:space-y-6" suppressHydrationWarning>
             {/* Category Page Title, Subtitle & Sort Selector */}
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -258,6 +263,7 @@ export default function DedicatedCategoryPage() {
                   <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
                   <span className="text-[11px] sm:text-xs font-bold text-slate-600">Sort:</span>
                   <select
+                    suppressHydrationWarning
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as SortKey)}
                     className="bg-white border border-slate-200 rounded-xl text-[11px] sm:text-xs font-bold px-2.5 py-1 sm:py-1.5 text-slate-800 focus:outline-none focus:border-[#0B8F5A] shadow-2xs"

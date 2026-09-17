@@ -38,7 +38,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
   }, [initializeFirebaseSync]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-900 selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen flex flex-col bg-background font-sans text-foreground selection:bg-emerald-100 dark:selection:bg-emerald-950 selection:text-emerald-900 dark:selection:text-emerald-100 transition-colors duration-200">
       <Header onOpenCart={() => setCartOpen(true)} onOpenAuth={() => setAuthOpen(true)} />
 
       <main className="flex-1 pb-24 md:pb-8">
@@ -50,7 +50,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
       {/* ── Mobile Bottom Navigation Bar (Fixed 5-Tab Quick-Commerce Navigation) ── */}
       <nav
         aria-label="Mobile Navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-safe"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-[#263241] md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-safe transition-colors duration-200"
       >
         <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto px-1">
           {mobileNav.map(({ icon: Icon, label, href }) => {
@@ -71,14 +71,14 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
                   aria-label={`Shopping Cart with ${totalItems} items`}
                 >
                   <div className="relative flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-slate-600 stroke-[2]" />
+                    <Icon className="w-5 h-5 text-slate-600 dark:text-slate-300 stroke-[2]" />
                     {mounted && totalItems > 0 && (
-                      <span className="absolute -top-1.5 -right-2.5 bg-[#E65100] text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-in zoom-in-50 duration-150">
+                      <span className="absolute -top-1.5 -right-2.5 bg-[#E65100] text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-[#111827] shadow-xs animate-in zoom-in-50 duration-150">
                         {totalItems > 99 ? '99+' : totalItems}
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] font-bold text-slate-600 leading-none">
+                  <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 leading-none">
                     {label}
                   </span>
                 </button>
@@ -89,24 +89,21 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
               <Link
                 key={href}
                 href={href}
-                className={`relative flex flex-col items-center justify-center gap-1 py-1 px-2 flex-1 transition-colors cursor-pointer ${
-                  isActive ? 'text-[#0B8F5A]' : 'text-slate-500 hover:text-slate-800'
-                }`}
+                className={`relative flex flex-col items-center justify-center gap-1 py-1 px-2 flex-1 transition-colors cursor-pointer ${isActive ? 'text-[#0B8F5A] dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                  }`}
               >
                 {isActive && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#0B8F5A] rounded-b-full shadow-xs" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#0B8F5A] dark:bg-emerald-400 rounded-b-full shadow-xs" />
                 )}
                 <div className="relative flex items-center justify-center">
                   <Icon
-                    className={`w-5 h-5 transition-transform ${
-                      isActive ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'
-                    }`}
+                    className={`w-5 h-5 transition-transform ${isActive ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'
+                      }`}
                   />
                 </div>
                 <span
-                  className={`text-[10px] leading-none transition-all ${
-                    isActive ? 'font-black tracking-tight text-[#075C3C]' : 'font-semibold'
-                  }`}
+                  className={`text-[10px] leading-none transition-all ${isActive ? 'font-black tracking-tight text-[#075C3C] dark:text-emerald-400' : 'font-semibold'
+                    }`}
                 >
                   {label}
                 </span>

@@ -105,47 +105,53 @@ export function PaymentsAndSettlementView() {
   }, [orders, settlements]);
 
   // 2. Aggregate Delivery Partner Settlement Ledgers
+  // SOURCE OF TRUTH: partner.cashInHand is the authoritative "pending handover" amount.
+  // The delivery app sets/increments it on each COD collection and the admin's
+  // verifyAndSettlePartnerCash() decrements it on settlement — so both screens
+  // must read from the same field instead of re-computing from orders.
   const partnerLedgers: PartnerSettlementLedger[] = useMemo(() => {
     return deliveryPartners.map((p) => {
-      let cash = 0;
-      let upi = 0;
+      // Actual cash physically held by the rider right now (set by collectCODPayment)
+      const cashInHand = Number(p.cashInHand || 0);
 
+      // COD UPI collected (never physically held — goes directly to bank)
+      let upi = 0;
       orders
         .filter((o) => o.partnerId === p.id && (o.orderStatus === 'DELIVERED' || o.paymentStatus === 'paid'))
         .forEach((o) => {
-          const amt = o.total || 0;
           const m = (o.paymentMethod || '').toLowerCase();
-          const col = o.collectionMethod || (m.includes('cash') ? 'CASH' : m.includes('upi') ? 'UPI' : 'ONLINE');
-          if (col === 'CASH' || m.includes('cash')) {
-            cash += amt;
-          } else if (col === 'UPI' || m.includes('upi')) {
-            upi += amt;
+          const col = o.collectionMethod || (m.includes('upi') ? 'UPI' : m.includes('cash') ? 'CASH' : 'ONLINE');
+          if (col === 'UPI' || m.includes('upi') || m === 'phonepe') {
+            upi += o.total || 0;
           }
         });
 
-      // Default demo mock baseline if local store has no historical orders
-      if (cash === 0 && p.id === 'partner-1') cash = 12700;
+      // Demo UPI baseline for partner-1 only if no real data exists
       if (upi === 0 && p.id === 'partner-1') upi = 4200;
 
+      // Total cash collected this shift = cash currently in hand + already settled cash
       const partnerSettled = settlements
         .filter((s) => s.partnerId === p.id)
         .reduce((acc, s) => acc + (s.amount || 0), 0);
 
-      const pending = Math.max(0, cash - partnerSettled);
+      // The real "total cash collected" = what's still in hand + what's been settled
+      const totalCashCollected = cashInHand + partnerSettled;
 
       return {
         partnerId: p.id,
         partnerName: p.name,
         phone: p.phone,
-        totalCashCollected: cash,
+        totalCashCollected,
         totalUpiCollected: upi,
-        totalCollected: cash + upi,
+        totalCollected: totalCashCollected + upi,
         totalSettled: partnerSettled,
-        pendingSettlement: pending,
+        // pendingSettlement IS partner.cashInHand — the single source of truth
+        pendingSettlement: cashInHand,
         lastSettledAt: settlements.find((s) => s.partnerId === p.id)?.timestamp,
       };
     });
   }, [deliveryPartners, orders, settlements]);
+
 
   // Handle Confirm Settlement
   const handleOpenSettlement = (ledger: PartnerSettlementLedger) => {
@@ -184,19 +190,15 @@ export function PaymentsAndSettlementView() {
       });
       const data = await res.json();
       if (data.success) {
+        // confirmPartnerSettlement now atomically: adds settlement record,
+        // decrements partner.cashInHand, marks codCollections as SETTLED,
+        // and notifies the delivery partner. No need to also call verifyAndSettlePartnerCash.
         confirmPartnerSettlement(
           selectedPartnerForSettlement.partnerId,
           settlementAmount,
           'admin-root',
           'Store Admin',
           settlementRef,
-          settlementNote
-        );
-        verifyAndSettlePartnerCash(
-          selectedPartnerForSettlement.partnerId,
-          settlementAmount,
-          'admin-root',
-          'Store Admin',
           settlementNote
         );
         if (settlementAlsoLogout) {
@@ -208,19 +210,13 @@ export function PaymentsAndSettlementView() {
         showToast(data.error || 'Failed to confirm settlement', 'error');
       }
     } catch (err) {
+      // Offline / network fallback – still apply locally
       confirmPartnerSettlement(
         selectedPartnerForSettlement.partnerId,
         settlementAmount,
         'admin-root',
         'Store Admin',
         settlementRef,
-        settlementNote
-      );
-      verifyAndSettlePartnerCash(
-        selectedPartnerForSettlement.partnerId,
-        settlementAmount,
-        'admin-root',
-        'Store Admin',
         settlementNote
       );
       if (settlementAlsoLogout) {
@@ -232,6 +228,7 @@ export function PaymentsAndSettlementView() {
       setIsSubmittingSettlement(false);
     }
   };
+
 
   // Handle Review Exception
   const handleReviewExceptionSubmit = async () => {

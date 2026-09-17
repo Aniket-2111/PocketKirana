@@ -52,7 +52,7 @@ export const CategoryGrid: React.FC = () => {
               className="group flex flex-col items-center gap-2 shrink-0 text-center w-24 sm:w-28 transition-transform hover:-translate-y-1 snap-start"
             >
               {/* Circular / Rounded Image Icon Container (Matching Reference) */}
-              <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-white border-2 border-slate-100 group-hover:border-[#0B8F5A] p-2 flex items-center justify-center shadow-xs group-hover:shadow-md transition-all">
+              <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-white dark:bg-[#151B23] border-2 border-[#E5E7EB] dark:border-[#263241] group-hover:border-[#008F5A] dark:group-hover:border-[#22C55E] p-2 flex items-center justify-center shadow-xs group-hover:shadow-md transition-all">
                 <img
                   src={cat.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80'}
                   alt={cat.name}
@@ -63,12 +63,12 @@ export const CategoryGrid: React.FC = () => {
               </div>
 
               {/* Category Name */}
-              <span className="text-xs font-bold text-slate-900 group-hover:text-[#0B8F5A] leading-tight line-clamp-2 min-h-[28px] flex items-center justify-center">
+              <span className="text-xs font-bold text-[#111827] dark:text-[#F9FAFB] group-hover:text-[#008F5A] dark:group-hover:text-[#22C55E] leading-tight line-clamp-2 min-h-[28px] flex items-center justify-center">
                 {cat.name}
               </span>
 
               {/* Item Count Subtitle (Matching Reference "12 items") */}
-              <span className="text-[10px] text-slate-400 font-semibold -mt-1">
+              <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] font-semibold -mt-1">
                 {itemCount > 0 ? `${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Fresh In Stock'}
               </span>
             </Link>

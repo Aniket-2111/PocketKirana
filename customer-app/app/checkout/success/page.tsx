@@ -128,9 +128,9 @@ export default function CheckoutSuccessPage() {
     paymentStatus: isSuccess ? 'paid' : 'pending',
     orderStatus: isSuccess ? 'CONFIRMED' : 'PAYMENT_PENDING',
     placedAt: new Date().toISOString(),
-    deliverySlot: 'Instant (10-15 mins)',
+    deliverySlot: 'Instant (30 mins)',
     deliveryOtp: '1234',
-    estimatedDeliveryTime: '10-15 mins'
+    estimatedDeliveryTime: '30 mins'
   };
 
   const currentOrder = matchingOrder || fallbackOrder;

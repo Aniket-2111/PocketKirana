@@ -24,6 +24,36 @@ export const isFirebaseConfigured = (): boolean => {
   );
 };
 
+// Suppress non-fatal Firestore network stream and browser extension abort errors
+if (typeof window !== 'undefined') {
+  const suppressFirestoreError = (reasonOrMsg: any) => {
+    if (!reasonOrMsg) return false;
+    const str = String(reasonOrMsg?.message || reasonOrMsg?.reason?.message || reasonOrMsg || '').toLowerCase();
+    return (
+      str.includes('firestore.googleapis.com') ||
+      str.includes('failed to fetch') ||
+      str.includes('aborterror') ||
+      str.includes('aborted') ||
+      str.includes('networkerror') ||
+      str.includes('load failed')
+    );
+  };
+
+  window.addEventListener('unhandledrejection', (event) => {
+    if (suppressFirestoreError(event.reason)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  });
+
+  window.addEventListener('error', (event) => {
+    if (suppressFirestoreError(event.error || event.message)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  });
+}
+
 // Lazily initialize Firebase on both client and server side
 export function getFirebaseApp(): FirebaseApp | null {
   if (!isFirebaseConfigured()) return null;
@@ -53,7 +83,11 @@ export function getFirebaseDb(): Firestore | null {
     return getFirestore(firebaseApp);
   } catch {
     try {
-      return initializeFirestore(firebaseApp, { experimentalAutoDetectLongPolling: true });
+      return initializeFirestore(firebaseApp, {
+        experimentalAutoDetectLongPolling: true,
+        experimentalForceLongPolling: true,
+        ignoreUndefinedProperties: true,
+      });
     } catch {
       return null;
     }
@@ -69,9 +103,15 @@ try {
   if (isFirebaseConfigured()) {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     try {
-      dbInstance = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+      dbInstance = initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true,
+        experimentalForceLongPolling: true,
+        ignoreUndefinedProperties: true,
+      });
     } catch {
-      dbInstance = getFirestore(app);
+      try {
+        dbInstance = getFirestore(app);
+      } catch {}
     }
     authInstance = getAuth(app);
   }

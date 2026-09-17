@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
@@ -17,12 +17,17 @@ import { INITIAL_PRODUCTS, INITIAL_BRANDS } from '@/lib/mockData';
 
 export default function HomePage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const { products, categories, brands, getActiveFestivalCampaign, isFestivalEmergencyDisabled } = useAppStore();
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const activeFestivalCampaign = useMemo(() => {
-    if (isFestivalEmergencyDisabled) return null;
+    if (!mounted || isFestivalEmergencyDisabled) return null;
     return getActiveFestivalCampaign ? getActiveFestivalCampaign() : null;
-  }, [getActiveFestivalCampaign, isFestivalEmergencyDisabled]);
+  }, [mounted, getActiveFestivalCampaign, isFestivalEmergencyDisabled]);
 
   const handleNavigateToProduct = (product: Product) => {
     router.push(`/product/${product.slug}`);

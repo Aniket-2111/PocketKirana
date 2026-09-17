@@ -577,7 +577,7 @@ export function ModernSalesAnalyticsChart() {
 
         <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>Average fulfillment rate: <strong className="text-slate-800">99.4%</strong> in &lt;15 mins</span>
+          <span>Average fulfillment rate: <strong className="text-slate-800">99.4%</strong> in &lt;30 mins</span>
         </div>
       </div>
     </div>

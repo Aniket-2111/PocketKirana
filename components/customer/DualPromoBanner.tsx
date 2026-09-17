@@ -54,7 +54,7 @@ export const DualPromoBanner: React.FC = () => {
         return (
           <div
             key={banner.id}
-            className={`relative rounded-3xl overflow-hidden ${cardBg} border ${style.border} p-6 sm:p-8 flex items-center justify-between shadow-2xs hover:shadow-md transition-shadow group`}
+            className={`relative rounded-3xl overflow-hidden ${cardBg} dark:bg-[#151B23] border ${style.border} dark:border-[#263241] p-6 sm:p-8 flex items-center justify-between shadow-2xs hover:shadow-md transition-all group`}
           >
             {/* Left Content */}
             <div className="space-y-3 z-10 max-w-[62%]">
@@ -66,12 +66,12 @@ export const DualPromoBanner: React.FC = () => {
                 </span>
               )}
 
-              <h3 className="text-xl sm:text-2xl font-black text-[#075C3C] leading-tight">
+              <h3 className="text-xl sm:text-2xl font-black text-[#075C3C] dark:text-emerald-400 leading-tight">
                 {banner.title}
               </h3>
 
               {banner.subtitle && (
-                <p className="text-xs text-slate-600 line-clamp-2">
+                <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">
                   {banner.subtitle}
                 </p>
               )}
@@ -93,7 +93,7 @@ export const DualPromoBanner: React.FC = () => {
                   'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=400&q=80'
                 }
                 alt={banner.title}
-                className="w-full h-full object-cover rounded-2xl drop-shadow-md border-2 border-white"
+                className="w-full h-full object-cover rounded-2xl drop-shadow-md border-2 border-white dark:border-[#1A2232]"
               />
             </div>
           </div>

@@ -414,6 +414,30 @@ async function callPlaceOrderFallback(params: {
 
   if (db) {
     const { doc, getDoc, setDoc } = await import('firebase/firestore');
+
+    // Server-side serviceability check on the delivery address
+    try {
+      const addrSnap = await getDoc(doc(db, 'addresses', params.addressId));
+      if (addrSnap.exists()) {
+        const addrData = addrSnap.data();
+        if (typeof addrData.latitude === 'number' && typeof addrData.longitude === 'number') {
+          const { calculateDistanceKm } = await import('./locationServices');
+          const dist = calculateDistanceKm(19.0224536, 73.3210018, addrData.latitude, addrData.longitude);
+          const isNeral = addrData.postalCode === '410101' || 
+            (addrData.city && addrData.city.toLowerCase().includes('neral')) ||
+            (addrData.addressLine1 && addrData.addressLine1.toLowerCase().includes('neral'));
+          if (dist > 4.5 && !isNeral) {
+            throw new Error(`Address is ${dist.toFixed(1)} KM away, which exceeds PocketKirana's 4.5 KM delivery radius from Maule Kirana in Neral.`);
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('exceeds PocketKirana')) {
+        throw err;
+      }
+      console.warn('[Fallback] Could not verify address coordinates:', err);
+    }
+
     for (const item of params.cartItems) {
       try {
         const pSnap = await getDoc(doc(db, 'products', item.productId));

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 import type { Product, ProductVariant } from '@/types';
+import { normalizeProductSections, sanitizeVisibleSectionsForCustomer } from '@/lib/productSectionUtils';
 
 export default function ProductDetailClient() {
   const router = useRouter();
@@ -37,11 +38,8 @@ export default function ProductDetailClient() {
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [openAccordions, setOpenAccordions] = useState<{ [key: string]: boolean }>({
-    keyInfo: true,
-    nutrition: false,
-    info: false,
-  });
+  const [openAccordions, setOpenAccordions] = useState<{ [key: string]: boolean }>({});
+  const [apiProduct, setApiProduct] = useState<Product | null>(null);
 
   const toggleAccordion = (key: string) => {
     setOpenAccordions((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -51,7 +49,17 @@ export default function ProductDetailClient() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (idOrSlug) {
+      fetch(`/api/v1/products/${idOrSlug}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && data.data) {
+            setApiProduct(data.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [idOrSlug]);
 
   // Combine products with fallback mock data
   const allProducts = useMemo(() => {
@@ -65,8 +73,15 @@ export default function ProductDetailClient() {
   }, [products]);
 
   const product = useMemo(() => {
+    if (apiProduct && (apiProduct.id === idOrSlug || apiProduct.slug === idOrSlug)) {
+      return apiProduct;
+    }
     return allProducts.find((p) => p.id === idOrSlug || p.slug === idOrSlug) || allProducts[0];
-  }, [allProducts, idOrSlug]);
+  }, [allProducts, idOrSlug, apiProduct]);
+
+  const dynamicSections = useMemo(() => {
+    return sanitizeVisibleSectionsForCustomer(normalizeProductSections(product));
+  }, [product]);
 
   const variants = product?.variants || [];
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(undefined);
@@ -85,34 +100,32 @@ export default function ProductDetailClient() {
       .slice(0, 6);
   }, [allProducts, product]);
 
-  // Multi-image list for carousel — must be before any early return
+  // Multi-image list for carousel — Dynamic multi-photo with deduplication & display limit support
   const images = useMemo(() => {
     if (!product) return [];
-    const list = [
-      product.thumbnail || (product as any).image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-    ];
-    if (product.images && product.images.length > 0) {
+    const list: string[] = [];
+    if (product.thumbnail) list.push(product.thumbnail);
+    if ((product as any).image && !list.includes((product as any).image)) list.push((product as any).image);
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
       product.images.forEach((img) => {
-        if (!list.includes(img)) list.push(img);
+        if (img && !list.includes(img)) list.push(img);
       });
     }
-    // If only 1 image, add packaging/nutritional views for carousel feel
-    if (list.length === 1) {
-      list.push(
-        'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=600&q=80',
-        'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80'
-      );
+    if (list.length === 0) {
+      list.push('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80');
+    }
+    // Respect admin display limit if set
+    if (product.maxDisplayImages && product.maxDisplayImages > 0) {
+      return list.slice(0, product.maxDisplayImages);
     }
     return list;
-  }, [product]);
-
-  if (!mounted || !product) {
+  }, [product]);  if (!mounted || !product) {
     return (
       <CustomerShell title="Product Details" hideBottomNav>
-        <div className="min-h-screen bg-[#121215] p-4 space-y-4 animate-pulse">
-          <div className="h-80 bg-slate-800/60 rounded-3xl" />
-          <div className="h-40 bg-slate-800/60 rounded-3xl" />
-          <div className="h-20 bg-slate-800/60 rounded-3xl" />
+        <div className="min-h-screen bg-white dark:bg-[#0B0F14] p-4 space-y-4 animate-pulse">
+          <div className="h-80 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
+          <div className="h-40 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
+          <div className="h-20 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
         </div>
       </CustomerShell>
     );
@@ -185,66 +198,66 @@ export default function ProductDetailClient() {
 
   return (
     <CustomerShell title={product.name} hideBottomNav noPadding>
-      <div className="min-h-screen w-full bg-[#121215] text-white pb-32 selection:bg-emerald-500 selection:text-white font-sans">
+      <div className="min-h-screen w-full bg-white dark:bg-[#0B0F14] text-[#111827] dark:text-[#F9FAFB] pb-24 selection:bg-emerald-500 selection:text-white font-sans transition-colors duration-200">
         
         {/* ── 1. PRODUCT IMAGE SHOWCASE & FLOATING ACTION BUTTONS ── */}
-        <div className="relative bg-[#FFFFFF] rounded-b-[36px] overflow-hidden shadow-2xl">
+        <div className="relative bg-slate-50 dark:bg-[#151B23] rounded-b-2xl overflow-hidden border-b border-[#E5E7EB] dark:border-[#263241] shadow-xs">
           
           {/* Floating Navigation Controls */}
-          <div className="absolute top-4 inset-x-4 z-20 flex items-center justify-between pointer-events-none">
+          <div className="absolute top-3 inset-x-3 z-20 flex items-center justify-between pointer-events-none">
             {/* Back Button */}
             <button
               onClick={() => router.back()}
               aria-label="Go Back"
-              className="pointer-events-auto w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer border border-white/10"
+              className="pointer-events-auto w-9 h-9 rounded-full bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black/80 backdrop-blur-md text-[#111827] dark:text-white flex items-center justify-center shadow-md transition-all active:scale-90 cursor-pointer border border-[#E5E7EB] dark:border-white/10"
             >
-              <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
             </button>
 
             {/* Right Icons: Search & Share */}
-            <div className="flex items-center gap-2.5 pointer-events-auto">
+            <div className="flex items-center gap-2 pointer-events-auto">
               <button
                 onClick={() => router.push('/search')}
                 aria-label="Search"
-                className="w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer border border-white/10"
+                className="w-9 h-9 rounded-full bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black/80 backdrop-blur-md text-[#111827] dark:text-white flex items-center justify-center shadow-md transition-all active:scale-90 cursor-pointer border border-[#E5E7EB] dark:border-white/10"
               >
-                <Search className="w-5 h-5 stroke-[2.2]" />
+                <Search className="w-4 h-4 stroke-[2.2]" />
               </button>
               <button
                 onClick={handleShare}
                 aria-label="Share"
-                className="w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer border border-white/10"
+                className="w-9 h-9 rounded-full bg-white/90 dark:bg-black/60 hover:bg-white dark:hover:bg-black/80 backdrop-blur-md text-[#111827] dark:text-white flex items-center justify-center shadow-md transition-all active:scale-90 cursor-pointer border border-[#E5E7EB] dark:border-white/10"
               >
-                <Share2 className="w-5 h-5 stroke-[2.2]" />
+                <Share2 className="w-4 h-4 stroke-[2.2]" />
               </button>
             </div>
           </div>
 
           {/* Main Product Image Container */}
-          <div className="w-full h-[360px] sm:h-[420px] flex items-center justify-center p-6 pt-16 relative">
+          <div className="w-full h-[240px] sm:h-[280px] flex items-center justify-center p-4 pt-10 relative">
             <img
               key={`img-view-${activeImageIndex}`}
               src={images[activeImageIndex]}
               alt={product.name}
-              className="max-h-full max-w-full object-contain drop-shadow-md transition-all duration-300 animate-in fade-in zoom-in-95"
+              className="max-h-full max-w-full object-contain drop-shadow-sm transition-all duration-300 animate-in fade-in zoom-in-95"
             />
 
             {/* Veg Category Badge Indicator (Bottom Right) */}
-            <div className="absolute bottom-5 right-5 z-10 bg-white/95 p-1 rounded-md border border-emerald-600 shadow-sm flex items-center justify-center">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+            <div className="absolute bottom-3 right-3 z-10 bg-white dark:bg-[#111827] p-1 rounded border border-emerald-600 shadow-xs flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-emerald-600" />
             </div>
 
             {/* Carousel Dot Indicators */}
             {images.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/20 backdrop-blur-xs px-3 py-1.5 rounded-full">
+              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/20 dark:bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-full">
                 {images.map((_, idx) => (
                   <button
                     key={`dot-${idx}`}
                     onClick={() => setActiveImageIndex(idx)}
                     className={`transition-all rounded-full ${
                       activeImageIndex === idx
-                        ? 'w-5 h-1.5 bg-emerald-500'
-                        : 'w-1.5 h-1.5 bg-slate-400 hover:bg-slate-300'
+                        ? 'w-4 h-1 bg-emerald-500'
+                        : 'w-1 h-1 bg-slate-400 hover:bg-slate-300'
                     }`}
                   />
                 ))}
@@ -253,17 +266,17 @@ export default function ProductDetailClient() {
           </div>
 
           {/* ── SHELF LIFE & VIEW DETAILS CONTRAST BANNER ── */}
-          <div className="bg-[#1C1C22] border-t border-slate-800 px-5 py-3 flex items-center justify-between text-white">
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Shelf Life</span>
-              <strong className="text-sm font-black text-slate-100">
+          <div className="bg-slate-100/90 dark:bg-[#111827] border-t border-[#E5E7EB] dark:border-[#263241] px-4 py-2 flex items-center justify-between text-[#111827] dark:text-white">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-500 dark:text-[#9CA3AF] font-medium">Shelf Life:</span>
+              <strong className="text-xs font-bold text-[#111827] dark:text-[#F9FAFB]">
                 {product.shelfLife || '9 months'}
               </strong>
             </div>
 
             <button
               onClick={() => setShowDetailsModal(true)}
-              className="bg-[#16A34A] hover:bg-[#15803D] active:scale-95 text-white font-black text-xs px-4 py-2 rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1"
+              className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-[11px] px-3 py-1 rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
             >
               <span>View details</span>
             </button>
@@ -271,61 +284,61 @@ export default function ProductDetailClient() {
 
         </div>
 
-        {/* ── 2. MAIN PRODUCT INFO CARD (DARK THEME REFERENCE) ── */}
-        <div className="p-4 space-y-3.5">
+        {/* ── 2. MAIN PRODUCT INFO CARD ── */}
+        <div className="p-3 space-y-2.5">
           
-          <div className="bg-[#1C1C22] border border-slate-800/80 rounded-3xl p-5 space-y-4 shadow-lg">
+          <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-2xl p-3.5 space-y-2.5 shadow-xs">
             
             {/* Delivery Time & Rating Row */}
-            <div className="flex items-center gap-3 text-xs font-bold">
-              <div className="flex items-center gap-1.5 text-slate-300 bg-slate-800/70 px-2.5 py-1 rounded-full border border-slate-700/60">
-                <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>9 mins</span>
+            <div className="flex items-center gap-2 text-[11px] font-bold">
+              <div className="flex items-center gap-1 text-slate-700 dark:text-[#D1D5DB] bg-slate-100 dark:bg-[#111827] px-2 py-0.5 rounded-full border border-[#E5E7EB] dark:border-[#263241]">
+                <Clock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-[10px]">30 mins</span>
               </div>
 
-              <div className="h-3.5 w-px bg-slate-700" />
+              <div className="h-3 w-px bg-slate-200 dark:bg-[#263241]" />
 
-              <div className="flex items-center gap-1 text-amber-400">
+              <div className="flex items-center gap-1 text-amber-500">
                 <div className="flex items-center">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
                   ))}
                 </div>
-                <span className="text-slate-400 text-[11px] font-medium ml-1">21,132</span>
+                <span className="text-slate-500 dark:text-[#9CA3AF] text-[10px] font-medium ml-0.5">21,132</span>
               </div>
             </div>
 
             {/* Product Title & Unit */}
-            <div className="space-y-1">
-              <h1 className="text-xl sm:text-2xl font-black text-white leading-snug tracking-tight">
+            <div className="space-y-0.5">
+              <h1 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#F9FAFB] leading-tight tracking-tight">
                 {product.name}
               </h1>
-              <span className="text-sm font-bold text-slate-400 block font-mono">
+              <span className="text-xs font-semibold text-slate-500 dark:text-[#9CA3AF] block font-mono">
                 {currentUnit}
               </span>
             </div>
 
             {/* Pricing Details */}
-            <div className="space-y-1 pt-1">
-              <div className="flex items-baseline gap-2.5">
-                <span className="text-3xl font-black text-white font-mono tracking-tight">
+            <div className="space-y-0.5 pt-0.5">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold text-[#111827] dark:text-[#F9FAFB] font-mono tracking-tight">
                   ₹{effectivePrice}
                 </span>
                 {effectiveMrp > effectivePrice && (
-                  <span className="text-sm font-bold text-slate-400 line-through font-mono">
+                  <span className="text-xs font-semibold text-slate-400 dark:text-[#9CA3AF] line-through font-mono">
                     MRP ₹{effectiveMrp}
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 {discountPercent > 0 && (
-                  <span className="text-xs font-black text-[#38BDF8] uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-sky-400 uppercase tracking-wider">
                     {discountPercent}% OFF on MRP
                   </span>
                 )}
                 {per100Text && (
-                  <span className="text-xs font-bold text-slate-400 font-mono">
+                  <span className="text-[10px] font-medium text-slate-500 dark:text-[#9CA3AF] font-mono">
                     {per100Text}
                   </span>
                 )}
@@ -334,11 +347,11 @@ export default function ProductDetailClient() {
 
             {/* Pack Size / Variant Selector (if variants present) */}
             {variants.length > 0 && (
-              <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
-                <span className="text-xs font-bold text-slate-300 block uppercase tracking-wider text-[11px]">
+              <div className="pt-2 border-t border-slate-100 dark:border-[#263241] space-y-2">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-[#9CA3AF] block uppercase tracking-wider">
                   Select Unit
                 </span>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   {variants.map((v) => {
                     const isSelected = selectedVariant?.id === v.id;
                     const vDiscount = v.mrp > v.sellingPrice ? Math.round(((v.mrp - v.sellingPrice) / v.mrp) * 100) : 0;
@@ -360,34 +373,34 @@ export default function ProductDetailClient() {
                       <button
                         key={v.id}
                         onClick={() => setSelectedVariant(v)}
-                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer active:scale-[0.97] ${
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer active:scale-[0.98] ${
                           isSelected
-                            ? 'bg-emerald-950/50 border-emerald-500 ring-1 ring-emerald-500'
-                            : 'bg-[#18181B] border-slate-700/60 hover:border-slate-600'
+                            ? 'bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500 ring-1 ring-emerald-500'
+                            : 'bg-slate-50 dark:bg-[#111827] border-[#E5E7EB] dark:border-[#263241] hover:border-slate-300 dark:hover:border-slate-600'
                         }`}
                       >
                         {/* Weight / variant name */}
-                        <span className={`text-sm font-black block ${ isSelected ? 'text-white' : 'text-slate-200' }`}>
+                        <span className={`text-xs font-bold block ${ isSelected ? 'text-[#111827] dark:text-white' : 'text-slate-800 dark:text-slate-200' }`}>
                           {v.variantName}
                         </span>
                         {/* Price row */}
-                        <div className="mt-1 flex items-baseline gap-1.5 font-mono">
-                          <span className={`text-base font-black ${ isSelected ? 'text-white' : 'text-slate-100' }`}>
+                        <div className="mt-0.5 flex items-baseline gap-1.5 font-mono">
+                          <span className={`text-sm font-black ${ isSelected ? 'text-emerald-700 dark:text-white' : 'text-[#111827] dark:text-slate-100' }`}>
                             ₹{v.sellingPrice}
                           </span>
                           {v.mrp > v.sellingPrice && (
-                            <span className="text-[11px] text-slate-500 line-through">MRP ₹{v.mrp}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-[#9CA3AF] line-through">₹{v.mrp}</span>
                           )}
                         </div>
                         {/* Discount */}
                         {vDiscount > 0 && (
-                          <span className="text-[10px] font-black text-emerald-400 mt-0.5 block">
+                          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 block">
                             {vDiscount}% OFF on MRP
                           </span>
                         )}
                         {/* Per-unit cost */}
                         {vPerUnit && (
-                          <span className="text-[10px] text-slate-500 font-semibold font-mono block mt-0.5">
+                          <span className="text-[9px] text-slate-400 dark:text-[#9CA3AF] font-medium font-mono block">
                             {vPerUnit}
                           </span>
                         )}
@@ -403,41 +416,39 @@ export default function ProductDetailClient() {
           {/* ── 3. BRAND ROW CARD ── */}
           <div 
             onClick={() => router.push(`/search?q=${encodeURIComponent(product.brandName || product.categoryId || product.category || '')}`)}
-            className="bg-[#1C1C22] hover:bg-[#23232A] border border-slate-800/80 rounded-3xl p-4 flex items-center justify-between shadow-md transition-all active:scale-[0.99] cursor-pointer"
+            className="bg-white dark:bg-[#151B23] hover:bg-slate-50 dark:hover:bg-[#1B2430] border border-[#E5E7EB] dark:border-[#263241] rounded-2xl p-2.5 px-3 flex items-center justify-between shadow-xs transition-all active:scale-[0.99] cursor-pointer"
           >
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-white p-2 flex items-center justify-center shrink-0 shadow-inner">
-                <span className="text-xs font-black text-emerald-800 uppercase tracking-tighter text-center leading-none">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white p-1.5 flex items-center justify-center shrink-0 shadow-inner">
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-tighter text-center leading-none">
                   {product.brandName ? product.brandName.slice(0, 6) : 'BRAND'}
                 </span>
               </div>
               <div>
-                <strong className="text-sm font-black text-white block">
+                <strong className="text-xs font-bold text-[#111827] dark:text-[#F9FAFB] block">
                   {product.brandName || 'Pocket Kirana Certified'}
                 </strong>
-                <span className="text-xs text-slate-400 font-medium">Explore all products</span>
+                <span className="text-[10px] text-slate-500 dark:text-[#9CA3AF] font-medium">Explore all products</span>
               </div>
             </div>
 
-            <ChevronRight className="w-5 h-5 text-slate-400" />
+            <ChevronRight className="w-4 h-4 text-slate-400 dark:text-[#9CA3AF]" />
           </div>
-
-
 
           {/* ── 5. SIMILAR PRODUCTS HORIZONTAL CAROUSEL ── */}
           {similarProducts.length > 0 && (
-            <div className="pt-2 space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-base font-black text-white tracking-tight">Similar products</h3>
+            <div className="pt-1.5 space-y-2">
+              <div className="flex items-center justify-between px-0.5">
+                <h3 className="text-xs font-bold text-[#111827] dark:text-[#F9FAFB] tracking-tight">Similar products</h3>
                 <button
                   onClick={() => router.push(`/category/${product.categoryId || product.category || 'all'}`)}
-                  className="text-xs font-bold text-emerald-400 hover:text-emerald-300"
+                  className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
                 >
                   See all
                 </button>
               </div>
 
-              <div className="flex gap-3.5 overflow-x-auto pb-2 scrollbar-none snap-x">
+              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none snap-x">
                 {similarProducts.map((sp) => {
                   const spKey = `${sp.id}::default`;
                   const spInCart = cart.find((i) => i.id === spKey || i.productId === sp.id);
@@ -447,15 +458,15 @@ export default function ProductDetailClient() {
                   return (
                     <div
                       key={sp.id}
-                      className="w-36 sm:w-40 shrink-0 bg-[#1C1C22] border border-slate-800/80 rounded-2xl p-3 flex flex-col justify-between snap-start shadow-md"
+                      className="w-32 shrink-0 bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-xl p-2.5 flex flex-col justify-between snap-start shadow-xs"
                     >
                       <div 
                         onClick={() => router.push(`/product/${sp.id}`)}
-                        className="cursor-pointer space-y-2"
+                        className="cursor-pointer space-y-1.5"
                       >
-                        <div className="w-full h-28 bg-white rounded-xl p-2 flex items-center justify-center relative overflow-hidden">
+                        <div className="w-full h-20 bg-slate-50 dark:bg-[#111827] rounded-lg p-1.5 flex items-center justify-center relative overflow-hidden border border-slate-100 dark:border-[#263241]">
                           {spDiscount > 0 && (
-                            <span className="absolute top-1 left-1 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs">
+                            <span className="absolute top-1 left-1 bg-rose-600 text-white text-[8px] font-black px-1 py-0.5 rounded shadow-xs">
                               {spDiscount}% OFF
                             </span>
                           )}
@@ -467,20 +478,20 @@ export default function ProductDetailClient() {
                         </div>
 
                         <div className="space-y-0.5">
-                          <strong className="text-xs font-bold text-slate-100 line-clamp-1 block">
+                          <strong className="text-[11px] font-bold text-[#111827] dark:text-[#F9FAFB] line-clamp-1 block">
                             {sp.name}
                           </strong>
-                          <span className="text-[10px] text-slate-400 block font-mono">
+                          <span className="text-[9px] text-slate-500 dark:text-[#9CA3AF] block font-mono">
                             {sp.unit}
                           </span>
                         </div>
                       </div>
 
-                      <div className="pt-2 flex items-center justify-between border-t border-slate-800 mt-2">
+                      <div className="pt-1.5 flex items-center justify-between border-t border-slate-100 dark:border-[#263241] mt-1.5">
                         <div className="font-mono">
-                          <span className="text-xs font-black text-white">₹{sp.sellingPrice}</span>
+                          <span className="text-[11px] font-bold text-[#111827] dark:text-[#F9FAFB]">₹{sp.sellingPrice}</span>
                           {sp.mrp > sp.sellingPrice && (
-                            <span className="text-[9px] text-slate-500 line-through block">₹{sp.mrp}</span>
+                            <span className="text-[8px] text-slate-400 dark:text-[#9CA3AF] line-through block">₹{sp.mrp}</span>
                           )}
                         </div>
 
@@ -490,24 +501,24 @@ export default function ProductDetailClient() {
                               addToCart(sp, 1);
                               showToast(`Added ${sp.name} to cart`, 'success');
                             }}
-                            className="bg-[#16A34A] hover:bg-[#15803D] active:scale-95 text-white font-black text-[11px] px-3 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer"
+                            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg transition-all shadow-xs cursor-pointer"
                           >
                             ADD
                           </button>
                         ) : (
-                          <div className="flex items-center gap-1 bg-emerald-950 border border-emerald-600 rounded-xl px-1 py-0.5">
+                          <div className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950 border border-emerald-500 rounded-lg px-1 py-0.5">
                             <button
                               onClick={() => updateCartQuantity(spKey, spQty - 1)}
-                              className="w-5 h-5 flex items-center justify-center text-white hover:bg-emerald-800 rounded"
+                              className="w-4 h-4 flex items-center justify-center text-emerald-800 dark:text-white hover:bg-emerald-100 dark:hover:bg-emerald-800 rounded cursor-pointer"
                             >
-                              <Minus className="w-3 h-3" />
+                              <Minus className="w-2.5 h-2.5" />
                             </button>
-                            <span className="text-[11px] font-black font-mono text-emerald-400 px-1">{spQty}</span>
+                            <span className="text-[10px] font-bold font-mono text-emerald-700 dark:text-emerald-400 px-0.5">{spQty}</span>
                             <button
                               onClick={() => updateCartQuantity(spKey, spQty + 1)}
-                              className="w-5 h-5 flex items-center justify-center text-white hover:bg-emerald-800 rounded"
+                              className="w-4 h-4 flex items-center justify-center text-emerald-800 dark:text-white hover:bg-emerald-100 dark:hover:bg-emerald-800 rounded cursor-pointer"
                             >
-                              <Plus className="w-3 h-3" />
+                              <Plus className="w-2.5 h-2.5" />
                             </button>
                           </div>
                         )}
@@ -521,25 +532,25 @@ export default function ProductDetailClient() {
 
         </div>
 
-        {/* ── 6. STICKY BOTTOM BAR (MATCHING REFERENCE SCREENSHOT) ── */}
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-[#1C1C22] border-t border-slate-800 px-5 py-3.5 shadow-2xl flex items-center justify-between">
+        {/* ── 6. STICKY BOTTOM BAR ── */}
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-t border-[#E5E7EB] dark:border-[#263241] px-4 py-2.5 shadow-2xl flex items-center justify-between">
           
           {/* Left Pricing Details */}
           <div className="space-y-0.5">
-            <span className="text-xs font-black text-slate-300 block font-mono">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-[#9CA3AF] block font-mono">
               {currentUnit}
             </span>
-            <div className="flex items-baseline gap-2">
-              <strong className="text-xl font-black text-white font-mono tracking-tight">
+            <div className="flex items-baseline gap-1.5">
+              <strong className="text-lg font-black text-[#111827] dark:text-[#F9FAFB] font-mono tracking-tight">
                 ₹{effectivePrice}
               </strong>
               {effectiveMrp > effectivePrice && (
-                <span className="text-xs font-bold text-slate-400 line-through font-mono">
+                <span className="text-[10px] font-semibold text-slate-400 dark:text-[#9CA3AF] line-through font-mono">
                   MRP ₹{effectiveMrp}
                 </span>
               )}
             </div>
-            <span className="text-[10px] text-slate-400 block font-medium">
+            <span className="text-[9px] text-slate-400 dark:text-[#9CA3AF] block font-medium">
               Inclusive of all taxes
             </span>
           </div>
@@ -549,24 +560,24 @@ export default function ProductDetailClient() {
             {qtyInCart === 0 ? (
               <button
                 onClick={handleAddToCart}
-                className="bg-[#16A34A] hover:bg-[#15803D] text-white font-black text-sm px-8 sm:px-12 py-3.5 rounded-2xl shadow-lg shadow-emerald-950/40 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 sm:px-8 py-2.5 rounded-xl shadow-md active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <span>Add to cart</span>
               </button>
             ) : (
-              <div className="flex items-center gap-3 bg-emerald-950/80 border border-emerald-500 rounded-2xl p-1.5 px-3 shadow-md">
+              <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-500 rounded-xl p-1 px-2.5 shadow-sm">
                 <button
                   onClick={() => handleUpdateQty(qtyInCart - 1)}
-                  className="w-8 h-8 rounded-xl bg-[#18181B] hover:bg-slate-800 text-white flex items-center justify-center font-black transition-colors"
+                  className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-[#18181B] hover:bg-slate-300 dark:hover:bg-slate-800 text-[#111827] dark:text-white flex items-center justify-center font-bold transition-colors cursor-pointer"
                 >
-                  <Minus className="w-4 h-4" />
+                  <Minus className="w-3.5 h-3.5" />
                 </button>
-                <span className="font-mono font-black text-white text-base px-1.5">{qtyInCart}</span>
+                <span className="font-mono font-bold text-emerald-800 dark:text-white text-sm px-1">{qtyInCart}</span>
                 <button
                   onClick={() => handleUpdateQty(qtyInCart + 1)}
-                  className="w-8 h-8 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white flex items-center justify-center font-black transition-colors"
+                  className="w-7 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center font-bold transition-colors cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
@@ -574,34 +585,34 @@ export default function ProductDetailClient() {
 
         </div>
 
-        {/* ── 7. HALF-SCREEN PRODUCT DETAILS BOTTOM SHEET MODAL (MATCHING REFERENCE SCREENSHOT) ── */}
+        {/* ── 7. HALF-SCREEN PRODUCT DETAILS BOTTOM SHEET MODAL ── */}
         {showDetailsModal && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
             {/* Click outside backdrop to close */}
             <div className="flex-1" onClick={() => setShowDetailsModal(false)} />
 
             {/* Floating Top Close Button above Bottom Sheet */}
-            <div className="flex justify-center pb-3">
+            <div className="flex justify-center pb-2.5">
               <button
                 onClick={() => setShowDetailsModal(false)}
-                className="w-11 h-11 rounded-full bg-[#202026] hover:bg-[#2B2B34] border border-white/20 text-white flex items-center justify-center shadow-2xl active:scale-90 transition-all cursor-pointer"
+                className="w-9 h-9 rounded-full bg-white dark:bg-[#202026] hover:bg-slate-100 dark:hover:bg-[#2B2B34] border border-[#E5E7EB] dark:border-white/20 text-[#111827] dark:text-white flex items-center justify-center shadow-2xl active:scale-90 transition-all cursor-pointer"
                 aria-label="Close details"
               >
-                <X className="w-5 h-5 stroke-[2.5]" />
+                <X className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
 
             {/* Bottom Sheet Drawer */}
-            <div className="bg-[#18181F] rounded-t-[28px] border-t border-slate-700/60 overflow-hidden flex flex-col max-h-[82vh] shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="bg-white dark:bg-[#18181F] rounded-t-3xl border-t border-[#E5E7EB] dark:border-slate-700/60 overflow-hidden flex flex-col max-h-[80vh] shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
               
               {/* Product Header (Details Only - No Image) */}
-              <div className="p-4 px-5 bg-[#18181F] border-b border-slate-800/80 shrink-0">
+              <div className="p-3.5 px-4 bg-white dark:bg-[#18181F] border-b border-slate-100 dark:border-slate-800/80 shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800/50">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/50">
                       Product Details
                     </span>
-                    <h2 className="text-base sm:text-lg font-black text-white leading-snug mt-1.5">
+                    <h2 className="text-sm sm:text-base font-bold text-[#111827] dark:text-white leading-snug mt-1">
                       {product.name}
                     </h2>
                   </div>
@@ -609,35 +620,35 @@ export default function ProductDetailClient() {
               </div>
 
               {/* Scrollable Specifications Content inside bottom sheet */}
-              <div className="overflow-y-auto px-5 py-4 space-y-5 text-xs text-white pb-6 scrollbar-thin">
+              <div className="overflow-y-auto px-4 py-3 space-y-3.5 text-xs text-[#111827] dark:text-white pb-5 scrollbar-thin">
                 
                 {/* 1. Highlights Section */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-black text-white tracking-tight">Highlights</h3>
-                  <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-bold text-[#111827] dark:text-white tracking-tight">Highlights</h3>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                     {/* Shelf Life Pill */}
-                    <div className="bg-[#24242C] border border-slate-700/60 rounded-2xl p-2.5 px-4 min-w-[95px] shrink-0">
-                      <span className="text-[11px] text-slate-400 font-medium block">Shelf Life</span>
-                      <strong className="text-xs font-black text-slate-100 block mt-0.5">
+                    <div className="bg-slate-100 dark:bg-[#24242C] border border-[#E5E7EB] dark:border-slate-700/60 rounded-xl p-2 px-3 min-w-[85px] shrink-0">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block">Shelf Life</span>
+                      <strong className="text-[11px] font-bold text-[#111827] dark:text-slate-100 block mt-0.5">
                         {product.shelfLife || '90 days'}
                       </strong>
                     </div>
 
                     {/* Product / Atta Type Pill */}
-                    <div className="bg-[#24242C] border border-slate-700/60 rounded-2xl p-2.5 px-4 min-w-[105px] shrink-0">
-                      <span className="text-[11px] text-slate-400 font-medium block">
+                    <div className="bg-slate-100 dark:bg-[#24242C] border border-[#E5E7EB] dark:border-slate-700/60 rounded-xl p-2 px-3 min-w-[95px] shrink-0">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block">
                         {product.categoryId?.includes('atta') || product.name.toLowerCase().includes('atta') ? 'Atta Type' : 'Type'}
                       </span>
-                      <strong className="text-xs font-black text-slate-100 block mt-0.5">
+                      <strong className="text-[11px] font-bold text-[#111827] dark:text-slate-100 block mt-0.5">
                         {product.productType || product.foodType || 'Sehori Atta'}
                       </strong>
                     </div>
 
                     {/* Diet Preference Pill */}
                     {(product.dietPreference || product.foodType) && (
-                      <div className="bg-[#24242C] border border-slate-700/60 rounded-2xl p-2.5 px-4 min-w-[105px] shrink-0">
-                        <span className="text-[11px] text-slate-400 font-medium block">Diet Preference</span>
-                        <strong className="text-xs font-black text-emerald-400 block mt-0.5">
+                      <div className="bg-slate-100 dark:bg-[#24242C] border border-[#E5E7EB] dark:border-slate-700/60 rounded-xl p-2 px-3 min-w-[95px] shrink-0">
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block">Diet Preference</span>
+                        <strong className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block mt-0.5">
                           {product.dietPreference || product.foodType || 'High Fiber'}
                         </strong>
                       </div>
@@ -645,189 +656,88 @@ export default function ProductDetailClient() {
                   </div>
                 </div>
 
-                {/* 2. All Details Section (Accordions) */}
-                <div className="space-y-2.5">
-                  <h3 className="text-sm font-black text-white tracking-tight">All details</h3>
+                {/* 2. All Details Section (Dynamic Accordions) */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold text-[#111827] dark:text-white tracking-tight">All details</h3>
 
-                  {/* ── Accordion 1: Key Information ── */}
-                  <div className="bg-[#24242C] border border-slate-700/60 rounded-2xl overflow-hidden shadow-xs">
-                    <button
-                      onClick={() => toggleAccordion('keyInfo')}
-                      className="w-full p-4 flex items-center justify-between text-left font-bold text-white text-xs sm:text-sm cursor-pointer"
-                    >
-                      <span>Key Information</span>
-                      {openAccordions.keyInfo ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                    </button>
+                  {dynamicSections.map((sec) => {
+                    const isSecOpen = openAccordions[sec.id] ?? sec.defaultExpanded;
+                    return (
+                      <div
+                        key={sec.id}
+                        className="bg-slate-50 dark:bg-[#24242C] border border-[#E5E7EB] dark:border-slate-700/60 rounded-xl overflow-hidden shadow-xs transition-all"
+                      >
+                        <button
+                          onClick={() => toggleAccordion(sec.id)}
+                          className="w-full p-3 flex items-center justify-between text-left font-bold text-[#111827] dark:text-white text-xs cursor-pointer"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            {sec.title}
+                          </span>
+                          {isSecOpen ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-slate-500 dark:text-slate-300" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                          )}
+                        </button>
 
-                    {openAccordions.keyInfo && (
-                      <div className="px-4 pb-4 border-t border-slate-700/40 pt-3 space-y-2.5 text-xs">
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <span className="text-slate-400 font-medium">
-                            {product.categoryId?.includes('atta') || product.name.toLowerCase().includes('atta') ? 'Atta Type' : 'Product Type'}
-                          </span>
-                          <span className="text-slate-200 font-semibold">
-                            {product.productType || 'Sehori Atta'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <span className="text-slate-400 font-medium">Source</span>
-                          <span className="text-slate-200 font-semibold">
-                            {product.source || 'Sehore, Madhya Pradesh'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <span className="text-slate-400 font-medium">Diet Preference</span>
-                          <span className="text-slate-200 font-semibold">
-                            {product.dietPreference || product.foodType || 'High Fiber'}
-                          </span>
-                        </div>
+                        {isSecOpen && (
+                          <div className="px-3 pb-3 border-t border-slate-200 dark:border-slate-700/40 pt-2 space-y-1.5 text-xs">
+                            {(sec.attributes || []).map((attr) => (
+                              <div
+                                key={attr.id}
+                                className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-700/20 last:border-0"
+                              >
+                                <span className="text-slate-700 dark:text-slate-300 font-medium text-[11px]">{attr.label}</span>
+                                <span className="text-slate-800 dark:text-slate-200 font-mono font-medium text-[11px] text-right">
+                                  {attr.value} {attr.unit ? <span className="text-slate-400 font-sans">{attr.unit}</span> : null}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-
-                  {/* ── Accordion 2: Nutritional Information ── */}
-                  <div className="bg-[#24242C] border border-slate-700/60 rounded-2xl overflow-hidden shadow-xs">
-                    <button
-                      onClick={() => toggleAccordion('nutrition')}
-                      className="w-full p-4 flex items-center justify-between text-left font-bold text-white text-xs sm:text-sm cursor-pointer"
-                    >
-                      <span>Nutritional Information</span>
-                      {openAccordions.nutrition ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                    </button>
-
-                    {openAccordions.nutrition && (
-                      <div className="px-4 pb-4 border-t border-slate-700/40 pt-3 space-y-2 text-xs">
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Protein Per 100 g (g)</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.protein || '10.5 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Total Carbohydrates Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.carbohydrates || '77.1 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Total Sugar Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.totalSugar || '3.4 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Added Sugar Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.addedSugar || '0 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Total Fat Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.totalFat || '1.6 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Saturated Fat Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.saturatedFat || '0.3 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Unsaturated Fat Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.unsaturatedFat || '1.3 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Trans Fat Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.transFat || '0 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Dietary Fiber Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.dietaryFiber || '10.8 g'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Sodium Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.sodium || '1.7 mg'}</span>
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <span className="text-slate-300 font-bold">Energy Per 100 g</span>
-                          <span className="text-slate-300 font-mono font-medium">{product.nutritionalInfo?.energy || '343 kcal'}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── Accordion 3: Info ── */}
-                  <div className="bg-[#24242C] border border-slate-700/60 rounded-2xl overflow-hidden shadow-xs">
-                    <button
-                      onClick={() => toggleAccordion('info')}
-                      className="w-full p-4 flex items-center justify-between text-left font-bold text-white text-xs sm:text-sm cursor-pointer"
-                    >
-                      <span>Info</span>
-                      {openAccordions.info ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                    </button>
-
-                    {openAccordions.info && (
-                      <div className="px-4 pb-4 border-t border-slate-700/40 pt-3 space-y-3.5 text-xs">
-                        {/* Key Features */}
-                        <div className="grid grid-cols-3 gap-2">
-                          <span className="text-slate-300 font-bold">Key Features</span>
-                          <p className="col-span-2 text-slate-300 leading-relaxed text-[11px] whitespace-pre-line">
-                            {product.keyFeatures || product.description || 'EXPERIENCE THE GOLDEN GRAINS: Indulge in the finest quality atta made with Premium MP Sehori Wheat carefully selected and sourced from the farmers of Sehore, Madhya Pradesh, for its exceptional aroma and taste\nBRINGING YOU WHAT YOU LIKE: Made with your preferred wheat variety, in your way of traditional chakki jaisi pisai, provided with guarantee of wheat sourcing through quality certificate'}
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <span className="text-slate-300 font-bold">Unit</span>
-                          <span className="col-span-2 text-slate-300 font-mono">{currentUnit}</span>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <span className="text-slate-300 font-bold">FSSAI License</span>
-                          <span className="col-span-2 text-slate-300 font-mono">{product.fssaiLicense || '10012031000312'}</span>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <span className="text-slate-300 font-bold">Shelf Life</span>
-                          <span className="col-span-2 text-slate-300">{product.shelfLife || '90 days'}</span>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <span className="text-slate-300 font-bold">Disclaimer</span>
-                          <p className="col-span-2 text-slate-300 text-[11px] leading-relaxed">
-                            {product.disclaimer || 'Every effort is made to maintain accuracy of all information. However, actual product packaging and materials may contain more and/or different information.'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
 
               </div>
 
               {/* Sticky Bottom Bar inside Bottom Sheet Modal */}
-              <div className="p-4 px-5 bg-[#18181F] border-t border-slate-800 flex items-center justify-between shrink-0">
+              <div className="p-3 px-4 bg-white dark:bg-[#18181F] border-t border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                 <div className="space-y-0.5">
-                  <span className="text-xs font-bold text-slate-300 block font-mono">{currentUnit}</span>
-                  <div className="flex items-baseline gap-2">
-                    <strong className="text-lg font-black text-white font-mono tracking-tight">₹{effectivePrice}</strong>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 block font-mono">{currentUnit}</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <strong className="text-base font-black text-[#111827] dark:text-white font-mono tracking-tight">₹{effectivePrice}</strong>
                     {effectiveMrp > effectivePrice && (
-                      <span className="text-xs text-slate-500 line-through font-mono">MRP ₹{effectiveMrp}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through font-mono">MRP ₹{effectiveMrp}</span>
                     )}
                   </div>
-                  <span className="text-[10px] text-slate-400 block font-medium">Inclusive of all taxes</span>
+                  <span className="text-[9px] text-slate-400 block font-medium">Inclusive of all taxes</span>
                 </div>
 
                 <div>
                   {qtyInCart === 0 ? (
                     <button
                       onClick={handleAddToCart}
-                      className="bg-[#16A34A] hover:bg-[#15803D] active:scale-95 text-white font-black text-xs sm:text-sm px-6 sm:px-8 py-3 rounded-2xl transition-all shadow-md cursor-pointer"
+                      className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
                     >
                       Add to cart
                     </button>
                   ) : (
-                    <div className="flex items-center gap-2 bg-emerald-950/80 border border-emerald-500 rounded-2xl p-1 px-2.5 shadow-md">
-                      <button onClick={() => handleUpdateQty(qtyInCart - 1)} className="w-7 h-7 rounded-xl bg-[#18181B] text-white flex items-center justify-center font-black">
-                        <Minus className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-500 rounded-xl p-1 px-2 shadow-md">
+                      <button onClick={() => handleUpdateQty(qtyInCart - 1)} className="w-6 h-6 rounded-lg bg-slate-200 dark:bg-[#18181B] text-[#111827] dark:text-white flex items-center justify-center font-bold cursor-pointer">
+                        <Minus className="w-3 h-3" />
                       </button>
-                      <span className="font-mono font-black text-white text-sm px-1">{qtyInCart}</span>
-                      <button onClick={() => handleUpdateQty(qtyInCart + 1)} className="w-7 h-7 rounded-xl bg-[#16A34A] text-white flex items-center justify-center font-black">
-                        <Plus className="w-3.5 h-3.5" />
+                      <span className="font-mono font-bold text-emerald-800 dark:text-white text-xs px-1">{qtyInCart}</span>
+                      <button onClick={() => handleUpdateQty(qtyInCart + 1)} className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold cursor-pointer">
+                        <Plus className="w-3 h-3" />
                       </button>
                     </div>
                   )}
                 </div>
               </div>
-
             </div>
           </div>
         )}
