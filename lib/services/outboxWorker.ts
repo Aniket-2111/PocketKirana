@@ -251,51 +251,77 @@ export class OutboxWorker {
   }
 
   /**
-   * Marks an event as successfully published.
+   * Marks an event as successfully published with lease-token fencing.
+   * Throws LEASE_LOST if another worker claimed the event after lease expiry.
    */
-  public async markPublished(eventId: string, client?: PoolClient): Promise<void> {
+  public async markPublished(eventId: string, leaseToken?: string, client?: PoolClient): Promise<boolean> {
     const db = client || this.pool;
-    await db.query(
+    const token = leaseToken || this.workerId;
+
+    const res = await db.query(
       `UPDATE outbox_events
        SET status = 'PUBLISHED',
            published_at = CURRENT_TIMESTAMP,
            lease_token = NULL,
            leased_until = NULL,
            last_error = NULL
-       WHERE id = $1`,
-      [eventId]
+       WHERE id = $1
+         AND lease_token = $2
+         AND status = 'LEASED'`,
+      [eventId, token]
     );
+
+    if (res.rowCount === 0) {
+      console.warn(`⚠️ [OutboxWorker] Lease lost for event ${eventId} (worker: ${token}). Abandoning state update.`);
+      return false;
+    }
+    return true;
   }
 
   /**
-   * Handles retry scheduling or dead-lettering on failure.
+   * Handles retry scheduling or dead-lettering on failure with lease-token fencing.
    */
-  public async handleFailure(event: OutboxEventRow, error: Error, client?: PoolClient): Promise<void> {
+  public async handleFailure(
+    event: OutboxEventRow,
+    error: Error,
+    leaseToken?: string,
+    client?: PoolClient
+  ): Promise<boolean> {
     const db = client || this.pool;
+    const token = leaseToken || event.lease_token || this.workerId;
     const nextRetry = event.retry_count + 1;
     const isDeadLetter = nextRetry >= event.max_retries;
     const backoffSeconds = Math.min(300, Math.pow(nextRetry, 2) * 5); // 5s, 20s, 45s, 80s, max 300s
 
-    await db.query(
+    const res = await db.query(
       `UPDATE outbox_events
        SET status = $1,
            retry_count = $2,
            leased_until = CURRENT_TIMESTAMP + ($3 || ' seconds')::INTERVAL,
            lease_token = NULL,
            last_error = $4
-       WHERE id = $5`,
+       WHERE id = $5
+         AND lease_token = $6
+         AND status = 'LEASED'`,
       [
         isDeadLetter ? 'DEAD_LETTERED' : 'RETRY_SCHEDULED',
         nextRetry,
         backoffSeconds,
         error.message.substring(0, 1000),
         event.id,
+        token,
       ]
     );
+
+    if (res.rowCount === 0) {
+      console.warn(`⚠️ [OutboxWorker] Lease lost during failure handling for event ${event.id}.`);
+      return false;
+    }
 
     if (isDeadLetter) {
       console.error(`🚨 [OutboxWorker] Event ${event.id} DEAD_LETTERED after ${event.max_retries} attempts:`, error.message);
     }
+    return true;
   }
 
   /**
@@ -309,9 +335,9 @@ export class OutboxWorker {
       for (const event of events) {
         try {
           await this.dispatchEvent(event);
-          await this.markPublished(event.id);
+          await this.markPublished(event.id, this.workerId);
         } catch (err: any) {
-          await this.handleFailure(event, err);
+          await this.handleFailure(event, err, this.workerId);
         }
       }
 
