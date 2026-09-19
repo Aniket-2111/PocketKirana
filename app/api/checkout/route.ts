@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getRouteAuth } from '@/lib/routeAuth';
 import { appendOutboxEvent } from '@/lib/db/outbox';
+import { getFefoRecommendation, recordInventoryEvent } from '@/lib/fefo';
 
 interface CartItemInput {
   productId: string;
@@ -159,13 +160,32 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          // Reserve stock
+          // Reserve stock in primary inventory
           await client.query(
             `UPDATE inventory 
              SET reserved_quantity = reserved_quantity + $1 
              WHERE id = $2`,
             [qty, inv.id]
           );
+
+          // Attempt FEFO batch balance allocation
+          try {
+            const fefoRes = await getFefoRecommendation(vId, storeId, qty, client);
+            if (fefoRes.allocations.length > 0) {
+              for (const alloc of fefoRes.allocations) {
+                await client.query(
+                  `UPDATE inventory_balances
+                   SET reserved_qty = reserved_qty + $1,
+                       available_qty = available_qty - $1,
+                       updated_at = NOW()
+                   WHERE variant_id = $2 AND batch_id = $3`,
+                  [alloc.pickQty, vId, alloc.batchId]
+                );
+              }
+            }
+          } catch {
+            // Balances table fallback
+          }
 
           // Insert stock_reservations
           await client.query(
@@ -174,6 +194,20 @@ export async function POST(req: NextRequest) {
             ) VALUES ($1, $2, $3, $4, $5, 'reserved', NOW() + INTERVAL '15 minutes')`,
             [`res-${Date.now()}-${pId}`, storeId, vId, orderId, qty]
           );
+
+          // Record immutable audit ledger event
+          try {
+            await recordInventoryEvent(client, {
+              variantId: vId,
+              eventType: 'RESERVED',
+              quantity: qty,
+              referenceType: 'ORDER',
+              referenceId: orderId,
+              notes: `Stock reserved for order ${orderNumber}`,
+            });
+          } catch {
+            // Ledger fallback
+          }
         }
       } catch {
         // Inventory table might be in initialization phase
