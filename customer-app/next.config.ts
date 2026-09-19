@@ -9,9 +9,6 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@msg91comm/sendotp-sdk'],
   reactStrictMode: false,
   devIndicators: false,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },

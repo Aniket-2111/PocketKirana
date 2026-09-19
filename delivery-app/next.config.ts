@@ -34,9 +34,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   devIndicators: false,
   compress: true,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },

@@ -56,7 +56,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.placeOrder = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
-const postgres_1 = require("../../lib/postgres");
 const utils_1 = require("../utils");
 exports.placeOrder = (0, https_1.onCall)({ region: 'asia-south1', cors: true }, async (request) => {
     // ── 1. AUTHENTICATION ──────────────────────────────────────────
@@ -190,8 +189,7 @@ exports.placeOrder = (0, https_1.onCall)({ region: 'asia-south1', cors: true }, 
     // ── 10. CREATE ORDER ──────────────────────────────────────────
     const orderId = (0, utils_1.newId)('ord');
     // Generate concurrency-safe sequential production order number (PK-01, PK-02 ...)
-    const pgPool = (0, postgres_1.getPostgresPool)();
-    const orderNumber = await (0, utils_1.generateProductionOrderNumber)(pgPool);
+    const orderNumber = await (0, utils_1.generateProductionOrderNumber)();
     const deliveryOtp = String(1000 + Math.floor(Math.random() * 9000));
     const now = new Date().toISOString();
     const orderDoc = {

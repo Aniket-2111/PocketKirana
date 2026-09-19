@@ -24,6 +24,7 @@
  */
 
 import { COLLECTIONS } from './firestoreSchema';
+import { queryPostgres } from './postgres';
 
 // ── Lazy firebase-admin initialization ───────────────────────────────────────
 // firebase-admin is a server-only package. We lazy-load it to avoid
@@ -496,14 +497,202 @@ async function writeNotificationRecord(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN DISPATCH FUNCTION
+// CANONICAL EVENT MAPPING
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CanonicalEventMapResult {
+  customerEvent?: OrderNotificationEvent;
+  pickerEvent?: OrderNotificationEvent;
+  deliveryEvent?: OrderNotificationEvent;
+  adminEvent?: OrderNotificationEvent;
+}
+
+/**
+ * Maps a canonical outbox event type to the appropriate notification events
+ * for each recipient role.
+ */
+export function mapCanonicalEvent(
+  canonicalEventType: string,
+  payload: Record<string, any> = {}
+): CanonicalEventMapResult {
+  const status = (payload.orderStatus || payload.targetStatus || '').toUpperCase();
+
+  switch (canonicalEventType) {
+    case 'order.placed':
+      return {
+        customerEvent: 'ORDER_PLACED',
+        pickerEvent: 'NEW_PICKER_ORDER',
+        adminEvent: 'ORDER_PLACED',
+      };
+
+    case 'order.confirmed':
+      return {
+        customerEvent: 'ORDER_CONFIRMED',
+        pickerEvent: 'NEW_PICKER_ORDER',
+        adminEvent: 'ORDER_CONFIRMED',
+      };
+
+    case 'order.picking_started':
+      return {
+        customerEvent: 'PICKING_STARTED',
+        pickerEvent: 'PICKER_ALERT',
+        adminEvent: 'ORDER_ACCEPTED',
+      };
+
+    case 'order.picked':
+    case 'order.picking_completed':
+      return {
+        customerEvent: 'PICKING_COMPLETED',
+        pickerEvent: 'PICKING_COMPLETED',
+        adminEvent: 'PICKING_COMPLETED',
+      };
+
+    case 'order.packed':
+      return {
+        customerEvent: 'ORDER_PACKED',
+        deliveryEvent: 'NEW_DELIVERY_ASSIGNMENT',
+        adminEvent: 'ORDER_PACKED',
+      };
+
+    case 'delivery.assigned':
+    case 'order.assigned':
+      return {
+        customerEvent: 'DELIVERY_ASSIGNED',
+        deliveryEvent: 'NEW_DELIVERY_ASSIGNMENT',
+        adminEvent: 'DELIVERY_ASSIGNED',
+      };
+
+    case 'delivery.picked_up':
+    case 'order.out_for_delivery':
+      return {
+        customerEvent: 'ORDER_OUT_FOR_DELIVERY',
+        adminEvent: 'ORDER_OUT_FOR_DELIVERY',
+      };
+
+    case 'delivery.arriving':
+    case 'order.arriving':
+      return {
+        customerEvent: 'DELIVERY_ARRIVING',
+        adminEvent: 'DELIVERY_ARRIVING',
+      };
+
+    case 'order.delivered':
+      return {
+        customerEvent: 'ORDER_DELIVERED',
+        adminEvent: 'ORDER_DELIVERED',
+      };
+
+    case 'payment.confirmed':
+      return {
+        customerEvent: 'PAYMENT_SUCCESS',
+        adminEvent: 'PAYMENT_SUCCESS',
+      };
+
+    case 'payment.failed':
+      return {
+        customerEvent: 'PAYMENT_FAILED',
+        adminEvent: 'PAYMENT_FAILED',
+      };
+
+    case 'order.cancelled':
+      return {
+        customerEvent: 'ORDER_CANCELLED',
+        adminEvent: 'ORDER_CANCELLED',
+      };
+
+    case 'order.status_changed': {
+      if (status === 'CONFIRMED') {
+        return { customerEvent: 'ORDER_CONFIRMED', pickerEvent: 'NEW_PICKER_ORDER', adminEvent: 'ORDER_CONFIRMED' };
+      } else if (status === 'PICKING') {
+        return { customerEvent: 'PICKING_STARTED', pickerEvent: 'PICKER_ALERT', adminEvent: 'ORDER_ACCEPTED' };
+      } else if (status === 'PICKED' || status === 'PACKING') {
+        return { customerEvent: 'PICKING_COMPLETED', pickerEvent: 'PICKING_COMPLETED', adminEvent: 'PICKING_COMPLETED' };
+      } else if (status === 'PACKED' || status === 'READY_FOR_PICKUP') {
+        return { customerEvent: 'ORDER_PACKED', deliveryEvent: 'NEW_DELIVERY_ASSIGNMENT', adminEvent: 'ORDER_PACKED' };
+      } else if (status === 'ASSIGNED') {
+        return { customerEvent: 'DELIVERY_ASSIGNED', deliveryEvent: 'NEW_DELIVERY_ASSIGNMENT', adminEvent: 'DELIVERY_ASSIGNED' };
+      } else if (status === 'PICKED_UP' || status === 'OUT_FOR_DELIVERY') {
+        return { customerEvent: 'ORDER_OUT_FOR_DELIVERY', adminEvent: 'ORDER_OUT_FOR_DELIVERY' };
+      } else if (status === 'ARRIVED_AT_CUSTOMER') {
+        return { customerEvent: 'DELIVERY_ARRIVING', adminEvent: 'DELIVERY_ARRIVING' };
+      } else if (status === 'DELIVERED') {
+        return { customerEvent: 'ORDER_DELIVERED', adminEvent: 'ORDER_DELIVERED' };
+      } else if (status === 'CANCELLED') {
+        return { customerEvent: 'ORDER_CANCELLED', adminEvent: 'ORDER_CANCELLED' };
+      }
+      return {};
+    }
+
+    default:
+      return {};
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WRITE NOTIFICATION RECORD TO POSTGRESQL & FIRESTORE
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function writePostgresNotificationRecord(
+  eventId: string | undefined,
+  orderId: string,
+  userId: string,
+  recipientType: string,
+  event: OrderNotificationEvent,
+  payload: NotificationPayload
+): Promise<void> {
+  try {
+    const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    // Record in notification_events idempotency ledger if eventId exists
+    if (eventId) {
+      await queryPostgres(
+        `INSERT INTO notification_events (id, event_id, recipient_id, notification_type, order_id)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (event_id, recipient_id, notification_type) DO NOTHING`,
+        [`ne_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, eventId, userId, event, orderId]
+      );
+    }
+
+    // Insert notification record
+    await queryPostgres(
+      `INSERT INTO notifications (
+        id, event_id, order_id, user_id, firebase_uid, recipient_type, role,
+        notification_type, title, message, channel, priority, sound, status, is_read, created_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'SENT', FALSE, CURRENT_TIMESTAMP)`,
+      [
+        notifId,
+        eventId || null,
+        orderId,
+        userId,
+        userId,
+        recipientType,
+        recipientType,
+        event,
+        payload.title,
+        payload.body,
+        'PUSH_AND_INAPP',
+        payload.priority?.toUpperCase() || 'NORMAL',
+        payload.sound || 'default',
+      ]
+    );
+  } catch (err: any) {
+    console.warn('[NotificationDispatcher] Postgres notification write notice:', err.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DISPATCH OPTIONS & FUNCTION
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface DispatchOptions {
-  /** firebase_uid of the recipient */
+  /** firebase_uid / user_id of the recipient */
   recipientUid: string;
+  /** Role of the recipient (customer, picker, delivery, admin) */
+  recipientType?: 'customer' | 'picker' | 'delivery' | 'admin';
   /** The business event that triggered this notification */
   event: OrderNotificationEvent;
+  /** Unique originating Outbox Event ID for deduplication */
+  eventId?: string;
   /** PostgreSQL order ID (for record-keeping) */
   orderId: string;
   /** Human-readable order number e.g. PK-20260829-00125 */
@@ -524,20 +713,20 @@ export interface DispatchOptions {
   };
 }
 
-// In-memory idempotency deduplication set (expires after 15 seconds)
+// In-memory idempotency deduplication set (expires after 60 seconds)
 const _dispatchedEventsCache = new Map<string, number>();
 
 function isDuplicateDispatch(dedupKey: string): boolean {
   const now = Date.now();
   const lastTime = _dispatchedEventsCache.get(dedupKey);
-  if (lastTime && now - lastTime < 15000) {
+  if (lastTime && now - lastTime < 60000) {
     return true;
   }
   _dispatchedEventsCache.set(dedupKey, now);
   // Periodic cleanup
-  if (_dispatchedEventsCache.size > 500) {
+  if (_dispatchedEventsCache.size > 1000) {
     for (const [key, time] of _dispatchedEventsCache.entries()) {
-      if (now - time > 30000) _dispatchedEventsCache.delete(key);
+      if (now - time > 120000) _dispatchedEventsCache.delete(key);
     }
   }
   return false;
@@ -545,37 +734,45 @@ function isDuplicateDispatch(dedupKey: string): boolean {
 
 /**
  * Dispatch a push notification to a specific user.
- * ALWAYS call this AFTER the PostgreSQL transaction has committed.
- * Failures are logged but never thrown — notifications are best-effort.
+ * ALWAYS call this AFTER the PostgreSQL transaction has committed or from OutboxWorker.
+ * Failures are logged but never thrown — notifications are isolated and best-effort.
  */
-export async function dispatchNotification(opts: DispatchOptions): Promise<void> {
-  const { recipientUid, event, orderId, orderNumber, context = {} } = opts;
+export async function dispatchNotification(opts: DispatchOptions): Promise<{ sent: boolean; deduped?: boolean }> {
+  const { recipientUid, recipientType = 'customer', event, eventId, orderId, orderNumber, context = {} } = opts;
 
-  // Deduplication check
-  const dedupKey = `${recipientUid}:${event}:${orderId}`;
+  // Deduplication key prioritizes unique eventId if present
+  const dedupKey = eventId
+    ? `event:${eventId}:${recipientUid}:${event}`
+    : `order:${recipientUid}:${event}:${orderId}`;
+
   if (isDuplicateDispatch(dedupKey)) {
     console.log(`[NotificationDispatcher] Skipping duplicate event ${dedupKey}`);
-    return;
+    return { sent: false, deduped: true };
   }
 
   try {
     const payload = buildPayload(event, { orderNumber, ...context });
-    const tokens  = await getFCMTokens(recipientUid);
+
+    // 1. Record in PostgreSQL ledger and inbox
+    await writePostgresNotificationRecord(eventId, orderId, recipientUid, recipientType, event, payload);
+
+    // 2. Look up FCM tokens
+    const tokens = await getFCMTokens(recipientUid);
 
     if (tokens.length === 0) {
-      console.log(`[NotificationDispatcher] No FCM tokens for ${recipientUid} — skipping push.`);
-      // Still write inbox record if it's a customer-visible event
+      console.log(`[NotificationDispatcher] No FCM tokens for ${recipientUid} — wrote inbox record.`);
       await writeNotificationRecord(recipientUid, payload, orderId, event);
-      return;
+      return { sent: true };
     }
 
-    // ── Send FCM multicast ────────────────────────────────────────────────────
+    // 3. Send FCM multicast
     const adminApp = getAdminApp();
     if (!adminApp) {
-      console.warn('[NotificationDispatcher] Admin SDK unavailable — cannot send FCM push.');
+      console.warn('[NotificationDispatcher] Admin SDK unavailable — skipping FCM push.');
       await writeNotificationRecord(recipientUid, payload, orderId, event);
-      return;
+      return { sent: true };
     }
+
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const admin = require('firebase-admin');
     const messaging = admin.messaging(adminApp);
@@ -587,9 +784,11 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
         body: payload.body,
       },
       data: {
-        orderId,
-        orderNumber,
-        event,
+        orderId: String(orderId || ''),
+        orderNumber: String(orderNumber || ''),
+        event: String(event),
+        recipientType: String(recipientType),
+        ...(eventId ? { eventId: String(eventId) } : {}),
         ...Object.fromEntries(
           Object.entries(context).map(([k, v]) => [k, String(v ?? '')])
         ),
@@ -598,14 +797,14 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
         notification: {
           icon: 'ic_notification',
           color: '#16A34A',
-          priority: 'high',
-          sound: 'default',
+          priority: payload.priority === 'high' ? 'high' : 'normal',
+          sound: payload.sound || 'default',
         },
       },
       apns: {
         payload: {
           aps: {
-            sound: 'default',
+            sound: payload.sound || 'default',
             badge: 1,
           },
         },
@@ -615,10 +814,10 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
     const result = await messaging.sendEachForMulticast(multicastMsg);
 
     const succeeded = result.responses.filter((r: any) => r.success).length;
-    const failed    = result.responses.filter((r: any) => !r.success).length;
+    const failed = result.responses.filter((r: any) => !r.success).length;
 
     console.log(
-      `[NotificationDispatcher] ${event} → ${recipientUid}: ` +
+      `[NotificationDispatcher] ${event} → ${recipientUid} (${recipientType}): ` +
       `${succeeded}/${tokens.length} sent, ${failed} failed`
     );
 
@@ -627,24 +826,26 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
     result.responses.forEach((response: any, idx: number) => {
       if (!response.success) {
         const errCode = response.error?.code;
-        if (errCode === 'messaging/registration-token-not-registered' ||
-            errCode === 'messaging/invalid-registration-token') {
+        if (
+          errCode === 'messaging/registration-token-not-registered' ||
+          errCode === 'messaging/invalid-registration-token'
+        ) {
           staleTokens.push(tokens[idx]);
         }
       }
     });
 
     if (staleTokens.length > 0) {
-      // Remove stale tokens asynchronously — don't await
       removeStaleTokens(recipientUid, staleTokens).catch(console.warn);
     }
 
-    // Write to notification inbox
+    // Write to Firestore inbox
     await writeNotificationRecord(recipientUid, payload, orderId, event);
-
+    return { sent: true };
   } catch (err: any) {
     // Notifications MUST NOT fail the business operation
     console.error(`[NotificationDispatcher] Error dispatching ${event} to ${recipientUid}:`, err.message);
+    return { sent: false };
   }
 }
 

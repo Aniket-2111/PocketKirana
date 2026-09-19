@@ -11,6 +11,7 @@
 import { Pool, PoolClient } from 'pg';
 import { getPostgresPool } from '../postgres';
 import { OutboxEventRow } from '../db/outbox';
+import { mapCanonicalEvent, dispatchNotification } from '../notificationDispatcher';
 
 // Lazy-load Firebase Admin to avoid cold start issues
 let _adminDb: any = null;
@@ -99,7 +100,7 @@ export class OutboxWorker {
     await this.projectToFirestore(aggregate_type, aggregate_id, event_type, payload, event.id);
 
     // 2. DISPATCH NOTIFICATIONS / SIDE-EFFECTS
-    await this.dispatchNotifications(event_type, payload);
+    await this.dispatchNotifications(event_type, payload, event.id);
   }
 
   /**
@@ -163,31 +164,89 @@ export class OutboxWorker {
   }
 
   /**
-   * Dispatches push notifications / alerts if configured.
+   * Dispatches push notifications / alerts to Customer, Picker, Delivery, and Admin.
    */
-  private async dispatchNotifications(eventType: string, payload: Record<string, any>): Promise<void> {
+  private async dispatchNotifications(
+    eventType: string,
+    payload: Record<string, any>,
+    eventId?: string
+  ): Promise<void> {
     try {
-      const firestore = getFirestoreDb();
-      if (!firestore) return;
+      const mappedEvents = mapCanonicalEvent(eventType, payload);
+      const orderId = payload.id || payload.orderId || '';
+      const orderNumber = payload.orderNumber || orderId;
+      const customerId = payload.customerId || payload.userId;
+      const pickerId = payload.pickerId || payload.assignedPickerId;
+      const deliveryPartnerId = payload.deliveryPartnerId || payload.partnerId || payload.riderId;
+      const adminId = payload.adminId || 'admin_user';
 
-      if (eventType === 'order.placed' && payload.customerId) {
-        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await firestore.collection('notifications').doc(notifId).set({
-          id: notifId,
-          recipientId: payload.customerId,
+      const context = {
+        totalAmount: payload.total != null ? String(payload.total) : undefined,
+        itemCount: Array.isArray(payload.items) ? payload.items.length : undefined,
+        partnerName: payload.partnerName || payload.riderName || 'Express Partner',
+        storeName: payload.storeName || 'PocketKirana Hub',
+        distanceKm: payload.distanceKm != null ? String(payload.distanceKm) : undefined,
+        estimatedDeliveryTime: payload.estimatedDeliveryTime || '15-20 mins',
+        deepLink: payload.deepLink,
+        customMessage: payload.customMessage,
+      };
+
+      // 1. Customer Notification
+      if (mappedEvents.customerEvent && customerId) {
+        await dispatchNotification({
+          recipientUid: customerId,
           recipientType: 'customer',
-          type: 'ORDER_PLACED',
-          title: '🛒 Order Placed!',
-          message: `Your order #${payload.orderNumber || payload.id} has been placed.`,
-          orderId: payload.id,
-          deepLink: `/orders/${payload.id}`,
-          isRead: false,
-          createdAt: new Date().toISOString(),
+          event: mappedEvents.customerEvent,
+          eventId,
+          orderId,
+          orderNumber,
+          context,
+        });
+      }
+
+      // 2. Picker Notification
+      if (mappedEvents.pickerEvent) {
+        const pickerRecipient = pickerId || 'picker_pool';
+        await dispatchNotification({
+          recipientUid: pickerRecipient,
+          recipientType: 'picker',
+          event: mappedEvents.pickerEvent,
+          eventId,
+          orderId,
+          orderNumber,
+          context,
+        });
+      }
+
+      // 3. Delivery Notification
+      if (mappedEvents.deliveryEvent) {
+        const deliveryRecipient = deliveryPartnerId || 'delivery_pool';
+        await dispatchNotification({
+          recipientUid: deliveryRecipient,
+          recipientType: 'delivery',
+          event: mappedEvents.deliveryEvent,
+          eventId,
+          orderId,
+          orderNumber,
+          context,
+        });
+      }
+
+      // 4. Admin Notification
+      if (mappedEvents.adminEvent) {
+        await dispatchNotification({
+          recipientUid: adminId,
+          recipientType: 'admin',
+          event: mappedEvents.adminEvent,
+          eventId,
+          orderId,
+          orderNumber,
+          context,
         });
       }
     } catch (err: any) {
-      console.warn('[OutboxWorker] Notification dispatch warning:', err.message);
-      // Non-fatal for core projection, don't crash projection
+      console.warn('[OutboxWorker] Notification dispatch notice:', err.message);
+      // Non-fatal for core outbox progression
     }
   }
 
