@@ -2,83 +2,134 @@
  * GET /api/health
  *
  * Production Diagnostics & Health Check Endpoint
- * Inspects:
- *   1. PostgreSQL Database connectivity, latency, and table counts
- *   2. Active Connection Pool stats
- *   3. Server uptime and environment configuration
+ * Supports:
+ *   1. Liveness Probe (Default): Fast, lightweight check for API uptime.
+ *   2. Deep Readiness Probe (?deep=true): Verifies PostgreSQL, Outbox backlog, and Firebase.
+ *
+ * Security: NEVER exposes database credentials, hostnames, passwords, or secret keys.
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { isFirebaseConfigured } from '@/lib/firebase';
+import { extractCorrelationId, logger, metrics } from '@/lib/observability';
 
-export async function GET() {
-  const start = Date.now();
-  try {
-    const pool = getPostgresPool();
-    
-    // Test PostgreSQL connectivity & query latency
-    const dbRes = await pool.query(`
-      SELECT 
-        NOW() as server_time,
-        VERSION() as version,
-        (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') as table_count,
-        (SELECT COUNT(*) FROM orders) as total_orders,
-        (SELECT COUNT(*) FROM products) as total_products
-    `);
+export async function GET(req: NextRequest) {
+  const correlationId = extractCorrelationId(req.headers);
+  const { searchParams } = new URL(req.url);
+  const isDeepCheck = searchParams.get('deep') === 'true';
 
-    const latencyMs = Date.now() - start;
-    const dbStats = dbRes.rows[0];
-
-    const healthReport = {
-      status: 'HEALTHY',
-      timestamp: new Date().toISOString(),
-      latencyMs,
-      environment: process.env.NODE_ENV || 'production',
-      services: {
-        database: {
-          connected: true,
-          type: 'PostgreSQL',
-          host: process.env.DB_HOST || '192.168.0.101',
-          port: process.env.DB_PORT || '5433',
-          database: process.env.DB_NAME || 'pocketkirana_db',
-          tableCount: parseInt(dbStats.table_count, 10),
-          totalOrders: parseInt(dbStats.total_orders, 10),
-          totalProducts: parseInt(dbStats.total_products, 10),
-          dbServerTime: dbStats.server_time,
-        },
-        connectionPool: {
-          totalCount: pool.totalCount,
-          idleCount: pool.idleCount,
-          waitingCount: pool.waitingCount,
-        },
-        firebase: {
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'pocketkirana',
-          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'pocketkirana.firebaseapp.com',
-        },
-      },
-    };
-
-    return NextResponse.json(healthReport, { status: 200 });
-  } catch (error: any) {
-    const latencyMs = Date.now() - start;
-    console.error('[HealthCheck Error]', error.message);
-
+  // 1. FAST LIVENESS PROBE (Default)
+  if (!isDeepCheck) {
+    metrics.increment('health.liveness.probes');
     return NextResponse.json(
       {
-        status: 'UNHEALTHY',
+        status: 'ok',
+        service: 'pocketkirana-api',
+        version: process.env.npm_package_version || '1.0.0',
         timestamp: new Date().toISOString(),
-        latencyMs,
-        error: error.message,
-        services: {
-          database: {
-            connected: false,
-            host: process.env.DB_HOST || '192.168.0.101',
-            port: process.env.DB_PORT || '5433',
-            database: process.env.DB_NAME || 'pocketkirana_db',
-          },
-        },
       },
-      { status: 503 }
+      {
+        status: 200,
+        headers: {
+          'x-correlation-id': correlationId,
+          'cache-control': 'no-cache, no-store, must-revalidate',
+        },
+      }
     );
   }
+
+  // 2. DEEP READINESS PROBE (?deep=true)
+  const startTime = Date.now();
+  metrics.increment('health.deep.probes');
+
+  let dbStatus: 'ok' | 'degraded' | 'unavailable' = 'ok';
+  let outboxStatus: 'ok' | 'degraded' | 'backlog_high' = 'ok';
+  let oldestPendingAgeSec = 0;
+  let pendingOutboxCount = 0;
+  let poolSaturation = 0;
+  let dbLatencyMs = 0;
+
+  // PostgreSQL Check
+  try {
+    const dbStart = Date.now();
+    const pool = getPostgresPool();
+    const dbRes = await pool.query(`
+      SELECT 
+        1 as ping,
+        (SELECT COUNT(*) FROM outbox_events WHERE status IN ('PENDING', 'RETRY_SCHEDULED')) as pending_outbox,
+        (SELECT EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) FROM outbox_events WHERE status = 'PENDING') as oldest_pending_age
+    `);
+    dbLatencyMs = Date.now() - dbStart;
+
+    const row = dbRes.rows[0];
+    pendingOutboxCount = parseInt(row.pending_outbox || '0', 10);
+    oldestPendingAgeSec = parseFloat(row.oldest_pending_age || '0');
+
+    if (pool.totalCount > 0) {
+      poolSaturation = Math.round((pool.waitingCount / pool.totalCount) * 100);
+    }
+
+    if (oldestPendingAgeSec > 60) {
+      outboxStatus = 'degraded';
+      metrics.increment('outbox.stale_pending_alert');
+    } else if (pendingOutboxCount > 100) {
+      outboxStatus = 'backlog_high';
+    }
+
+    if (dbLatencyMs > 2000 || poolSaturation > 80) {
+      dbStatus = 'degraded';
+    }
+  } catch (err: any) {
+    dbStatus = 'unavailable';
+    logger.error('health_db_failure', 'Database health check failed', err, { correlationId });
+  }
+
+  // Firebase Configuration Check
+  const firebaseStatus = isFirebaseConfigured() ? 'ok' : 'unconfigured';
+
+  // Determine overall status
+  let overallStatus: 'ok' | 'degraded' | 'unhealthy' = 'ok';
+  if (dbStatus === 'unavailable') {
+    overallStatus = 'unhealthy';
+  } else if (
+    dbStatus === 'degraded' ||
+    outboxStatus === 'degraded' ||
+    (firebaseStatus === 'unconfigured' && process.env.NODE_ENV === 'production')
+  ) {
+    overallStatus = 'degraded';
+  }
+
+  const responseBody = {
+    status: overallStatus,
+    service: 'pocketkirana-api',
+    version: process.env.npm_package_version || '1.0.0',
+    timestamp: new Date().toISOString(),
+    totalDurationMs: Date.now() - startTime,
+    checks: {
+      database: {
+        status: dbStatus,
+        latencyMs: dbLatencyMs,
+        poolSaturationPercent: poolSaturation,
+      },
+      outbox: {
+        status: outboxStatus,
+        pendingEventsCount: pendingOutboxCount,
+        oldestPendingAgeSeconds: Math.round(oldestPendingAgeSec),
+      },
+      firebase: {
+        status: firebaseStatus,
+      },
+    },
+  };
+
+  const httpStatus = overallStatus === 'unhealthy' ? 503 : 200;
+
+  return NextResponse.json(responseBody, {
+    status: httpStatus,
+    headers: {
+      'x-correlation-id': correlationId,
+      'cache-control': 'no-cache, no-store, must-revalidate',
+    },
+  });
 }
