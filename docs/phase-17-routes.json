@@ -1,0 +1,1275 @@
+[
+  {
+    "route": "/api/admin/analytics/overview",
+    "category": "ADMIN",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/admin/analytics",
+    "category": "ADMIN",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/admin/dispatch",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/exceptions",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/festival-campaigns/emergency-toggle",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/festival-campaigns",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/festival-campaigns/[id]/publish",
+    "category": "ADMIN",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/festival-campaigns/[id]/rollback",
+    "category": "ADMIN",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/festival-templates/generate-ai",
+    "category": "ADMIN",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/festival-templates",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/invoices/preview",
+    "category": "ADMIN",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/invoices",
+    "category": "ADMIN",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/admin/invoices/template",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/notifications/compose",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/payments/summary",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/admin/reports/sales",
+    "category": "ADMIN",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/admin/settlements",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/store/operations",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "PUT"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/admin/stores",
+    "category": "ADMIN",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/admin/stores/[id]",
+    "category": "ADMIN",
+    "methods": [
+      "GET",
+      "PUT",
+      "PATCH"
+    ],
+    "authRequired": true,
+    "requiredRole": "admin",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/auth/logout",
+    "category": "AUTHENTICATED",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "user",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/auth/logout-all",
+    "category": "AUTHENTICATED",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "user",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/auth/me",
+    "category": "AUTHENTICATED",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "user",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/auth/otp/verify",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/auth/send-otp",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/auth/verify-otp",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/auth/verify-otp-token",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "Firestore",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/brands/reorder",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/brands",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/brands/[id]",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "PUT",
+      "DELETE"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/campaigns/active",
+    "category": "PUBLIC",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "Firestore",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/cart/validate",
+    "category": "CUSTOMER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/categories/move",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/categories/reorder",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/categories",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/categories/[id]",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "PUT",
+      "DELETE"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/checkout/calculate-price",
+    "category": "CUSTOMER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/checkout/quote",
+    "category": "CUSTOMER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/checkout",
+    "category": "CUSTOMER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/checkout/validate",
+    "category": "CUSTOMER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/checkout/validate-serviceability",
+    "category": "CUSTOMER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/assignments/[id]/accept",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/assignments/[id]/deliver",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/assignments/[id]/pickup",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/location",
+    "category": "DELIVERY",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/accept",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/arrived-store",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/deliver",
+    "category": "DELIVERY",
+    "methods": [
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/delivered",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/exception",
+    "category": "DELIVERY",
+    "methods": [
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/location",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/out-for-delivery",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/payment/collect-cash",
+    "category": "DELIVERY",
+    "methods": [
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/payment/create",
+    "category": "DELIVERY",
+    "methods": [
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/payment/status",
+    "category": "DELIVERY",
+    "methods": [
+      "GET",
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/pickup",
+    "category": "DELIVERY",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/resend-otp",
+    "category": "DELIVERY",
+    "methods": [
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/orders/[id]/verify-otp",
+    "category": "DELIVERY",
+    "methods": [
+      "POST",
+      "OPTIONS"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "Firestore",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/delivery/route",
+    "category": "DELIVERY",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "delivery_partner",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/health",
+    "category": "HEALTH",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/inventory/adjust",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/inventory/batches",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/inventory/events",
+    "category": "PUBLIC",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/inventory/expiry/clearance",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/inventory/expiry",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/location/reverse-geocode",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/location/saved",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST",
+      "DELETE"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/location/search",
+    "category": "PUBLIC",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/location/serviceability",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "Firestore",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/notifications/devices/register",
+    "category": "PUBLIC",
+    "methods": [
+      "POST",
+      "DELETE"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/notifications/preferences",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/notifications",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "PATCH"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/orders/[id]/acknowledge",
+    "category": "CUSTOMER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/orders/[id]/events",
+    "category": "CUSTOMER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "None",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/orders/[id]/invoice",
+    "category": "CUSTOMER",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/orders/[id]",
+    "category": "CUSTOMER",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/orders/[id]/status",
+    "category": "CUSTOMER",
+    "methods": [
+      "PATCH"
+    ],
+    "authRequired": true,
+    "requiredRole": "customer",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/packing/tasks/[id]/complete",
+    "category": "PICKER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "picker",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/payments/create-order",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/payments/phonepe/create",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "Firestore",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/payments/phonepe/verify",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "Firestore",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/payments/phonepe/webhook",
+    "category": "WEBHOOK",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "gateway_hmac",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": true,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/payments/verify",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/picker/orders/[id]/accept",
+    "category": "PICKER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "picker",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/picker/orders/[id]/pack",
+    "category": "PICKER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "picker",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/picker/orders/[id]/scan",
+    "category": "PICKER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "picker",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/picker/orders/[id]/start",
+    "category": "PICKER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "picker",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/picking/tasks/[id]/accept",
+    "category": "PICKER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "picker",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/picking/tasks/[id]/complete",
+    "category": "PICKER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "picker",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/picking/tasks/[id]/items/[itemId]/pick",
+    "category": "PICKER",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": true,
+    "requiredRole": "picker",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/products/barcode/[value]",
+    "category": "PUBLIC",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/products/identifiers/verify",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/products",
+    "category": "PUBLIC",
+    "methods": [
+      "GET"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": false
+  },
+  {
+    "route": "/api/products/[id]/identifiers",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/products/[id]/variants/reorder",
+    "category": "PUBLIC",
+    "methods": [
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/products/[id]/variants",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/products/[id]/variants/[variantId]",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "PUT",
+      "DELETE"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/seed",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "Firestore",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/service-requests",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST",
+      "PATCH"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "Firestore",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/serviceability/check",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "None",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/v1/products",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  },
+  {
+    "route": "/api/v1/products/[id]",
+    "category": "PUBLIC",
+    "methods": [
+      "GET",
+      "PUT",
+      "DELETE"
+    ],
+    "authRequired": false,
+    "requiredRole": "none",
+    "database": "PostgreSQL",
+    "isSecuritySensitive": false,
+    "idempotencyRequired": true
+  }
+]
