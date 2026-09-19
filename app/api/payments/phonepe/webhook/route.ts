@@ -4,6 +4,8 @@ import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDoc, doc, updateDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { getPhonePeConfig } from '@/lib/phonepeConfig';
 import { ensurePickingTaskForOrder } from '@/lib/firebaseServices';
+import { getPostgresPool } from '@/lib/postgres';
+import { appendOutboxEvent } from '@/lib/db/outbox';
 
 export async function POST(request: Request) {
   try {
@@ -120,7 +122,100 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Payment amount mismatch' }, { status: 400 });
     }
 
-    // ── 4. ATOMIC DATABASE UPDATE ──────────────────────────────────
+    // ── 4. ATOMIC POSTGRESQL DATABASE UPDATE & OUTBOX EVENT ───────────────
+    try {
+      const pool = getPostgresPool();
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        // Check if transaction was already processed (PostgreSQL Idempotency Check)
+        const existingTx = await client.query(
+          `SELECT id FROM payment_transactions WHERE transaction_id = $1`,
+          [transactionId || merchantTransactionId]
+        );
+
+        if (existingTx.rowCount === 0) {
+          const paymentId = `pay_pk_${merchantTransactionId}`;
+
+          // Insert or update payments table
+          await client.query(
+            `INSERT INTO payments (
+               id, order_id, firebase_uid, payment_method, amount, currency,
+               status, gateway, gateway_order_id, gateway_payment_id, paid_at
+             ) VALUES ($1, $2, $3, 'phonepe', $4, 'INR', 'completed', 'phonepe', $5, $6, NOW())
+             ON CONFLICT (id) DO UPDATE SET
+               status = 'completed',
+               gateway_payment_id = $6,
+               paid_at = NOW(),
+               updated_at = NOW()`,
+            [
+              paymentId,
+              orderId,
+              dbCustomerId,
+              orderData.total,
+              merchantTransactionId,
+              transactionId || '',
+            ]
+          );
+
+          // Insert into payment_transactions ledger
+          await client.query(
+            `INSERT INTO payment_transactions (
+               id, payment_id, transaction_id, transaction_type, amount, status, response_data
+             ) VALUES ($1, $2, $3, 'WEBHOOK_PAYMENT', $4, 'SUCCESS', $5)
+             ON CONFLICT (transaction_id) DO NOTHING`,
+            [
+              `ptxn_${Date.now()}`,
+              paymentId,
+              transactionId || merchantTransactionId,
+              orderData.total,
+              JSON.stringify(payload),
+            ]
+          );
+
+          // Update canonical orders table
+          await client.query(
+            `UPDATE orders 
+             SET payment_status = 'paid', 
+                 order_status = 'CONFIRMED', 
+                 confirmed_at = NOW(), 
+                 updated_at = NOW() 
+             WHERE id = $1`,
+            [orderId]
+          );
+
+          // Insert outbox event for payment confirmation
+          await appendOutboxEvent(client, {
+            aggregateType: 'payment',
+            aggregateId: paymentId,
+            eventType: 'payment.confirmed',
+            payload: {
+              paymentId,
+              orderId,
+              customerId: dbCustomerId,
+              amount: orderData.total,
+              gateway: 'phonepe',
+              transactionId,
+              paidAt: new Date().toISOString(),
+            },
+          });
+
+          await client.query('COMMIT');
+        } else {
+          await client.query('ROLLBACK');
+        }
+      } catch (pgErr: any) {
+        await client.query('ROLLBACK');
+        console.warn('[PhonePe Webhook PG Error]', pgErr.message);
+      } finally {
+        client.release();
+      }
+    } catch (poolErr: any) {
+      console.warn('[PhonePe Webhook Pool Notice]', poolErr.message);
+    }
+
+    // ── 5. FIRESTORE READ PROJECTION UPDATE ───────────────────────────
     if (orderData.paymentStatus !== 'paid') {
       await updateDoc(orderRef, {
         paymentStatus: 'paid',
