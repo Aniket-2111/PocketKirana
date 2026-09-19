@@ -579,16 +579,14 @@ export const useAppStore = create<AppState>()(
               ? fsOrders
               : (get().orders && get().orders.length > 0)
               ? get().orders
-              : INITIAL_ORDERS;
+              : [];
 
             const enriched = rawOrders.map((o) => {
-              const mock = INITIAL_ORDERS.find((m) => m.id === o.id || m.orderNumber === o.orderNumber);
-              const items = (o.items && o.items.length > 0) ? o.items : (mock?.items || []);
               let placedAt = o.placedAt;
               if (!placedAt || isNaN(new Date(placedAt).getTime())) {
-                placedAt = mock?.placedAt || new Date().toISOString();
+                placedAt = new Date().toISOString();
               }
-              return { ...o, items, placedAt };
+              return { ...o, items: o.items || [], placedAt };
             });
 
             const sorted = [...enriched].sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
@@ -846,14 +844,8 @@ export const useAppStore = create<AppState>()(
       activeRole: 'customer',
       setActiveRole: (role) => set({ activeRole: role }),
 
-      isLoggedIn: isFirebaseConfigured() ? false : true,
-      currentUser: isFirebaseConfigured() ? null : {
-        id: 'usr-cust-1',
-        role: 'customer',
-        mobile: '+91 8698893348',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      },
+      isLoggedIn: false,
+      currentUser: null,
       otpSent: false,
       phoneInput: '',
       setPhoneInput: (phone) => set({ phoneInput: phone }),
@@ -871,11 +863,19 @@ export const useAppStore = create<AppState>()(
           showToast('SMS verification code sent to your phone!', 'success');
           return result;
         } else {
-          // If real SMS sending is restricted (e.g. SMS Region Policy / Phone Auth disabled in Console, quota, or network block)
-          // Fall back to Demo UAT OTP mode so testing and system demonstrations remain 100% functional.
-          console.warn('[Phone Auth Fallback] Real SMS OTP notice:', result.error);
+          // Fall back to Demo UAT OTP mode ONLY in non-production local development
+          const isProd = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'production';
+          if (isProd) {
+            console.error('[Phone Auth Failure in Production]:', result.error);
+            showToast(result.error || 'Failed to send OTP. Please check your phone number.', 'error');
+            return {
+              success: false,
+              error: result.error || 'Failed to send verification SMS.'
+            };
+          }
+          console.warn('[Phone Auth Fallback] Real SMS OTP notice (Dev mode):', result.error);
           set({ otpSent: true });
-          showToast('Demo OTP Mode Active — Enter 1234 to sign in', 'info');
+          showToast('Dev OTP Mode Active — Enter 1234 to sign in', 'info');
           return { 
             success: true, 
             isDemoFallback: true, 
@@ -889,8 +889,9 @@ export const useAppStore = create<AppState>()(
 
         const authResult = await verifyFirebasePhoneOtp(otp);
         if (!authResult.success) {
-          // Allow simulated test code 1234 or 123456 as fallback if Firebase Auth session was not established
-          if (otp !== '1234' && otp !== '123456') {
+          const isProd = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'production';
+          // In production, NEVER allow demo OTP code bypass
+          if (isProd || (otp !== '1234' && otp !== '123456')) {
             return false;
           }
         }

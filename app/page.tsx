@@ -13,7 +13,6 @@ import { DualPromoBanner } from '@/components/customer/DualPromoBanner';
 import { FestivalCampaignRenderer } from '@/components/customer/festival/FestivalCampaignRenderer';
 import { Product } from '@/types';
 import { Sparkles, Building2, Flame, ArrowRight } from 'lucide-react';
-import { INITIAL_PRODUCTS, INITIAL_BRANDS } from '@/lib/mockData';
 
 export default function HomePage() {
   const router = useRouter();
@@ -33,21 +32,14 @@ export default function HomePage() {
     router.push(`/product/${product.slug}`);
   };
 
-  // Combine store products with fallback mock data to ensure rich presentation
+  // Authoritative store products
   const allProducts = useMemo(() => {
-    const map = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => map.set(p.id, p));
-    (products || []).forEach((p) => {
-      const existing = map.get(p.id);
-      map.set(p.id, { ...existing, ...p });
-    });
-    return Array.from(map.values()).filter((p) => p.status !== 'discontinued');
+    return (products || []).filter((p) => p.status !== 'discontinued');
   }, [products]);
 
-  // Active brands
+  // Authoritative active brands
   const activeBrands = useMemo(() => {
-    const list = brands && brands.length > 0 ? brands : INITIAL_BRANDS;
-    return list.filter((b) => b.isActive !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    return (brands || []).filter((b) => b.isActive !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
   }, [brands]);
 
   // 1. Top Savers Today (Products sorted by discount amount or high discount percentage)

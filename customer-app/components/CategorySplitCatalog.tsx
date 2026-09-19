@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import CustomerShell from './CustomerShell';
-import { INITIAL_PRODUCTS, INITIAL_CATEGORIES } from '@/lib/mockData';
 import { Product, Category } from '@/types';
 import { 
   SlidersHorizontal, 
@@ -63,23 +62,16 @@ export default function CategorySplitCatalog({ initialCategorySlug }: CategorySp
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // All Categories list with fallback
+  // All Categories list
   const allCategories = useMemo(() => {
-    const list = categories && categories.length > 0 ? categories : INITIAL_CATEGORIES;
-    return list
+    return (categories || [])
       .filter((c) => !c.parentId && c.isActive !== false)
       .sort((a, b) => (a.displayOrder || a.sortOrder || 0) - (b.displayOrder || b.sortOrder || 0));
   }, [categories]);
 
-  // All Products with fallback
+  // All Products
   const allProducts = useMemo(() => {
-    const map = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => map.set(p.id, p));
-    (products || []).forEach((p) => {
-      const existing = map.get(p.id);
-      map.set(p.id, { ...existing, ...p });
-    });
-    return Array.from(map.values()).filter((p) => p.status !== 'discontinued');
+    return (products || []).filter((p) => p.status !== 'discontinued');
   }, [products]);
 
   // Active Category Object
@@ -91,10 +83,9 @@ export default function CategorySplitCatalog({ initialCategorySlug }: CategorySp
   // Subcategories of active category
   const subcategories = useMemo(() => {
     if (!currentCategory) return [];
-    const list = (categories && categories.length > 0 ? categories : INITIAL_CATEGORIES)
+    return (categories || [])
       .filter((c) => c.parentId === currentCategory.id && c.isActive !== false)
       .sort((a, b) => (a.displayOrder || a.sortOrder || 0) - (b.displayOrder || b.sortOrder || 0));
-    return list;
   }, [categories, currentCategory]);
 
   // Reset subcategory when category changes

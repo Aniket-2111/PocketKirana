@@ -26,16 +26,15 @@ export default function DeliveryPartnerHomePage() {
   const [activeTab, setActiveTab] = useState<'new' | 'ongoing'>('new');
 
   const partner =
-    deliveryPartners.find((p) => p.id === authenticatedPartnerId || p.id === activePartnerId) ||
-    deliveryPartners[0] || {
-      id: 'partner-1',
-      name: 'Sunil Kumar',
-      phone: '+91 8698893348',
-      partnerCode: 'DP001',
-      currentStatus: 'online',
+    deliveryPartners.find((p) => p.id === authenticatedPartnerId || p.id === activePartnerId) || {
+      id: authenticatedPartnerId || 'partner-unauth',
+      name: 'Delivery Partner',
+      phone: '',
+      partnerCode: 'DP',
+      currentStatus: 'offline',
       activeOrderId: undefined as string | undefined,
-      rating: 4.9,
-      completedDeliveries: 12,
+      rating: 5.0,
+      completedDeliveries: 0,
     };
 
   const isOnline = partner.currentStatus === 'online' || partner.currentStatus === 'busy';
@@ -80,7 +79,7 @@ export default function DeliveryPartnerHomePage() {
   };
 
   const getDistance = (order: any) =>
-    ((order as any).deliveryDistanceKm || (Math.random() * 2.5 + 0.8)).toFixed(1);
+    (Number((order as any).deliveryDistanceKm || (order as any).distanceKm || 1.8)).toFixed(1);
 
   const getEta = (km: number) => Math.max(2, Math.ceil(km / 0.4));
 

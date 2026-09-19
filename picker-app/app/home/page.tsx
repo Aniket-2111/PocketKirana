@@ -17,6 +17,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { Picker } from '@/types';
 
 export default function PickerDashboard() {
   const router = useRouter();
@@ -29,11 +30,27 @@ export default function PickerDashboard() {
     startPickingTask,
   } = useAppStore();
 
-  const picker = pickers.find((p) => p.id === activePickerId) || pickers[0] || {
-    id: 'picker-1',
-    name: 'Rahul',
-    status: 'active' as const,
+  const picker: Picker = pickers.find((p) => p.id === activePickerId) || {
+    id: activePickerId || 'picker-unauth',
+    name: 'Store Picker',
+    phone: '',
+    photo: '',
+    employeeId: 'PKP',
+    storeId: 'store-1',
+    storeName: 'PocketKirana Hub',
+    status: 'active',
+    currentShift: 'Morning (06:00 - 14:00)',
+    joiningDate: new Date().toISOString(),
     activeTaskId: undefined,
+    statistics: {
+      ordersPickedToday: 0,
+      itemsPickedToday: 0,
+      averagePickTimeSeconds: 180,
+      accuracyPercent: 99.0,
+      missingItemsCount: 0,
+      wrongItemsScanned: 0,
+      rating: 5.0,
+    },
   };
 
   // Synthesize picking tasks from both pickingTasks and live orders so no active order is missed and no order appears twice

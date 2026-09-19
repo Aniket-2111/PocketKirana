@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import CustomerShell from '../../components/CustomerShell';
 import { ProductCard } from '@/components/customer/ProductCard';
-import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { Product } from '@/types';
 
@@ -14,15 +13,9 @@ export default function SearchPage() {
   const { products } = useAppStore();
   const [query, setQuery] = useState('');
 
-  // Combine products with fallback mock data
+  // Authoritative store products
   const allProducts = useMemo(() => {
-    const map = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => map.set(p.id, p));
-    (products || []).forEach((p) => {
-      const existing = map.get(p.id);
-      map.set(p.id, { ...existing, ...p });
-    });
-    return Array.from(map.values()).filter((p) => p.status !== 'discontinued');
+    return (products || []).filter((p) => p.status !== 'discontinued');
   }, [products]);
 
   const searchResults = useMemo(() => {

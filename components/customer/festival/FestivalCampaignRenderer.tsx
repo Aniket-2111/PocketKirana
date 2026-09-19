@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { FestivalCampaign, FestivalSectionConfig, FestivalTheme } from '@/types/festival';
 import { Product } from '@/types';
-import { INITIAL_PRODUCTS, INITIAL_CATEGORIES } from '@/lib/mockData';
+import { ProductCard } from '@/components/customer/ProductCard';
 import {
   Sparkles,
   ArrowRight,
@@ -19,7 +19,6 @@ import {
   Truck,
   Percent,
 } from 'lucide-react';
-import { ProductCard } from '@/components/customer/ProductCard';
 
 interface FestivalCampaignRendererProps {
   campaign: FestivalCampaign;
@@ -42,20 +41,14 @@ export function FestivalCampaignRenderer({
   const { theme, sections } = campaign.configurationSnapshot;
   const activeSections = (sections || []).filter((s) => s.active !== false);
 
-  // Fallback enriched products
+  // Authoritative store products
   const allProducts = useMemo(() => {
-    const map = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => map.set(p.id, p));
-    (products || []).forEach((p) => {
-      const existing = map.get(p.id);
-      map.set(p.id, { ...existing, ...p });
-    });
-    return Array.from(map.values()).filter((p) => p.status !== 'discontinued');
+    return (products || []).filter((p) => p.status !== 'discontinued');
   }, [products]);
 
-  // Fallback enriched categories
+  // Authoritative categories
   const allCategories = useMemo(() => {
-    return categories && categories.length > 0 ? categories : INITIAL_CATEGORIES;
+    return categories || [];
   }, [categories]);
 
   const handleProductClick = (product: Product) => {

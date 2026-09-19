@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import CustomerShell from '../../../components/CustomerShell';
-import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { 
   ArrowLeft, 
   Search, 
@@ -61,22 +60,16 @@ export default function ProductDetailClient() {
     }
   }, [idOrSlug]);
 
-  // Combine products with fallback mock data
+  // Authoritative products
   const allProducts = useMemo(() => {
-    const map = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => map.set(p.id, p));
-    (products || []).forEach((p) => {
-      const existing = map.get(p.id);
-      map.set(p.id, { ...existing, ...p });
-    });
-    return Array.from(map.values()).filter((p) => p.status !== 'discontinued');
+    return (products || []).filter((p) => p.status !== 'discontinued');
   }, [products]);
 
   const product = useMemo(() => {
     if (apiProduct && (apiProduct.id === idOrSlug || apiProduct.slug === idOrSlug)) {
       return apiProduct;
     }
-    return allProducts.find((p) => p.id === idOrSlug || p.slug === idOrSlug) || allProducts[0];
+    return allProducts.find((p) => p.id === idOrSlug || p.slug === idOrSlug) || null;
   }, [allProducts, idOrSlug, apiProduct]);
 
   const dynamicSections = useMemo(() => {
@@ -119,13 +112,37 @@ export default function ProductDetailClient() {
       return list.slice(0, product.maxDisplayImages);
     }
     return list;
-  }, [product]);  if (!mounted || !product) {
+  }, [product]);  if (!mounted) {
     return (
       <CustomerShell title="Product Details" hideBottomNav>
         <div className="min-h-screen bg-white dark:bg-[#0B0F14] p-4 space-y-4 animate-pulse">
           <div className="h-80 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
           <div className="h-40 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
           <div className="h-20 bg-slate-200 dark:bg-[#151B23] rounded-3xl" />
+        </div>
+      </CustomerShell>
+    );
+  }
+
+  if (!product) {
+    return (
+      <CustomerShell title="Product Not Found" hideBottomNav>
+        <div className="min-h-[70vh] bg-white dark:bg-[#0B0F14] flex flex-col items-center justify-center p-6 text-center space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+            <Package className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Product Not Found</h2>
+            <p className="text-xs text-slate-500 max-w-xs">
+              The item you are looking for is currently unavailable or may have been removed.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/categories')}
+            className="bg-[#008F5A] hover:bg-[#007044] text-white text-xs font-black px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
+          >
+            Browse Products
+          </button>
         </div>
       </CustomerShell>
     );

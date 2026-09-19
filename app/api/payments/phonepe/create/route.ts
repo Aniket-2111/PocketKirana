@@ -43,20 +43,17 @@ export async function POST(request: Request) {
     }
     const uid = auth.uid;
 
-    // ── 2. MOCK / OFFLINE FALLBACK (auth disabled or no database) ──
-    const isMockOrder = String(orderId).includes('test_phonepe_');
+    // ── 2. DATABASE READINESS CHECK (fail-closed in production) ───
+    if (!isFirebaseConfigured() || !db) {
+      return corsResponse(
+        { success: false, error: 'Database service is currently unavailable. Please contact support.' },
+        { status: 503 }
+      );
+    }
 
-    if (isMockOrder || !isFirebaseConfigured() || !db) {
-      const mockTxnId = `TXN_PK_MOCK_${orderId}_${Date.now()}`;
-      const mockAmount = String(orderId).includes('999') ? 350.0 : 450.0;
-      return corsResponse({
-        success: true,
-        data: {
-          merchantTransactionId: mockTxnId,
-          redirectUrl: `/checkout/mock-phonepe?transactionId=${mockTxnId}&orderId=${orderId}&amount=${mockAmount}`,
-          isSimulation: true
-        }
-      });
+    const isMockOrder = String(orderId).includes('test_phonepe_');
+    if (isMockOrder && !isSimulationMode()) {
+      return corsResponse({ success: false, error: 'Invalid order reference' }, { status: 400 });
     }
 
     // ── 3. ORDER FETCH & OWNERSHIP CHECK ───────────────────────────

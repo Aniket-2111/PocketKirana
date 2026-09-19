@@ -1,11 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, notFound } from 'next/navigation';
 import { Smartphone, CheckCircle2, XCircle } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 
 export default function PhonePeMockSimulator() {
+  // Hard security lock: Never render simulator in production builds
+  if (process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'production') {
+    notFound();
+  }
+
   const router = useRouter();
   
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;

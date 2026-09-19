@@ -28,10 +28,11 @@ export async function POST(request: Request) {
     const config = getPhonePeConfig();
     const simulation = isSimulationMode();
 
-    // Mock transaction ids may ONLY be verified while simulation mode is on.
+    // Mock transaction ids may ONLY be verified while simulation mode is explicitly active.
     const isMockOrder = String(orderId || '').includes('test_phonepe_');
+    const isMockTxn = String(merchantTransactionId || '').startsWith('TXN_PK_MOCK');
 
-    if (isMockOrder && !simulation) {
+    if ((isMockOrder || isMockTxn) && !simulation) {
       return corsResponse({ success: false, error: 'Invalid transaction reference' }, { status: 400 });
     }
 

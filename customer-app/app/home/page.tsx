@@ -10,7 +10,6 @@ import { CategoryGrid } from '@/components/customer/CategoryGrid';
 import { ProductCarouselSection } from '@/components/customer/ProductCarouselSection';
 import { DualPromoBanner } from '@/components/customer/DualPromoBanner';
 import { FestivalCampaignRenderer } from '@/components/customer/festival/FestivalCampaignRenderer';
-import { INITIAL_PRODUCTS, INITIAL_CATEGORIES, INITIAL_BRANDS } from '@/lib/mockData';
 import { Product } from '@/types';
 import { Search, Sparkles, Building2, Flame, ArrowRight } from 'lucide-react';
 
@@ -34,21 +33,14 @@ export default function CustomerHome() {
     router.push(`/product/${product.id || product.slug}`);
   };
 
-  // Combine store products with fallback mock data to ensure rich presentation
+  // Authoritative store products
   const allProducts = useMemo(() => {
-    const map = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => map.set(p.id, p));
-    (products || []).forEach((p) => {
-      const existing = map.get(p.id);
-      map.set(p.id, { ...existing, ...p });
-    });
-    return Array.from(map.values()).filter((p) => p.status !== 'discontinued');
+    return (products || []).filter((p) => p.status !== 'discontinued');
   }, [products]);
 
-  // Active brands
+  // Authoritative active brands
   const activeBrands = useMemo(() => {
-    const list = brands && brands.length > 0 ? brands : INITIAL_BRANDS;
-    return list.filter((b) => b.isActive !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    return (brands || []).filter((b) => b.isActive !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
   }, [brands]);
 
   // 1. Top Savers Today (High discount products)

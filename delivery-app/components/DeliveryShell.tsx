@@ -98,15 +98,15 @@ export default function DeliveryShell({
     initializeFirebaseSync();
   }, [initializeFirebaseSync]);
 
-  const partner = deliveryPartners.find((p) => p.id === authenticatedPartnerId || p.id === activePartnerId) || deliveryPartners[0] || {
-    id: 'partner-1',
-    name: 'Rahul Sharma',
-    phone: '+91 8698893348',
-    partnerCode: 'DP001',
+  const partner = deliveryPartners.find((p) => p.id === authenticatedPartnerId || p.id === activePartnerId) || {
+    id: authenticatedPartnerId || 'partner-unauth',
+    name: 'Delivery Partner',
+    phone: '',
+    partnerCode: 'DP',
     vehicleType: 'EV Scooter',
-    vehicleNumber: 'MH 14 EV 2026',
-    currentStatus: 'online' as const,
-    rating: 4.9,
+    vehicleNumber: '',
+    currentStatus: 'offline' as const,
+    rating: 5.0,
     activeOrderId: undefined as string | undefined,
   };
 
