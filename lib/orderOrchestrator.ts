@@ -9,6 +9,7 @@
 import crypto from 'crypto';
 import { queryPostgres, withTransaction } from './postgres';
 import { dispatchNotification, OrderNotificationEvent } from './notificationDispatcher';
+import { appendOutboxEvent } from './db/outbox';
 
 export type CanonicalOrderStatus =
   | 'CREATED'
@@ -227,6 +228,27 @@ export async function transitionOrderStatus(params: TransitionParams): Promise<T
           JSON.stringify(metadata),
         ]
       );
+
+      // 3b. Record Transactional Outbox Event
+      try {
+        await appendOutboxEvent(client, {
+          aggregateType: 'order',
+          aggregateId: order.id,
+          eventType: 'order.status_changed',
+          payload: {
+            id: order.id,
+            orderNumber,
+            orderStatus: targetStatus,
+            previousStatus,
+            actorId,
+            actorType,
+            metadata,
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      } catch (outboxErr: any) {
+        console.warn('[OrderOrchestrator] Outbox append notice:', outboxErr.message);
+      }
 
       // 4. Update SLA Milestones in order_sla_events
       await client.query(
