@@ -280,9 +280,7 @@ export async function createNotificationRecord(notif: {
 
 /**
  * generateProductionOrderNumber — concurrency-safe sequential production order number.
- *
- * Uses PostgreSQL NEXTVAL('pk_order_seq') to ensure that even when two customers
- * check out simultaneously, each receives a unique sequential number.
+ * Supports PostgreSQL pool if provided, or Firestore atomic sequence counter in standalone functions runtime.
  *
  * Format:
  *   1   → PK-01
@@ -290,17 +288,36 @@ export async function createNotificationRecord(notif: {
  *   10  → PK-10
  *   99  → PK-99
  *   100 → PK-100
- *
- * @param pool - The active pg Pool or Client instance from lib/postgres.ts
  */
 export async function generateProductionOrderNumber(
-  pool: { query: (sql: string) => Promise<{ rows: Array<{ nextval: string | number }> }> }
+  pool?: { query: (sql: string) => Promise<{ rows: Array<{ nextval: string | number }> }> }
 ): Promise<string> {
-  const result = await pool.query("SELECT NEXTVAL('pk_order_seq') AS nextval");
-  const n = Number(result.rows[0].nextval);
-  // Zero-pad single digits (1-9 → 01-09), leave 10+ as-is
-  const formatted = n < 10 ? `PK-0${n}` : `PK-${n}`;
-  return formatted;
+  if (pool) {
+    try {
+      const result = await pool.query("SELECT NEXTVAL('pk_order_seq') AS nextval");
+      const n = Number(result.rows[0].nextval);
+      return n < 10 ? `PK-0${n}` : `PK-${n}`;
+    } catch {
+      // Fallback to Firestore atomic counter if PG pool query fails
+    }
+  }
+
+  // Standalone Firestore Atomic Sequence Counter for Cloud Functions environment
+  const db = admin.firestore();
+  const counterRef = db.collection('counters').doc('order_sequence');
+  let nextVal = 1;
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(counterRef);
+    if (!snap.exists) {
+      nextVal = 1;
+      tx.set(counterRef, { current: 1, updatedAt: new Date().toISOString() });
+    } else {
+      nextVal = ((snap.data()?.current as number) || 0) + 1;
+      tx.update(counterRef, { current: nextVal, updatedAt: new Date().toISOString() });
+    }
+  });
+
+  return nextVal < 10 ? `PK-0${nextVal}` : `PK-${nextVal}`;
 }
 
 /**

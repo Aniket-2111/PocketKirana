@@ -21,7 +21,6 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
-import { getPostgresPool } from '../../lib/postgres';
 import {
   C,
   haversineKm,
@@ -253,8 +252,7 @@ export const placeOrder = onCall(
     // ── 10. CREATE ORDER ──────────────────────────────────────────
     const orderId = newId('ord');
     // Generate concurrency-safe sequential production order number (PK-01, PK-02 ...)
-    const pgPool = getPostgresPool();
-    const orderNumber = await generateProductionOrderNumber(pgPool);
+    const orderNumber = await generateProductionOrderNumber();
     const deliveryOtp = String(1000 + Math.floor(Math.random() * 9000));
     const now = new Date().toISOString();
 
