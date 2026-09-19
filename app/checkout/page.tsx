@@ -191,17 +191,62 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      // Call the Cloud Function — this validates zone, stock, coupon, and creates the order server-side
-      const result = await callPlaceOrder({
-        cartItems: cart.map((item) => ({
-          productId: item.productId || item.product?.id || item.id,
-          quantity: item.quantity,
-        })),
-        addressId: selectedAddr.id,
-        paymentMethod: selectedPayment as 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card',
-        couponCode: appliedCoupon?.code,
-        storeId: 'store-001',
-      });
+      // 1. Post to Canonical PostgreSQL Checkout API
+      const idempotencyKey = `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      let result: any = null;
+
+      try {
+        const checkoutRes = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-idempotency-key': idempotencyKey,
+          },
+          body: JSON.stringify({
+            cartItems: cart.map((item) => ({
+              productId: item.productId || item.product?.id || item.id,
+              productName: item.product?.name || (item as any).name || '',
+              unitPrice: item.price,
+              imageUrl: item.product?.thumbnail || item.product?.image || (item as any).imageUrl || '',
+              sku: item.product?.sku || (item as any).sku || '',
+              quantity: item.quantity,
+            })),
+            address: selectedAddr,
+            addressId: selectedAddr.id,
+            paymentMethod: selectedPayment as 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card',
+            couponCode: appliedCoupon?.code,
+            storeId: 'store-001',
+            idempotencyKey,
+          }),
+        });
+
+        const checkoutData = await checkoutRes.json();
+        if (checkoutRes.ok && checkoutData.success) {
+          result = {
+            success: true,
+            orderId: checkoutData.data.orderId,
+            orderNumber: checkoutData.data.orderNumber,
+            total: checkoutData.data.total,
+            requiresPayment: checkoutData.data.requiresPayment,
+          };
+        }
+      } catch (e) {
+        console.warn('[Checkout] PostgreSQL API direct attempt, fallback to Cloud Function:', e);
+      }
+
+      // Fallback to Cloud Function if API was not reachable
+      if (!result) {
+        result = await callPlaceOrder({
+          cartItems: cart.map((item) => ({
+            productId: item.productId || item.product?.id || item.id,
+            quantity: item.quantity,
+          })),
+          addressId: selectedAddr.id,
+          paymentMethod: selectedPayment as 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card',
+          couponCode: appliedCoupon?.code,
+          storeId: 'store-001',
+        });
+      }
 
       if (result.success) {
         if (result.requiresPayment) {
