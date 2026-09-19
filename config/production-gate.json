@@ -1,0 +1,25 @@
+{
+  "production": {
+    "releaseVersion": "v1.0.0-production",
+    "publicTrafficEnabled": true,
+    "killSwitchActive": false,
+    "canaryStage": "Stage 3 - 100% Public Access",
+    "canaryPercentage": 100,
+    "serviceableStores": [
+      "store-001"
+    ],
+    "emergencyStopTriggers": {
+      "max5xxErrorRatePercent": 1.0,
+      "maxP95LatencyMs": 2000,
+      "maxOutboxBacklogAgeSeconds": 60,
+      "maxPaymentMismatchCount": 0,
+      "maxNegativeInventoryRows": 0
+    },
+    "supportChannels": {
+      "customerHelpdeskActive": true,
+      "pickerOpsHotlineActive": true,
+      "deliveryOpsHotlineActive": true,
+      "onCallEngineeringPagingActive": true
+    }
+  }
+}
