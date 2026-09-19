@@ -48,6 +48,7 @@ export interface OutboxWorkerOptions {
   batchSize?: number;
   leaseSeconds?: number;
   workerId?: string;
+  pollIntervalMs?: number;
 }
 
 export class OutboxWorker {
@@ -55,6 +56,7 @@ export class OutboxWorker {
   private workerId: string;
   private batchSize: number;
   private leaseSeconds: number;
+  private pollIntervalMs: number;
   private isRunning: boolean = false;
   private intervalTimer: NodeJS.Timeout | null = null;
 
@@ -63,6 +65,7 @@ export class OutboxWorker {
     this.workerId = options?.workerId || `worker_${process.pid}_${Math.random().toString(36).substring(2, 7)}`;
     this.batchSize = options?.batchSize || 25;
     this.leaseSeconds = options?.leaseSeconds || 30;
+    this.pollIntervalMs = options?.pollIntervalMs || 2000;
   }
 
   /**
@@ -351,7 +354,7 @@ export class OutboxWorker {
   /**
    * Starts the background processing loop.
    */
-  public start(pollIntervalMs: number = 2000): void {
+  public start(pollIntervalMs: number = this.pollIntervalMs): void {
     if (this.isRunning) return;
     this.isRunning = true;
 
