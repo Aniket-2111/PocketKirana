@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPostgresPool } from '@/lib/postgres';
+import { getPostgresPool, queryPostgres } from '@/lib/postgres';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       ORDER BY display_order ASC, created_at ASC;
     `;
 
-    const result = await pool.query(query, [productId]);
+    const result = await queryPostgres(query, [productId]);
 
     return NextResponse.json({
       success: true,

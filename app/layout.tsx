@@ -2,7 +2,11 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
 import { PWARegister } from '@/components/common/PWARegister';
-import { RealtimeNotificationToast } from '@/components/customer/RealtimeNotificationToast';
+import dynamic from 'next/dynamic';
+const RealtimeNotificationToast = dynamic(
+  () => import('@/components/customer/RealtimeNotificationToast').then(m => ({ default: m.RealtimeNotificationToast })),
+  { ssr: false }
+);
 import './globals.css';
 
 const inter = Inter({

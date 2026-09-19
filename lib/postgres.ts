@@ -34,13 +34,27 @@ export function getPostgresPool(): Pool {
     globalThis._postgresPool = new Pool({
       connectionString: getConnectionString(),
       max: 15,
-      idleTimeoutMillis: 20000,
-      connectionTimeoutMillis: 5000,
+      // 60s idle timeout — prevents silent connection drops on the LAN between requests
+      idleTimeoutMillis: 60000,
+      // 10s connection timeout — enough headroom for a remote LAN host
+      connectionTimeoutMillis: 10000,
+      // Allow pool to fully close when Node exits
       allowExitOnIdle: true,
     });
 
     globalThis._postgresPool.on('error', (err) => {
-      console.error('⚠️ Unexpected PostgreSQL Pool Error on Client DB:', err.message);
+      console.error('⚠️ PostgreSQL Pool Error (client DB):', err.message);
+      // Destroy the singleton so the next call rebuilds a fresh pool
+      // instead of endlessly retrying with a dead pool.
+      if (globalThis._postgresPool) {
+        globalThis._postgresPool.end().catch(() => {});
+        globalThis._postgresPool = undefined;
+      }
+    });
+
+    // Verify each new connection is truly alive (guards against stale TCP)
+    globalThis._postgresPool.on('connect', (client) => {
+      client.query('SELECT 1').catch(() => {});
     });
   }
   return globalThis._postgresPool;
@@ -90,19 +104,43 @@ export async function withTransaction<T>(
  * Execute a SQL query against the Client Laptop PostgreSQL DB
  */
 export async function queryPostgres(text: string, params?: any[]): Promise<QueryResult> {
-  const activePool = getPostgresPool();
   const start = Date.now();
-  try {
-    const res = await activePool.query(text, params);
-    const duration = Date.now() - start;
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`🐘 [Client DB Query] Executed in ${duration}ms | Rows: ${res.rowCount}`);
+
+  const isTransientConnectionError = (err: any) => {
+    const msg: string = (err?.message || '').toLowerCase();
+    return (
+      msg.includes('connection terminated') ||
+      msg.includes('connection timeout') ||
+      msg.includes('terminating connection') ||
+      msg.includes('connection reset') ||
+      err?.code === 'ECONNRESET' ||
+      err?.code === 'ECONNREFUSED' ||
+      err?.code === 'EPIPE'
+    );
+  };
+
+  let lastError: any;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const activePool = getPostgresPool();
+      const res = await activePool.query(text, params);
+      const duration = Date.now() - start;
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🐘 [Client DB Query] Executed in ${duration}ms | Rows: ${res.rowCount}`);
+      }
+      return res;
+    } catch (error: any) {
+      lastError = error;
+      if (attempt < 2 && isTransientConnectionError(error)) {
+        console.warn(`[queryPostgres] Transient connection error on attempt ${attempt}, retrying…`);
+        await new Promise((r) => setTimeout(r, 200 * attempt));
+        continue;
+      }
+      console.error(`❌ [Client DB Error] Query failed on ${DB_HOST}:${DB_PORT}:`, error.message);
+      throw error;
     }
-    return res;
-  } catch (error: any) {
-    console.error(`❌ [Client DB Error] Query failed on ${DB_HOST}:${DB_PORT}:`, error.message);
-    throw error;
   }
+  throw lastError;
 }
 
 /**
