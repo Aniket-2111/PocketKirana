@@ -1,0 +1,42 @@
+{
+  "pilot": {
+    "enabled": true,
+    "killSwitchActive": false,
+    "stage": "P1",
+    "serviceStoreId": "store-001",
+    "maxServiceRadiusKm": 5.0,
+    "maxConcurrentOrders": 3,
+    "maxOrdersPerHour": 10,
+    "maxOrdersPerDay": 30,
+    "maxActiveDeliveryPartners": 2,
+    "maxActivePickers": 2,
+    "allowedCustomerUids": [
+      "pilot_cust_001",
+      "pilot_cust_002",
+      "pilot_cust_003",
+      "pilot_cust_004",
+      "pilot_cust_005",
+      "pilot_cust_006",
+      "pilot_cust_007",
+      "pilot_cust_008",
+      "pilot_cust_009",
+      "pilot_cust_010"
+    ],
+    "allowedPickerUids": [
+      "pilot_picker_001",
+      "pilot_picker_002"
+    ],
+    "allowedDeliveryUids": [
+      "pilot_rider_001",
+      "pilot_rider_002"
+    ],
+    "slaThresholdsSeconds": {
+      "paymentConfirmationMax": 30,
+      "pickerClaimMax": 60,
+      "pickingAndPackingMax": 600,
+      "deliveryPickupMax": 300,
+      "deliveryDropoffMax": 1200,
+      "totalOrderDurationMax": 1800
+    }
+  }
+}
