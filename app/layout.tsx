@@ -2,11 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
 import { PWARegister } from '@/components/common/PWARegister';
-import dynamic from 'next/dynamic';
-const RealtimeNotificationToast = dynamic(
-  () => import('@/components/customer/RealtimeNotificationToast').then(m => ({ default: m.RealtimeNotificationToast })),
-  { ssr: false }
-);
+import { NotificationWrapper } from '@/components/common/NotificationWrapper';
 import './globals.css';
 
 const inter = Inter({
@@ -110,7 +106,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background flex flex-col font-sans antialiased text-foreground" suppressHydrationWarning>
         <PWARegister />
         <GlobalErrorSuppressor />
-        <RealtimeNotificationToast />
+        <NotificationWrapper />
         {children}
       </body>
     </html>
