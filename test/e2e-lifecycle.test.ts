@@ -61,6 +61,27 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockQuery.mockReset();
+
+    const cache = new Map<string, any>();
+    cache.set('prod_1', {
+      id: 'prod_1',
+      name: 'Organic Milk 1L',
+      sellingPrice: 65,
+      mrp: 75,
+      stock: 50,
+      status: 'active',
+      publishStatus: 'PUBLISHED',
+    });
+    cache.set('prod_sold_out', {
+      id: 'prod_sold_out',
+      name: 'Sold Out Item',
+      sellingPrice: 100,
+      mrp: 120,
+      stock: 10, // Passes initial pricing check, but postgres transaction triggers out of stock
+      status: 'active',
+      publishStatus: 'PUBLISHED',
+    });
+    globalThis._pkProductCache = cache;
   });
 
   describe('18D & 18E: Golden-Path End-to-End Lifecycle', () => {

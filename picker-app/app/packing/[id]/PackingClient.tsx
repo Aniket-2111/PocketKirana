@@ -6,6 +6,7 @@ import { useAppStore } from '@/lib/store';
 import PickerShell from '../../../components/PickerShell';
 import { OneByOnePackingWorkflow } from '@/components/picker/OneByOnePackingWorkflow';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/apiClient';
 import type { PickingTask, PickingItem } from '@/types';
 
 function PackingContent({ taskId: propTaskId }: { taskId?: string }) {
@@ -112,7 +113,7 @@ function PackingContent({ taskId: propTaskId }: { taskId?: string }) {
   const handlePackProductDone = async (tId: string, productId: string) => {
     try {
       const cleanTaskId = tId.startsWith('task-') ? tId.slice(5) : tId;
-      await fetch(`/api/picking/tasks/${cleanTaskId}/items/${productId}/pick`, {
+      await apiFetch(`/api/picking/tasks/${cleanTaskId}/items/${productId}/pick`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: 1, status: 'picked' }),
@@ -130,7 +131,7 @@ function PackingContent({ taskId: propTaskId }: { taskId?: string }) {
   const handleCompleteOrderPacked = async (tId: string, bagsCount: number, bagTypes: string[]) => {
     const cleanTaskId = tId.startsWith('task-') ? tId.slice(5) : tId;
     try {
-      await fetch(`/api/picker/orders/${cleanTaskId}/pack`, {
+      await apiFetch(`/api/picker/orders/${cleanTaskId}/pack`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -140,7 +141,7 @@ function PackingContent({ taskId: propTaskId }: { taskId?: string }) {
         }),
       }).catch(() => {});
 
-      await fetch(`/api/packing/tasks/${cleanTaskId}/complete`, {
+      await apiFetch(`/api/packing/tasks/${cleanTaskId}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes: `Packing confirmed in ${bagsCount} bags (${bagTypes.join(', ')})` }),

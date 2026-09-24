@@ -30,7 +30,19 @@ class NormalizeWindowsPathPlugin {
 }
 
 const nextConfig: NextConfig = {
-  ...(isProd ? { output: 'export', trailingSlash: true } : {}),
+  ...(isProd
+    ? { output: 'export', trailingSlash: true }
+    : {
+        async rewrites() {
+          const target = (process.env.NEXT_PUBLIC_API_URL || 'https://pocketkirana.in').replace(/\/+$/, '');
+          return [
+            {
+              source: '/api/:path*',
+              destination: `${target}/api/:path*`,
+            },
+          ];
+        },
+      }),
   reactStrictMode: false,
   devIndicators: false,
   compress: true,

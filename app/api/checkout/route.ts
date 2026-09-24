@@ -18,6 +18,7 @@ import { getPostgresPool } from '@/lib/postgres';
 import { getRouteAuth } from '@/lib/routeAuth';
 import { appendOutboxEvent } from '@/lib/db/outbox';
 import { getFefoRecommendation, recordInventoryEvent } from '@/lib/fefo';
+import { validateServerPricing } from '@/lib/catalogSync';
 
 interface CartItemInput {
   productId: string;
@@ -120,6 +121,36 @@ export async function POST(req: NextRequest) {
     const orderId = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const deliveryOtp = String(1000 + Math.floor(Math.random() * 9000));
 
+    // 4.1 AUTHORITATIVE CATALOG & PRICING VALIDATION
+    const catalogValidation = await validateServerPricing(
+      cartItems.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        productName: item.productName,
+      })),
+      { storeId }
+    );
+
+    if (catalogValidation.inactiveItems.length > 0) {
+      const firstInactive = catalogValidation.inactiveItems[0];
+      return NextResponse.json(
+        { error: `Item ${firstInactive.productName} is currently unavailable for purchase.` },
+        { status: 400 }
+      );
+    }
+
+    if (catalogValidation.outOfStockItems.length > 0) {
+      const firstOos = catalogValidation.outOfStockItems[0];
+      return NextResponse.json(
+        {
+          error: `Item ${firstOos.productName} has insufficient stock (available: ${firstOos.availableStock}, requested: ${firstOos.requestedQuantity}).`,
+        },
+        { status: 400 }
+      );
+    }
+
     // 5. CALCULATE TOTALS & STOCK RESERVATION (with FOR UPDATE lock)
     let subtotal = 0;
     const validatedItems: Array<{
@@ -134,7 +165,9 @@ export async function POST(req: NextRequest) {
       imageUrl: string;
     }> = [];
 
-    for (const item of cartItems) {
+    for (let i = 0; i < cartItems.length; i++) {
+      const item = cartItems[i];
+      const validatedCatItem = catalogValidation.items[i];
       const pId = item.productId;
       const vId = item.variantId || pId;
       const qty = Math.max(1, Number(item.quantity) || 1);
@@ -213,20 +246,21 @@ export async function POST(req: NextRequest) {
         // Inventory table might be in initialization phase
       }
 
-      const unitPrice = item.unitPrice || 100;
-      const lineTotal = unitPrice * qty;
+      // STRICT SERVER AUTHORITATIVE PRICE ENFORCEMENT
+      const authoritativeUnitPrice = validatedCatItem ? validatedCatItem.authoritativeUnitPrice : (item.unitPrice || 100);
+      const lineTotal = authoritativeUnitPrice * qty;
       subtotal += lineTotal;
 
       validatedItems.push({
         id: `oi-${Date.now()}-${pId}`,
         productId: pId,
         variantId: vId,
-        productName: item.productName || 'Product ' + pId,
-        sku: item.sku || '',
+        productName: validatedCatItem?.productName || item.productName || 'Product ' + pId,
+        sku: validatedCatItem?.sku || item.sku || '',
         quantity: qty,
-        unitPrice,
+        unitPrice: authoritativeUnitPrice,
         totalPrice: lineTotal,
-        imageUrl: item.imageUrl || '',
+        imageUrl: validatedCatItem?.imageUrl || item.imageUrl || '',
       });
     }
 

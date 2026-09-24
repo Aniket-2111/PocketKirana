@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { getClientMessaging, setupFCMForegroundListener } from '@/lib/fcmClient';
 
 export function PWARegister() {
   useEffect(() => {
@@ -34,9 +33,14 @@ export function PWARegister() {
     registerSW();
 
     // Setup foreground message listener if notifications are active
-    const unsubFCM = setupFCMForegroundListener((payload) => {
-      console.log('[PWA] Foreground Push Message received:', payload);
-    });
+    let unsubFCM: (() => void) | undefined;
+    import('@/lib/fcmClient')
+      .then(({ setupFCMForegroundListener }) => {
+        unsubFCM = setupFCMForegroundListener((payload) => {
+          console.log('[PWA] Foreground Push Message received:', payload);
+        });
+      })
+      .catch(() => {});
 
     return () => {
       if (unsubFCM) unsubFCM();

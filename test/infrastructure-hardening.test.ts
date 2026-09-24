@@ -83,14 +83,14 @@ describe('Phase 13: Production Infrastructure & Environment Hardening', () => {
       const originalKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
       try {
-        process.env.NODE_ENV = 'production';
+        (process.env as any).NODE_ENV = 'production';
         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = 'pocketkirana-dev';
         process.env.NEXT_PUBLIC_FIREBASE_API_KEY = 'AIzaSyFakeKeyForTestEnv1234567890';
 
         const isConfigured = isFirebaseConfigured();
         expect(isConfigured).toBe(false);
       } finally {
-        process.env.NODE_ENV = originalEnv;
+        (process.env as any).NODE_ENV = originalEnv;
         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = originalProject;
         process.env.NEXT_PUBLIC_FIREBASE_API_KEY = originalKey;
       }
@@ -102,14 +102,14 @@ describe('Phase 13: Production Infrastructure & Environment Hardening', () => {
       const originalKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
       try {
-        process.env.NODE_ENV = 'production';
+        (process.env as any).NODE_ENV = 'production';
         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = 'pocketkirana-prod';
         process.env.NEXT_PUBLIC_FIREBASE_API_KEY = 'AIzaSyRealValidProductionKey1234567890';
 
         const isConfigured = isFirebaseConfigured();
         expect(isConfigured).toBe(true);
       } finally {
-        process.env.NODE_ENV = originalEnv;
+        (process.env as any).NODE_ENV = originalEnv;
         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = originalProject;
         process.env.NEXT_PUBLIC_FIREBASE_API_KEY = originalKey;
       }

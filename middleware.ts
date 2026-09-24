@@ -48,12 +48,48 @@ function sanitizeRequestHeaders(request: NextRequest): NextRequest {
   });
 }
 
+const ALLOWED_APK_ORIGINS = new Set([
+  'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
+  'https://pocketkirana.in',
+  'https://pocketkirana.com',
+  'https://api.pocketkirana.in',
+]);
+
+function isAllowedOrigin(origin: string | null, host: string): boolean {
+  if (!origin) return true;
+  if (ALLOWED_APK_ORIGINS.has(origin)) return true;
+  const originHost = origin.replace(/^https?:\/\//, '').split(':')[0];
+  const hostClean = host.split(':')[0];
+  if (originHost === hostClean) return true;
+  if (hostClean.includes('localhost') || hostClean.includes('127.0.0.1')) return true;
+  return false;
+}
+
 // ── Main Middleware ─────────────────────────────────────────────────────────
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const sanitized = sanitizeRequestHeaders(request);
   const { pathname } = sanitized.nextUrl;
   const method = sanitized.method;
+  const origin = sanitized.headers.get('origin');
+  const host = sanitized.headers.get('host') || '';
+
+  // 1. Handle CORS Preflight for API routes
+  if (method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    const allowOrigin = origin && isAllowedOrigin(origin, host) ? origin : '*';
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': allowOrigin,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-pk-role, x-pk-uid, x-idempotency-key, X-VERIFY, sentry-trace, baggage, cache-control',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
 
   // Create base response with security headers
   const requestHeaders = new Headers(sanitized.headers);
@@ -62,19 +98,22 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('X-Frame-Options', 'DENY');
 
+  // Inject CORS headers for allowed API callers (Web + APK)
+  if (pathname.startsWith('/api/')) {
+    if (origin && isAllowedOrigin(origin, host)) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Vary', 'Origin');
+    }
+  }
+
   // CSRF Check on State-Changing API Mutations
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/')) {
-    const origin = sanitized.headers.get('origin');
-    const host = sanitized.headers.get('host');
-
-    if (origin && host) {
-      const originHost = origin.replace(/^https?:\/\//, '');
-      if (originHost !== host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
-        return new NextResponse(
-          JSON.stringify({ success: false, code: 'CSRF_BLOCKED', error: 'Cross-site request blocked' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+    if (origin && !isAllowedOrigin(origin, host)) {
+      return new NextResponse(
+        JSON.stringify({ success: false, code: 'CSRF_BLOCKED', error: 'Cross-site request blocked' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
     }
   }
 
@@ -85,7 +124,6 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   const strictModeEnabled = process.env.NEXT_PUBLIC_AUTH_MIDDLEWARE_ENABLED === 'true';
   const isProduction = process.env.NODE_ENV === 'production';
-  const host = sanitized.headers.get('host') || '';
   const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 
   // Dev bypass: local, non-strict, non-production ONLY. Never injects x-pk-*

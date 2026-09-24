@@ -6,6 +6,7 @@ import { useAppStore } from '@/lib/store';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ProductImageWithFallback } from '@/components/states/ProductImageWithFallback';
 import { showToast } from '@/components/ui/Toast';
 import { ChevronRight, Trash2 } from 'lucide-react';
 
@@ -57,13 +58,11 @@ export default function WishlistPage() {
                   className="p-4 flex items-center justify-between gap-4 hover:bg-gray-50/80 transition-colors group"
                 >
                   <Link href={`/product/${product.slug}`} className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="w-14 h-14 shrink-0 rounded-2xl bg-gray-50 border border-gray-200/80 p-1.5 flex items-center justify-center">
-                      <img
+                    <div className="w-14 h-14 shrink-0 rounded-2xl bg-gray-50 dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 p-1 flex items-center justify-center">
+                      <ProductImageWithFallback
                         src={product.thumbnail}
                         alt={product.name}
-                        loading="lazy"
-                        decoding="async"
-                        className="max-w-full max-h-full object-contain rounded-lg"
+                        containerClassName="w-full h-full rounded-lg"
                       />
                     </div>
                     <div className="flex-1 min-w-0">

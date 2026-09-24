@@ -22,6 +22,7 @@ import { showToast } from '@/components/ui/Toast';
 import { Footer } from '@/components/layout/Footer';
 import { CustomerLocationPermissionGuard } from './LocationPermissionGuard';
 import { initThemeListener } from '../lib/themeUtils';
+import FreeDeliveryProgressBar from './customer/FreeDeliveryProgressBar';
 
 interface CustomerShellProps {
   children: React.ReactNode;
@@ -146,7 +147,7 @@ export default function CustomerShell({
 
   return (
     <CustomerLocationPermissionGuard>
-    <div className={`${fixedViewport ? 'h-[100dvh] h-screen overflow-hidden' : 'min-h-screen pb-20 overflow-x-hidden'} bg-[#FFFFFF] dark:bg-[#0B0F14] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans selection:bg-emerald-600 selection:text-white transition-colors duration-200 w-full`}>
+    <div className={`${fixedViewport ? 'h-[100dvh] h-screen overflow-hidden' : 'min-h-screen pb-44 sm:pb-48 overflow-x-hidden'} bg-[#FFFFFF] dark:bg-[#0B0F14] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans selection:bg-emerald-600 selection:text-white transition-colors duration-200 w-full`}>
       
       {/* ── TOP HEADER BAR ── */}
       <header className="shrink-0 z-40 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-b border-[#E5E7EB] dark:border-[#263241] px-3 sm:px-4 py-2.5 sm:py-3 shadow-2xs w-full">
@@ -241,30 +242,40 @@ export default function CustomerShell({
       {/* ── CUSTOMER FOOTER ── */}
       {!fixedViewport && <Footer />}
 
-      {/* ── STICKY FLOATING CART & CHECKOUT BAR ── */}
-      {mounted && totalCartCount > 0 && pathname !== '/cart' && pathname !== '/checkout' && !pathname.startsWith('/checkout/') && (
-        <div className={`fixed ${hideBottomNav ? 'bottom-4' : 'bottom-20'} left-3 right-3 z-50 max-w-lg mx-auto animate-in slide-in-from-bottom-4 duration-200`}>
-          <div
-            onClick={() => router.push('/checkout')}
-            className="bg-[#006E2F] hover:bg-[#005a26] text-white p-3.5 rounded-2xl shadow-xl flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all border border-emerald-400/30"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-black text-xs">
-                {totalCartCount}
-              </div>
-              <div>
-                <div className="text-xs font-black tracking-wide">
-                  {totalCartCount} {totalCartCount === 1 ? 'ITEM' : 'ITEMS'} • ₹{cartSubtotal}
+      {/* ── COORDINATED FLOATING CART & PERSISTENT FREE DELIVERY WIDGET ── */}
+      {!hideBottomNav && pathname !== '/cart' && pathname !== '/checkout' && !pathname.startsWith('/checkout/') && (
+        <div className="fixed bottom-16 left-3 right-3 z-45 max-w-lg mx-auto pointer-events-none pb-1 space-y-1.5">
+          {/* Floating Cart Pill (Compact, with "Cart" CTA) */}
+          {mounted && totalCartCount > 0 && (
+            <div className="pointer-events-auto animate-in slide-in-from-bottom-2 duration-200">
+              <div
+                onClick={() => router.push('/cart')}
+                className="bg-[#006E2F] hover:bg-[#005a26] text-white px-3 py-1.5 rounded-xl shadow-md flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all border border-emerald-400/30"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center font-black text-[10px]">
+                    {totalCartCount}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-black tracking-tight leading-tight">
+                      {totalCartCount} {totalCartCount === 1 ? 'ITEM' : 'ITEMS'} • ₹{cartSubtotal}
+                    </div>
+                    <div className="text-[9px] text-emerald-100 font-medium leading-tight">
+                      View cart
+                    </div>
+                  </div>
                 </div>
-                <div className="text-[10px] text-emerald-100 font-medium">
-                  Extra items saved in cart
+                <div className="flex items-center gap-1 bg-white text-[#006E2F] font-black text-[10px] px-2.5 py-1 rounded-lg shadow-2xs">
+                  <span>Cart</span>
+                  <span className="text-xs leading-none">→</span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 bg-white text-[#006E2F] font-black text-xs px-3.5 py-2 rounded-xl shadow-xs">
-              <span>Checkout</span>
-              <span className="text-sm leading-none">→</span>
-            </div>
+          )}
+
+          {/* Persistent Free Delivery Progress Widget above Bottom Nav */}
+          <div className="pointer-events-auto animate-in slide-in-from-bottom-2 duration-200">
+            <FreeDeliveryProgressBar variant="floating" />
           </div>
         </div>
       )}

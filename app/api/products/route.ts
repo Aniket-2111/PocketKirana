@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
       if (prodRes.rows.length > 0) {
         // Fetch all variants for these products
-        const productIds = prodRes.rows.map((r) => r.id);
+        const productIds = prodRes.rows.map((r: any) => r.id);
         const varRes = await pool.query(
           `
           SELECT 
@@ -74,14 +74,14 @@ export async function GET(request: Request) {
             display_order as "displayOrder",
             pk_display_code as "pkDisplayCode"
           FROM product_variants
-          WHERE product_id = ANY($1)
+          WHERE product_id = ANY($1::varchar[])
           ORDER BY display_order ASC, created_at ASC;
           `,
           [productIds]
         );
 
         const variantsByProdId: Record<string, ProductVariant[]> = {};
-        for (const row of varRes.rows) {
+        for (const row of varRes.rows as any[]) {
           if (!variantsByProdId[row.productId]) {
             variantsByProdId[row.productId] = [];
           }
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
           });
         }
 
-        const enrichedProducts: Product[] = prodRes.rows.map((p) => {
+        const enrichedProducts: Product[] = prodRes.rows.map((p: any) => {
           const variants = variantsByProdId[p.id] || [];
           const lowestVariantPrice = variants.length > 0
             ? Math.min(...variants.filter((v) => v.isActive).map((v) => v.sellingPrice))

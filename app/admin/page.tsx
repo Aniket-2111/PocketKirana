@@ -60,12 +60,14 @@ import {
   History,
   CheckCheck,
   Building2,
-  Menu
+  Menu,
+  RotateCcw,
+  AlertTriangle,
+  LifeBuoy
 } from 'lucide-react';
 import { BulkCSVUploadModal } from '@/components/admin/BulkCSVUploadModal';
 import { uploadProductImageFS } from '@/lib/firebaseStorage';
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
-import { NotificationSimulator } from '@/components/common/NotificationSimulator';
 import { Product360Modal } from '@/components/admin/Product360Modal';
 import { AddProductWithBarcodeModal } from '@/components/admin/AddProductWithBarcodeModal';
 import { BatchInventoryView } from '@/components/admin/BatchInventoryView';
@@ -82,6 +84,10 @@ import { PaymentsAndSettlementView } from '@/components/admin/PaymentsAndSettlem
 import { FestivalCampaignsCMS } from '@/components/admin/festival/FestivalCampaignsCMS';
 import { ProductEditorModal } from '@/components/admin/ProductEditorModal';
 import { NotificationCenterView } from '@/components/admin/NotificationCenterView';
+import { MarketingManagementView } from '@/components/admin/marketing/MarketingManagementView';
+import { DeliveryExceptionsAdminView } from '@/components/admin/DeliveryExceptionsAdminView';
+import { ReturnsManagementAdminView } from '@/components/admin/ReturnsManagementAdminView';
+import { CustomerIssuesAdminView } from '@/components/admin/CustomerIssuesAdminView';
 import { Order } from '@/types';
 import { INITIAL_ORDERS } from '@/lib/mockData';
 
@@ -158,7 +164,7 @@ function AdminDashboardContent() {
   };
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'analytics' | 'inventory' | 'batches' | 'expiry' | 'ledger' | 'categories' | 'brands' | 'offers' | 'orders' | 'customers' | 'notifications' | 'audit' | 'delivery-fleet' | 'service-area' | 'invoices' | 'invoice-settings' | 'payments' | 'festivals'
+    'overview' | 'analytics' | 'inventory' | 'batches' | 'expiry' | 'ledger' | 'categories' | 'brands' | 'offers' | 'orders' | 'customers' | 'notifications' | 'audit' | 'delivery-fleet' | 'service-area' | 'invoices' | 'invoice-settings' | 'payments' | 'festivals' | 'delivery-exceptions' | 'returns' | 'customer-issues'
   >(
     initialTab === 'store' ? 'orders' : (initialTab as any) || 'overview'
   );
@@ -552,6 +558,8 @@ function AdminDashboardContent() {
       items: [
         { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'orders', label: 'Orders & Queue', icon: ShoppingBag, count: activeOrders.length },
+        { id: 'delivery-exceptions', label: 'Delivery Exceptions', icon: AlertTriangle },
+        { id: 'returns', label: 'Returns & Inspections', icon: RotateCcw },
         { id: 'delivery-fleet', label: 'Staff & Fleet', icon: Truck, count: deliveryPartners.length + (pickers?.length || 0) },
         { id: 'service-area', label: 'Service Area', icon: MapPin, href: '/admin/service-area' },
       ],
@@ -572,6 +580,7 @@ function AdminDashboardContent() {
       items: [
         { id: 'festivals', label: 'Festival Campaigns', icon: Sparkles },
         { id: 'offers', label: 'Banners & Marketing', icon: Percent, count: banners.length + coupons.length },
+        { id: 'customer-issues', label: 'Customer Complaints', icon: LifeBuoy },
         { id: 'customers', label: 'Customer Base', icon: Users },
         { id: 'notifications', label: 'Broadcast & Alerts', icon: Bell, count: adminUnreadCount > 0 ? adminUnreadCount : undefined },
       ],
@@ -1081,9 +1090,9 @@ function AdminDashboardContent() {
             </div>
           )}
 
-          {/* ── TAB 4: MARKETING & BANNERS ── */}
+          {/* ── TAB 4: MARKETING, OFFERS & PROMOTIONS HUB ── */}
           {activeTab === 'offers' && (
-            <BannerManagementView />
+            <MarketingManagementView />
           )}
 
           {/* ── TAB 5: ORDERS & STORE QUEUE (Orders Management) ── */}
@@ -1359,6 +1368,21 @@ function AdminDashboardContent() {
           {/* ── TAB: FESTIVAL CAMPAIGNS & AI TEMPLATES CMS ── */}
           {activeTab === 'festivals' && (
             <FestivalCampaignsCMS />
+          )}
+
+          {/* ── TAB: DELIVERY EXCEPTIONS & FAILED DELIVERIES ── */}
+          {activeTab === 'delivery-exceptions' && (
+            <DeliveryExceptionsAdminView />
+          )}
+
+          {/* ── TAB: RETURNS MANAGEMENT & GROCERY SAFETY INSPECTIONS ── */}
+          {activeTab === 'returns' && (
+            <ReturnsManagementAdminView />
+          )}
+
+          {/* ── TAB: CUSTOMER COMPLAINTS & QUALITY ISSUES ── */}
+          {activeTab === 'customer-issues' && (
+            <CustomerIssuesAdminView />
           )}
 
         </main>
@@ -1821,7 +1845,6 @@ function AdminDashboardContent() {
         isOpen={showBulkCSVModal}
         onClose={() => setShowBulkCSVModal(false)}
       />
-      <NotificationSimulator />
     </div>
   );
 }

@@ -44,14 +44,12 @@ export interface CheckoutQuote {
   appliedCouponCode?: string;
 }
 
+import { apiFetch } from '@/lib/apiClient';
+
 // Helper wrapper for standardized API responses
 async function request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
   try {
-    const res = await fetch(endpoint, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+    const res = await apiFetch(endpoint, {
       ...options,
     });
     const data = await res.json();

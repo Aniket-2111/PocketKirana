@@ -25,9 +25,14 @@ import {
   Clock,
   MapPin,
   Truck,
-  Navigation
+  Navigation,
+  AlertTriangle
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { apiFetch } from '@/lib/apiClient';
+
+import { CustomerComplaintModal } from '@/components/customer/CustomerComplaintModal';
+import { CustomerComplaintTracker } from '@/components/customer/CustomerComplaintTracker';
 
 const LiveTrackingMap = dynamic(
   () => import('@/components/customer/LiveTrackingMap').then((m) => m.LiveTrackingMap),
@@ -49,8 +54,9 @@ export default function OrderTrackingClient() {
   const [ratingComment, setRatingComment] = useState('');
   const [isRated, setIsRated] = useState(false);
 
-  // Support Chat Modal State
+  // Support Chat & Complaint Modal State
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
 
   const { orders, products, addToCart, activeOrderTrackingId, downloadInvoicePDF, addReview } = useAppStore();
 
@@ -239,7 +245,7 @@ export default function OrderTrackingClient() {
     if (!order) return;
     setIsDownloadingInvoice(true);
     try {
-      const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}/invoice?format=pdf`, {
+      const response = await apiFetch(`/api/orders/${encodeURIComponent(order.id)}/invoice?format=pdf`, {
         headers: { Accept: 'application/pdf' },
       });
       if (response.ok) {
@@ -907,6 +913,34 @@ export default function OrderTrackingClient() {
             </button>
           </div>
 
+          {/* ── 3.5 NEED HELP / REPORT A PROBLEM ── */}
+          <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/60 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-800 dark:text-white block">
+                  Need help with this order?
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Report damaged, expired or missing items
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowComplaintModal(true)}
+              className="shrink-0 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-black text-xs px-4 py-2 rounded-xl transition-all cursor-pointer shadow-xs"
+            >
+              Report Issue
+            </button>
+          </div>
+
+          {/* ── Live Complaint Tracking ── */}
+          <CustomerComplaintTracker orderId={order.id} />
+
           {/* ── 4. BILL DETAILS ── */}
           <div className="space-y-3 pt-1">
             <h2 className="text-sm font-black text-[#111827] dark:text-[#F9FAFB] tracking-tight">
@@ -1181,6 +1215,17 @@ export default function OrderTrackingClient() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── Customer Complaint Modal ── */}
+      {showComplaintModal && order && (
+        <CustomerComplaintModal
+          order={order}
+          onClose={() => setShowComplaintModal(false)}
+          onSubmitted={() => {
+            setShowComplaintModal(false);
+          }}
+        />
       )}
 
     </div>

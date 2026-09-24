@@ -1,42 +1,47 @@
-const fs = require('fs');
-const path = require('path');
 const { Client } = require('pg');
 
-try {
-  const envContent = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
-  envContent.split('\n').forEach((line) => {
-    const m = line.match(/^\s*([\w.-]+)\s*=\s*"?([^"]*)"?\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
-  });
-} catch (_) {}
+const targetHost = process.env.DB_HOST || '192.168.0.106';
+const targetPort = parseInt(process.env.DB_PORT || '5433', 10);
+const targetDb = process.env.DB_NAME || 'pocketkirana_db';
+const targetUser = process.env.DB_USER || 'postgres';
+const targetPass = process.env.DB_PASSWORD || 'varbusiness';
 
-const client = new Client({
-  host: process.env.DB_HOST || '192.168.0.102',
-  port: parseInt(process.env.DB_PORT || '5433'),
-  database: process.env.DB_NAME || 'pocketkirana_db',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  connectionTimeoutMillis: 8000,
-});
+const connectionString =
+  process.env.DATABASE_URL ||
+  `postgresql://${targetUser}:${encodeURIComponent(targetPass)}@${targetHost}:${targetPort}/${targetDb}`;
 
-async function inspect() {
+async function run() {
+  const client = new Client({ connectionString, connectionTimeoutMillis: 5000 });
   await client.connect();
-  try {
-    const countRes = await client.query("SELECT COUNT(*) FROM product_variants");
-    console.log('Total rows in product_variants:', countRes.rows[0].count);
 
-    const rowsRes = await client.query("SELECT * FROM product_variants LIMIT 5");
-    console.log('Sample rows:', rowsRes.rows);
+  console.log('--- PRODUCTS COLUMNS ---');
+  const prodCols = await client.query(`
+    SELECT column_name, data_type, is_nullable 
+    FROM information_schema.columns 
+    WHERE table_name = 'products' 
+    ORDER BY ordinal_position;
+  `);
+  console.table(prodCols.rows);
 
-    const productsCount = await client.query("SELECT COUNT(*) FROM products");
-    console.log('Total products:', productsCount.rows[0].count);
+  console.log('--- PRODUCT_VARIANTS COLUMNS ---');
+  const varCols = await client.query(`
+    SELECT column_name, data_type, is_nullable 
+    FROM information_schema.columns 
+    WHERE table_name = 'product_variants' 
+    ORDER BY ordinal_position;
+  `);
+  console.table(varCols.rows);
 
-  } catch (err) {
-    console.error('Error:', err);
-  } finally {
-    await client.end();
-    process.exit(0);
-  }
+  console.log('--- EXISTING INDEXES ON PRODUCTS & VARIANTS ---');
+  const indexes = await client.query(`
+    SELECT tablename, indexname, indexdef
+    FROM pg_indexes
+    WHERE tablename IN ('products', 'product_variants')
+    ORDER BY tablename, indexname;
+  `);
+  console.table(indexes.rows);
+
+  await client.end();
 }
 
-inspect();
+run().catch(console.error);

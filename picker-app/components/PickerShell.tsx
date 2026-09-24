@@ -7,6 +7,7 @@ import { useAppStore } from '@/lib/store';
 import {
   Home,
   Package,
+  Boxes,
   Scan,
   Archive,
   User,
@@ -169,6 +170,7 @@ export default function PickerShell({ children }: PickerShellProps) {
   const navItems = [
     { name: 'Home', href: '/home', icon: Home },
     { name: 'Orders', href: '/tasks', icon: Package },
+    { name: 'Inventory', href: '/inventory', icon: Boxes },
     { name: 'Profile', href: '/profile', icon: User },
   ];
 
@@ -210,7 +212,7 @@ export default function PickerShell({ children }: PickerShellProps) {
             <Store className="w-5 h-5 text-emerald-600 shrink-0" />
             <div className="min-w-0">
               <span className="text-[10px] text-slate-400 font-black block uppercase tracking-wider">Assigned Store</span>
-              <strong className="text-slate-900 text-xs font-bold block truncate">{picker.storeName || 'MG Road Store'}</strong>
+              <strong className="text-slate-900 text-xs font-bold block truncate">{picker.storeName || 'PocketKirana Neral Hub'}</strong>
             </div>
           </div>
 
@@ -284,7 +286,7 @@ export default function PickerShell({ children }: PickerShellProps) {
                 </span>
               </div>
               <span className="text-[10px] text-slate-500 font-bold block truncate max-w-[140px]">
-                {picker.storeName || 'MG Road Store'}
+                {picker.storeName || 'PocketKirana Neral Hub'}
               </span>
             </div>
           </div>
@@ -321,7 +323,7 @@ export default function PickerShell({ children }: PickerShellProps) {
 
       {/* ── MOBILE BOTTOM NAVIGATION BAR ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-xl">
-        <div className="grid grid-cols-3 h-16">
+        <div className="grid grid-cols-4 h-16">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;

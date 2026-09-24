@@ -1,40 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Product, ProductSection } from '@/types';
-import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { normalizeProductSections, sanitizeVisibleSectionsForCustomer, getDefaultProductSections } from '@/lib/productSectionUtils';
 import { logAuditEvent } from '@/lib/auditLogger';
-import { queryPostgres } from '@/lib/postgres';
-
-declare global {
-  // eslint-disable-next-line no-var
-  var _pkProductCache: Map<string, Product> | undefined;
-}
-
-function getProductCache(): Map<string, Product> {
-  if (!globalThis._pkProductCache) {
-    globalThis._pkProductCache = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => {
-      const normalizedSections = normalizeProductSections(p);
-      globalThis._pkProductCache!.set(p.id, {
-        ...p,
-        publishStatus: p.publishStatus || 'PUBLISHED',
-        sections: normalizedSections,
-      });
-      if (p.slug) {
-        globalThis._pkProductCache!.set(p.slug, {
-          ...p,
-          publishStatus: p.publishStatus || 'PUBLISHED',
-          sections: normalizedSections,
-        });
-      }
-    });
-  }
-  return globalThis._pkProductCache;
-}
+import { getCatalogVersion, publishProductChange, syncIncrementalCatalog } from '@/lib/catalogSync';
 
 /**
  * GET /api/v1/products
  * List products with optional category, search, and status filters.
+ * Returns authoritative catalog version and data.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -44,20 +17,8 @@ export async function GET(req: NextRequest) {
     const role = req.headers.get('x-pk-role') || 'customer';
     const isAdmin = role === 'admin' || role === 'store_manager';
 
-    const cache = getProductCache();
-    // Unique products list
-    const uniqueProductsMap = new Map<string, Product>();
-    cache.forEach((p) => {
-      if (p.id && !uniqueProductsMap.has(p.id)) {
-        uniqueProductsMap.set(p.id, p);
-      }
-    });
-
-    let list = Array.from(uniqueProductsMap.values());
-
-    if (!isAdmin) {
-      list = list.filter((p) => (p.publishStatus || 'PUBLISHED') === 'PUBLISHED');
-    }
+    const syncResult = await syncIncrementalCatalog(0, { includeDrafts: isAdmin });
+    let list = syncResult.products;
 
     if (category) {
       list = list.filter((p) => p.categoryId === category || p.category === category);
@@ -79,11 +40,21 @@ export async function GET(req: NextRequest) {
       sections: isAdmin ? normalizeProductSections(p) : sanitizeVisibleSectionsForCustomer(normalizeProductSections(p)),
     }));
 
-    return NextResponse.json({
-      success: true,
-      count: formatted.length,
-      data: formatted,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: formatted.length,
+        catalogVersion: syncResult.catalogVersion,
+        lastUpdatedAt: syncResult.lastUpdatedAt,
+        data: formatted,
+      },
+      {
+        headers: {
+          'Cache-Control': isAdmin ? 'no-cache, no-store' : 'public, s-maxage=30, stale-while-revalidate=60',
+          'X-Catalog-Version': String(syncResult.catalogVersion),
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || 'Failed to fetch products' },
@@ -94,7 +65,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/v1/products
- * Admin endpoint to create a new product with default or custom sections.
+ * Admin endpoint to create and publish a new product with default or custom sections.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -123,10 +94,11 @@ export async function POST(req: NextRequest) {
       ? body.sections
       : getDefaultProductSections();
 
-    const newProduct: Product = {
+    const newProductData: Partial<Product> = {
+      ...body,
       id,
-      name: body.name,
       slug,
+      name: body.name.trim(),
       description: body.description || '',
       categoryId: body.categoryId || 'cat-veg',
       brandId: body.brandId || '',
@@ -143,38 +115,16 @@ export async function POST(req: NextRequest) {
       images: body.images || [],
       status: body.status || 'active',
       publishStatus: body.publishStatus || 'PUBLISHED',
-      rating: 4.8,
-      reviewsCount: 12,
+      rating: body.rating || 4.8,
+      reviewsCount: body.reviewsCount || 12,
       sections,
     };
 
-    const cache = getProductCache();
-    cache.set(id, newProduct);
-    cache.set(slug, newProduct);
-
-    // Persist to PostgreSQL if available
-    try {
-      await queryPostgres(
-        `INSERT INTO products (id, name, slug, description, category_id, brand_id, selling_price, mrp, unit, status, publish_status, thumbnail, images, sections, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())`,
-        [
-          id,
-          newProduct.name,
-          slug,
-          newProduct.description,
-          newProduct.categoryId,
-          newProduct.brandId,
-          newProduct.sellingPrice,
-          newProduct.mrp,
-          newProduct.unit,
-          newProduct.status,
-          newProduct.publishStatus,
-          newProduct.thumbnail,
-          JSON.stringify(newProduct.images || []),
-          JSON.stringify(sections),
-        ]
-      );
-    } catch (_) {}
+    const publishResult = await publishProductChange(id, newProductData, {
+      eventType: 'PRODUCT_CREATED',
+      adminUid,
+      adminRole: role,
+    });
 
     await logAuditEvent({
       userId: adminUid,
@@ -182,13 +132,20 @@ export async function POST(req: NextRequest) {
       action: 'PRODUCT_CREATE_DYNAMIC',
       entityType: 'PRODUCT',
       entityId: id,
-      details: { productName: newProduct.name, sectionCount: sections.length },
+      details: {
+        productName: publishResult.product.name,
+        sectionCount: sections.length,
+        version: publishResult.version,
+        catalogVersion: publishResult.catalogVersion,
+      },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Product created successfully.',
-      data: newProduct,
+      message: 'Product created and synchronized successfully.',
+      version: publishResult.version,
+      catalogVersion: publishResult.catalogVersion,
+      data: publishResult.product,
     });
   } catch (err: any) {
     return NextResponse.json(

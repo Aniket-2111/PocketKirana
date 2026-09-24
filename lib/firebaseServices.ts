@@ -93,6 +93,25 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 2000, fallback:
   ]);
 }
 
+// Helper to recursively strip undefined values (which crash Firestore updateDoc / setDoc)
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map((item) => (typeof item === 'object' && item !== null ? stripUndefined(item) : item)) as any;
+  }
+  const clean: any = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      if (v && typeof v === 'object' && !(v instanceof Date)) {
+        clean[k] = stripUndefined(v);
+      } else {
+        clean[k] = v;
+      }
+    }
+  }
+  return clean;
+}
+
 // ==========================================
 // PRODUCTS
 // ==========================================
@@ -124,7 +143,8 @@ export async function addProductFS(product: Omit<Product, 'id'> & { id?: string 
     const newDocRef = doc(collection(firestore, COLLECTIONS.PRODUCTS));
     const newId = product.id || newDocRef.id;
     const docRef = doc(firestore, COLLECTIONS.PRODUCTS, newId);
-    await setDoc(docRef, { ...product, id: newId });
+    const sanitized = stripUndefined({ ...product, id: newId });
+    await setDoc(docRef, sanitized);
     return newId;
   } catch (error) {
     console.error('Error adding product to Firestore:', error);
@@ -139,7 +159,7 @@ export async function batchAddProductsFS(products: Product[]): Promise<boolean> 
     const batch = writeBatch(firestore);
     products.forEach((product) => {
       const docRef = doc(firestore, COLLECTIONS.PRODUCTS, product.id);
-      batch.set(docRef, product);
+      batch.set(docRef, stripUndefined(product));
     });
     await batch.commit();
     return true;
@@ -154,7 +174,8 @@ export async function updateProductFS(id: string, updates: Partial<Product>): Pr
   if (!firestore) return false;
   try {
     const docRef = doc(firestore, COLLECTIONS.PRODUCTS, id);
-    await updateDoc(docRef, updates);
+    const sanitized = stripUndefined(updates);
+    await updateDoc(docRef, sanitized);
     return true;
   } catch (error) {
     console.error('Error updating product in Firestore:', error);

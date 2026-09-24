@@ -10,10 +10,12 @@
  *  - NEVER touches MSG91_AUTHKEY       (server-side only, in /api/auth/verify-otp-token & /api/auth/otp/verify)
  */
 
+import { apiFetch } from '@/lib/apiClient';
+
 const MSG91_API_BASE = 'https://control.msg91.com/api/v5/widget';
 
 const WIDGET_ID = process.env.NEXT_PUBLIC_MSG91_WIDGET_ID ?? '36697062464a373338323931';
-const TOKEN_KEY = process.env.NEXT_PUBLIC_MSG91_TOKEN_KEY ?? '';
+const TOKEN_KEY = process.env.NEXT_PUBLIC_MSG91_TOKEN_KEY ?? '571687TkSXq4wON6aaa00baP1';
 
 let configuredWidgetId: string = WIDGET_ID;
 let configuredTokenAuth: string = TOKEN_KEY;
@@ -137,7 +139,14 @@ export async function sendMsg91Otp(phone: string): Promise<{ success: boolean; r
   try {
     await initMsg91CustomUI();
 
-    const response = await OTPWidget.sendOTP({ identifier });
+    let response: any = null;
+    let directCallFailed = false;
+
+    try {
+      response = await OTPWidget.sendOTP({ identifier });
+    } catch (e) {
+      directCallFailed = true;
+    }
 
     if (response) {
       const isSuccess =
@@ -158,13 +167,25 @@ export async function sendMsg91Otp(phone: string): Promise<{ success: boolean; r
 
       if (isSuccess || reqId) {
         return { success: true, reqId: lastReqId || undefined };
-      } else {
-        const errorMsg =
-          typeof response.message === 'string'
-            ? response.message
-            : response.error || 'Failed to send OTP via MSG91';
-        return { success: false, error: errorMsg };
       }
+    }
+
+    // Fallback: If direct client widget call returned error or failed, route through backend API
+    try {
+      const backendRes = await apiFetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanDigits }),
+      });
+      const backendData = await backendRes.json();
+      if (backendData.success) {
+        if (backendData.reqId || backendData.data?.reqId) {
+          lastReqId = backendData.reqId || backendData.data?.reqId;
+        }
+        return { success: true, reqId: lastReqId || undefined };
+      }
+    } catch (backendErr) {
+      console.warn('[sendMsg91Otp] Backend fallback failed:', backendErr);
     }
 
     return { success: true };
@@ -215,6 +236,22 @@ export async function verifyMsg91Otp(
       }
 
       if (response.type === 'error' || response.status === 'error') {
+        // Fallback: If client widget verify failed, try backend verification endpoint
+        try {
+          const backendRes = await apiFetch('/api/auth/verify-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ otp: sanitizedOtp, reqId: lastReqId, phone: lastIdentifier }),
+          });
+          const backendData = await backendRes.json();
+          if (backendData.success && (backendData.access_token || backendData.data?.access_token || backendData.token || backendData.data?.token)) {
+            return {
+              success: true,
+              access_token: backendData.access_token || backendData.data?.access_token || backendData.token || backendData.data?.token,
+            };
+          }
+        } catch (_) {}
+
         return {
           success: false,
           error: response.message || 'Invalid or expired OTP code entered.',
@@ -222,12 +259,44 @@ export async function verifyMsg91Otp(
       }
     }
 
+    // Fallback: Try backend verification endpoint
+    try {
+      const backendRes = await apiFetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otp: sanitizedOtp, reqId: lastReqId, phone: lastIdentifier }),
+      });
+      const backendData = await backendRes.json();
+      if (backendData.success && (backendData.access_token || backendData.data?.access_token || backendData.token || backendData.data?.token)) {
+        return {
+          success: true,
+          access_token: backendData.access_token || backendData.data?.access_token || backendData.token || backendData.data?.token,
+        };
+      }
+    } catch (_) {}
+
     return {
       success: false,
       error: response?.message || 'Invalid OTP code. Please check and try again.',
     };
   } catch (err: any) {
     console.error('[MSG91 verifyMsg91Otp error]', err);
+    // Backend fallback on network exception
+    try {
+      const backendRes = await apiFetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otp: sanitizedOtp, reqId: lastReqId, phone: lastIdentifier }),
+      });
+      const backendData = await backendRes.json();
+      if (backendData.success && (backendData.access_token || backendData.data?.access_token || backendData.token || backendData.data?.token)) {
+        return {
+          success: true,
+          access_token: backendData.access_token || backendData.data?.access_token || backendData.token || backendData.data?.token,
+        };
+      }
+    } catch (_) {}
+
     return {
       success: false,
       error: err?.message || 'Invalid OTP entered. Please try again.',

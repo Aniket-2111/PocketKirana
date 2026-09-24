@@ -49,26 +49,26 @@ export const CategoryGrid: React.FC = () => {
             <Link
               key={cat.id}
               href={`/category/${cat.slug}`}
-              className="group flex flex-col items-center gap-2 shrink-0 text-center w-24 sm:w-28 transition-transform hover:-translate-y-1 snap-start"
+              className="group flex flex-col items-center gap-1.5 shrink-0 text-center w-24 sm:w-28 transition-transform hover:-translate-y-1 snap-start"
             >
-              {/* Circular / Rounded Image Icon Container (Matching Reference) */}
-              <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-white dark:bg-[#151B23] border-2 border-[#E5E7EB] dark:border-[#263241] group-hover:border-[#008F5A] dark:group-hover:border-[#22C55E] p-2 flex items-center justify-center shadow-xs group-hover:shadow-md transition-all">
+              {/* Rounded Squircle Image Container (Unified with Brand cards) */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white dark:bg-[#151B23] border border-slate-200/80 dark:border-slate-700 group-hover:border-[#075C3C] dark:group-hover:border-emerald-400 p-2 flex items-center justify-center shadow-2xs group-hover:shadow-md transition-all">
                 <img
                   src={cat.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80'}
                   alt={cat.name}
                   loading="lazy"
                   decoding="async"
-                  className="w-12 h-12 sm:w-14 sm:h-14 object-contain rounded-full group-hover:scale-105 transition-transform duration-200"
+                  className="w-12 h-12 sm:w-14 sm:h-14 object-contain rounded-xl group-hover:scale-105 transition-transform duration-200"
                 />
               </div>
 
               {/* Category Name */}
-              <span className="text-xs font-bold text-[#111827] dark:text-[#F9FAFB] group-hover:text-[#008F5A] dark:group-hover:text-[#22C55E] leading-tight line-clamp-2 min-h-[28px] flex items-center justify-center">
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#075C3C] dark:group-hover:text-emerald-400 leading-snug line-clamp-2 min-h-[30px] flex items-center justify-center">
                 {cat.name}
               </span>
 
-              {/* Item Count Subtitle (Matching Reference "12 items") */}
-              <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] font-semibold -mt-1">
+              {/* Item Count Subtitle */}
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 leading-tight">
                 {itemCount > 0 ? `${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Fresh In Stock'}
               </span>
             </Link>

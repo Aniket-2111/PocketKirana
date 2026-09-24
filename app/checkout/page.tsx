@@ -377,8 +377,26 @@ export default function CheckoutPage() {
         <RoleSwitcher />
         <CustomerLayout>
           <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-12 space-y-6">
-            <div className="h-14 bg-white rounded-2xl border border-gray-200 animate-pulse" />
-            <div className="h-64 bg-white rounded-3xl border border-gray-200 animate-pulse" />
+            <div className="h-14 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 animate-pulse" />
+            <div className="h-64 bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 animate-pulse" />
+          </div>
+        </CustomerLayout>
+      </>
+    );
+  }
+
+  if (cart.length === 0 && !confirmedOrder) {
+    return (
+      <>
+        <RoleSwitcher />
+        <CustomerLayout>
+          <div className="max-w-4xl mx-auto px-4 py-16">
+            <EmptyState
+              variant="cart"
+              title="Your cart is empty"
+              description="Add items from Maule Kirana darkstore to proceed with 30-min express checkout."
+              primaryAction={{ label: 'Explore Groceries', href: '/' }}
+            />
           </div>
         </CustomerLayout>
       </>

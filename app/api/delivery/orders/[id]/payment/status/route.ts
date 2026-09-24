@@ -29,14 +29,58 @@ export async function GET(
     let orderNumber = orderId;
     let transactionId = merchantTransactionId || '';
 
-    // 1. Check Firestore
+    // 1. Try PostgreSQL lookup
+    try {
+      const { getPostgresPool } = await import('@/lib/postgres');
+      const pool = getPostgresPool();
+      const pgOrderRes = await pool.query(
+        `SELECT id, order_number, total_amount, payment_status, payment_method 
+         FROM orders 
+         WHERE id = $1 OR order_number = $1 
+         LIMIT 1`,
+        [orderId]
+      );
+      if (pgOrderRes.rows.length > 0) {
+        const row = pgOrderRes.rows[0];
+        total = Number(row.total_amount) || total;
+        orderNumber = row.order_number || row.id;
+        if (row.payment_status === 'paid' || row.payment_status === 'completed') {
+          isPaid = true;
+          paymentStatus = 'PAID';
+          paymentMethod = row.payment_method || 'phonepe_upi';
+        }
+      }
+
+      if (merchantTransactionId) {
+        const pgPayRes = await pool.query(
+          `SELECT status, gateway_payment_id, payment_method 
+           FROM payments 
+           WHERE gateway_order_id = $1 OR id = $2 
+           LIMIT 1`,
+          [merchantTransactionId, `pay_pk_${merchantTransactionId}`]
+        );
+        if (pgPayRes.rows.length > 0) {
+          const payRow = pgPayRes.rows[0];
+          if (payRow.status === 'completed' || payRow.status === 'paid') {
+            isPaid = true;
+            paymentStatus = 'PAID';
+            paymentMethod = payRow.payment_method || 'phonepe_upi';
+            transactionId = payRow.gateway_payment_id || merchantTransactionId;
+          }
+        }
+      }
+    } catch (pgErr) {
+      // Non-fatal
+    }
+
+    // 2. Check Firestore
     if (isFirebaseConfigured() && db) {
       const orderRef = doc(db, 'orders', orderId);
       const orderSnap = await getDoc(orderRef);
 
       if (orderSnap.exists()) {
         const orderData = orderSnap.data();
-        total = orderData.total || orderData.grandTotal || 450;
+        total = orderData.total || orderData.grandTotal || total;
         orderNumber = orderData.orderNumber || orderId;
 
         const rawStatus = (orderData.paymentStatus || '').toLowerCase();
@@ -64,7 +108,7 @@ export async function GET(
           }
         }
       }
-    } else {
+    } else if (!isPaid) {
       // Mock fallback
       const mockOrder = INITIAL_ORDERS.find((o) => o.id === orderId || o.orderNumber === orderId);
       if (mockOrder) {

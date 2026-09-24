@@ -182,6 +182,36 @@ export interface ProductImage {
   isPrimary?: boolean;
 }
 
+export type MeasurementType = 'UNIT' | 'WEIGHT' | 'VOLUME';
+export type WeightUnit = 'KG' | 'G';
+export type VolumeUnit = 'LTR' | 'ML';
+export type UnitSellingUnit = 'piece' | 'pack' | 'packet' | 'bottle' | 'box' | 'can' | 'jar' | 'tube' | 'dozen' | string;
+export type MeasurementUnit = 
+  | 'PCS' 
+  | 'PACK' 
+  | 'PACKET' 
+  | 'BOTTLE' 
+  | 'BOX' 
+  | 'CAN' 
+  | 'JAR' 
+  | 'TUBE' 
+  | 'DOZEN' 
+  | 'KG' 
+  | 'G' 
+  | 'LTR' 
+  | 'ML' 
+  | string;
+
+export type PackagingType = 
+  | 'Loose' 
+  | 'Packet' 
+  | 'Box' 
+  | 'Bottle' 
+  | 'Jar' 
+  | 'Can' 
+  | 'Pouch' 
+  | 'Other';
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -198,6 +228,12 @@ export interface Product {
   slug: string;
   description: string;
   unit: string;
+  measurementType?: MeasurementType;
+  measurementUnit?: MeasurementUnit;
+  measurementValue?: number;
+  packagingType?: PackagingType;
+  hasVariants?: boolean;
+  weightUnit?: WeightUnit;
   weight: number;
   mrp: number;
   sellingPrice: number;
@@ -232,14 +268,49 @@ export interface Product {
   variants?: ProductVariant[];
   maxDisplayImages?: number;
   sections?: ProductSection[];
+  version?: number;
+  catalogVersion?: number;
+  lastModifiedBy?: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
+export type CatalogEventType =
+  | 'PRODUCT_CREATED'
+  | 'PRODUCT_UPDATED'
+  | 'PRODUCT_PUBLISHED'
+  | 'PRODUCT_UNPUBLISHED'
+  | 'PRODUCT_DELETED'
+  | 'VARIANT_UPDATED'
+  | 'PRICE_UPDATED'
+  | 'PROMOTION_UPDATED'
+  | 'CATEGORY_UPDATED'
+  | 'BRAND_UPDATED'
+  | 'IMAGE_UPDATED'
+  | 'CATALOG_VERSION_BUMPED';
+
+export interface CatalogSyncEvent {
+  eventId: string;
+  eventType: CatalogEventType;
+  entityType: 'PRODUCT' | 'CATEGORY' | 'BRAND' | 'VARIANT' | 'CATALOG';
+  entityId: string;
+  version: number;
+  catalogVersion: number;
+  occurredAt: string;
+  storeId?: string;
+  meta?: Record<string, any>;
 }
 
 export interface ProductVariant {
   id: string;
   productId: string;
   variantName: string;            // e.g. "500 g", "1 kg", "250 ml", "6 pieces"
-  quantityValue?: number;         // e.g. 500, 1, 250, 6
-  quantityUnit?: string;          // e.g. "g", "kg", "ml", "L", "piece", "pack", "box", "dozen", "custom"
+  measurementType?: MeasurementType; // 'UNIT' | 'WEIGHT' | 'VOLUME'
+  measurementUnit?: MeasurementUnit; // e.g. 'KG', 'G', 'LTR', 'ML', 'PCS', 'PACKET'
+  measurementValue?: number;         // e.g. 500, 1, 2.5
+  packagingType?: PackagingType;     // 'Loose', 'Packet', 'Bottle', etc.
+  quantityValue?: number;         // alias for measurementValue
+  quantityUnit?: string;          // alias for measurementUnit
   unit?: string;                  // alias for unit display
   sellingPrice: number;           // Variant specific price (e.g. 38)
   price?: number;                 // alias for sellingPrice
@@ -286,6 +357,10 @@ export interface CartItem {
   mrp?: number;
   variantId?: string;
   variantName?: string;
+  measurementType?: MeasurementType;
+  measurementUnit?: MeasurementUnit;
+  measurementValue?: number;
+  packagingType?: PackagingType;
   selectedVariant?: ProductVariant;
 }
 
@@ -305,6 +380,7 @@ export type OrderStatus =
   // Normal flow
   | 'CREATED'
   | 'PAYMENT_PENDING'
+  | 'PENDING_PAYMENT'
   | 'CONFIRMED'
   | 'STOCK_RESERVED'
   | 'PICKING'
@@ -320,16 +396,23 @@ export type OrderStatus =
   | 'PICKED_UP'
   | 'OUT_FOR_DELIVERY'
   | 'ARRIVED_AT_CUSTOMER'
+  | 'DELIVERY_ATTEMPTED'
   | 'DELIVERED'
   | 'COMPLETED'
-  // Exception states
+  // Exception & Return states
   | 'PAYMENT_FAILED'
   | 'CANCELLED'
   | 'OUT_OF_STOCK'
   | 'PICKING_FAILED'
   | 'CUSTOMER_UNAVAILABLE'
   | 'DELIVERY_FAILED'
+  | 'RETURN_REQUESTED'
+  | 'RETURN_APPROVED'
+  | 'RETURN_PICKUP_ASSIGNED'
+  | 'RETURN_PENDING'
+  | 'RETURN_IN_TRANSIT'
   | 'RETURNED'
+  | 'REFUND_PENDING'
   | 'REFUNDED'
   // Legacy aliases (kept for backward compatibility with existing mock data)
   | 'placed'
@@ -410,19 +493,157 @@ export interface SettlementRecord {
   orderIds?: string[];
 }
 
+export type DeliveryExceptionType =
+  | 'CUSTOMER_NOT_ANSWERING'
+  | 'CUSTOMER_NOT_AVAILABLE'
+  | 'CUSTOMER_REFUSED'
+  | 'LOCATION_INACCESSIBLE'
+  | 'CUSTOMER_REQUESTED_LATER'
+  | 'OTHER';
+
+export type DeliveryExceptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURN_INITIATED' | 'RESOLVED' | 'DISMISSED';
+
 export interface DeliveryExceptionRecord {
   id: string;
   orderId: string;
   orderNumber: string;
-  partnerId: string;
-  partnerName: string;
+  partnerId?: string;
+  deliveryPartnerId?: string;
+  partnerName?: string;
+  deliveryPartnerName?: string;
+  exceptionType?: DeliveryExceptionType;
   reason: string;
+  notes?: string;
+  callAttempts?: number;
+  arrivedAt?: string;
+  waitingSeconds?: number;
+  failedAt?: string;
+  latitude?: number;
+  longitude?: number;
   evidenceUrl?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  photoEvidenceUrl?: string;
+  status: DeliveryExceptionStatus;
   reviewedByAdminId?: string;
   reviewedByAdminName?: string;
   reviewedAt?: string;
   adminNote?: string;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type OrderIssueType =
+  | 'DAMAGED'
+  | 'EXPIRED'
+  | 'WRONG_PRODUCT'
+  | 'MISSING_PRODUCT'
+  | 'WRONG_QUANTITY'
+  | 'QUALITY_ISSUE'
+  | 'OTHER';
+
+export type OrderIssueStatus =
+  | 'OPEN'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REPLACEMENT_PENDING'
+  | 'REPLACED'
+  | 'REFUND_PENDING'
+  | 'REFUNDED'
+  | 'RESOLVED';
+
+export type OrderIssueResolution = 'REFUND' | 'REPLACEMENT' | 'STORE_CREDIT' | 'NO_ACTION';
+
+export interface OrderIssueReport {
+  id: string;
+  ticketNumber: string;
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+  customerName?: string;
+  customerPhone?: string;
+  orderItemId?: string;
+  productId?: string;
+  productName: string;
+  variantName?: string;
+  issueType: OrderIssueType;
+  description: string;
+  photos: string[];
+  customerRequestedResolution: 'REFUND' | 'REPLACEMENT' | 'STORE_CREDIT';
+  status: OrderIssueStatus;
+  resolutionType?: OrderIssueResolution;
+  refundAmount?: number;
+  replacementOrderId?: string;
+  adminNotes?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type ReturnType = 'FAILED_DELIVERY' | 'CUSTOMER_COMPLAINT' | 'CANCELLATION';
+
+export type ReturnStatus =
+  | 'PENDING'
+  | 'ASSIGNED'
+  | 'IN_TRANSIT'
+  | 'RECEIVED'
+  | 'INSPECTED'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
+export interface OrderReturn {
+  id: string;
+  returnNumber: string;
+  orderId: string;
+  orderNumber: string;
+  customerId?: string;
+  returnType: ReturnType;
+  status: ReturnStatus;
+  assignedPartnerId?: string;
+  assignedPartnerName?: string;
+  initiatedBy?: string;
+  initiatedAt: string;
+  pickedUpAt?: string;
+  receivedAt?: string;
+  receivedBy?: string;
+  inspectionStatus: 'PENDING' | 'COMPLETED';
+  totalItems: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type ItemInspectionDisposition = 'RESTOCKABLE' | 'DAMAGED' | 'EXPIRED' | 'DISPOSED';
+
+export interface ReturnItemInspection {
+  id: string;
+  returnId: string;
+  orderItemId?: string;
+  productId?: string;
+  variantId?: string;
+  productName: string;
+  quantity: number;
+  batchId?: string;
+  expiryDate?: string;
+  disposition: ItemInspectionDisposition;
+  notes?: string;
+  inspectedBy: string;
+  inspectedAt: string;
+}
+
+export interface OrderAuditLog {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  actorId: string;
+  actorRole: string;
+  action: string;
+  oldStatus?: string;
+  newStatus?: string;
+  reason?: string;
+  metadata?: Record<string, any>;
   createdAt: string;
 }
 
@@ -434,6 +655,11 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  measurementType?: MeasurementType;
+  measurementUnit?: MeasurementUnit;
+  measurementValue?: number;
+  packagingType?: PackagingType;
+  weightUnit?: WeightUnit;
   variantId?: string;
   variantName?: string;
   sku?: string;
@@ -465,7 +691,9 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
+  status?: OrderStatus;
   placedAt: string;
+  createdAt?: string;
   deliverySlot: string;
   deliveryOtp: string;
   deliveryOtpData?: DeliveryOtpRecord;
@@ -497,6 +725,8 @@ export interface Order {
   deliveryOtpLocked?: boolean;
   deliveryExceptionId?: string;
   isExceptionDelivery?: boolean;
+  deliveredAt?: string;
+  updatedAt?: string;
 }
 
 export interface Payment {
@@ -806,29 +1036,69 @@ export interface FCMDeviceToken {
   enabled: boolean;
 }
 
+export type BannerPlatform = 'WEB' | 'APP' | 'WEB_AND_APP';
+export type BannerStatus = 'DRAFT' | 'SCHEDULED' | 'LIVE' | 'PAUSED' | 'EXPIRED';
+export type BannerDestinationType = 'PRODUCT' | 'CATEGORY' | 'BRAND' | 'OFFER' | 'CAMPAIGN' | 'URL' | 'NO_ACTION';
+
 export interface Banner {
   id: string;
   title: string;
   subtitle?: string;
+  description?: string;
   image: string;
+  desktopImage?: string;
+  mobileImage?: string;
+  apkImage?: string;
+  bgImage?: string;
   redirectUrl: string;
   active: boolean;
+  status?: BannerStatus;
+  platform?: BannerPlatform;
+  destinationType?: BannerDestinationType;
+  destinationId?: string;
+  startDate?: string;
+  endDate?: string;
+  priority?: number;
   tag?: string;
-  placement?: 'hero' | 'promo_dual' | 'popup' | 'footer';
+  placement?: 'hero' | 'promo_dual' | 'popup' | 'footer' | 'in_feed';
   buttonText?: string;
   badge?: string;
   bgColor?: string;
   badgeBg?: string;
   displayOrder?: number;
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+export type OfferDiscountType = 'PERCENTAGE' | 'FLAT' | 'BOGO' | 'FREE_PRODUCT' | 'MIN_ORDER_DISCOUNT';
 
 export interface Offer {
   id: string;
+  name?: string;
   title: string;
+  subtitle?: string;
   description: string;
-  discountPercentage: number;
-  productId: string;
+  discountPercentage?: number;
+  discountAmount?: number;
+  discountType?: OfferDiscountType;
+  productId?: string;
+  categoryId?: string;
+  brandId?: string;
+  minOrderValue?: number;
+  maxDiscount?: number;
+  buyQuantity?: number;
+  getQuantity?: number;
+  freeProductId?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'PAUSED' | 'EXPIRED';
+  priority?: number;
   active: boolean;
+  bannerImage?: string;
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SupportTicket {
@@ -934,6 +1204,9 @@ export interface PickingItem {
   upc: string;
   barcode: string;
   unit: string;
+  price?: number;
+  measurementType?: MeasurementType;
+  weightUnit?: WeightUnit;
   imageUrl: string;
   quantityRequired: number;
   quantityPicked: number;

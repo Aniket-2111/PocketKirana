@@ -367,49 +367,6 @@ export const OneByOnePackingWorkflow: React.FC<OneByOnePackingWorkflowProps> = (
                 </div>
               </div>
 
-              {/* Barcode & EAN-13 Scanner Verification */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <label className="font-bold text-slate-700 flex items-center gap-1.5">
-                    <Barcode className="w-4 h-4 text-emerald-600" />
-                    <span>Verify Barcode / EAN-13</span>
-                  </label>
-                  <span className="text-[11px] font-mono text-slate-400">
-                    Expected: {currentItem.barcode || currentItem.sku}
-                  </span>
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Scan product barcode to confirm..."
-                    value={scannedBarcode}
-                    onChange={(e) => handleBarcodeScanCheck(e.target.value)}
-                    className="flex-1 bg-white border border-slate-200 text-slate-900 font-mono text-xs rounded-xl px-3 py-2 focus:border-emerald-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleBarcodeScanCheck(currentItem.barcode || currentItem.sku)}
-                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors shrink-0"
-                  >
-                    Auto-Fill
-                  </button>
-                </div>
-
-                {barcodeMatch === true && (
-                  <p className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>✓ Barcode matched! Item verified.</span>
-                  </p>
-                )}
-                {barcodeMatch === false && (
-                  <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Barcode does not match expected item.</span>
-                  </p>
-                )}
-              </div>
-
               {/* Primary Action Button: DONE */}
               <button
                 type="button"

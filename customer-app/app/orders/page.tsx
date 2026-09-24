@@ -6,6 +6,7 @@ import { useAppStore } from '@/lib/store';
 import CustomerShell from '../../components/CustomerShell';
 import { Package, Clock, ChevronRight, CheckCircle2, Truck, ShoppingCart, RotateCcw, Download, Loader2 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { apiFetch } from '@/lib/apiClient';
 import type { Order } from '@/types';
 
 export default function CustomerOrdersPage() {
@@ -63,7 +64,7 @@ export default function CustomerOrdersPage() {
     e.stopPropagation();
     setDownloadingId(order.id);
     try {
-      const response = await fetch(`/api/orders/${encodeURIComponent(order.id)}/invoice?format=pdf`, {
+      const response = await apiFetch(`/api/orders/${encodeURIComponent(order.id)}/invoice?format=pdf`, {
         headers: { Accept: 'application/pdf' },
       });
       if (response.ok) {

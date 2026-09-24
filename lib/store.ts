@@ -49,6 +49,8 @@ import {
   FestivalAuditLog,
   FestivalSectionConfig,
 } from '@/types/festival';
+import { HomepageLayoutConfig, HomepageSectionConfig } from '@/types/homepageCms';
+import { DEFAULT_HOMEPAGE_LAYOUT, DEFAULT_HOMEPAGE_SECTIONS } from './defaultHomepageLayout';
 import { INITIAL_FESTIVAL_TEMPLATES } from './festivalTemplates';
 import {
   InvoiceSnapshot,
@@ -87,6 +89,7 @@ import {
   INITIAL_ORDERS,
   INITIAL_NOTIFICATIONS
 } from './mockData';
+import { apiFetch } from './apiClient';
 import { isFirebaseConfigured } from './firebase';
 import {
   fetchProductsFS,
@@ -235,8 +238,10 @@ interface AppState {
   selectedCategoryId: string | null;
   setSearchQuery: (query: string) => void;
   setSelectedCategoryId: (catId: string | null) => void;
-  addProduct: (product: Omit<Product, 'id'>) => void;
-  addProductsBatch: (products: Omit<Product, 'id'>[]) => Promise<number>;
+  catalogVersion: number;
+  syncCatalogWithServer: (sinceVersion?: number) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id'> & { id?: string }) => void;
+  addProductsBatch: (products: (Omit<Product, 'id'> & { id?: string })[]) => Promise<number>;
   updateProduct: (id: string, updates: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
   addCategory: (category: Omit<Category, 'id'> & { id?: string }) => Category;
@@ -468,6 +473,17 @@ interface AppState {
   toggleEmergencyFestivalDisable: (disabled?: boolean) => boolean;
   addFestivalAuditLog: (log: Omit<FestivalAuditLog, 'id' | 'timestamp'>) => void;
   getActiveFestivalCampaign: () => FestivalCampaign | null;
+
+  // 🌟 Dynamic Homepage CMS & Personalization Engine
+  homepageLayouts: HomepageLayoutConfig[];
+  activeHomepageLayout: HomepageLayoutConfig;
+  saveHomepageSection: (section: HomepageSectionConfig) => void;
+  reorderHomepageSections: (orderedIds: string[]) => void;
+  deleteHomepageSection: (sectionId: string) => void;
+  duplicateHomepageSection: (sectionId: string) => HomepageSectionConfig | null;
+  publishHomepageLayout: (layoutId?: string) => { success: boolean; message: string; version: number };
+  applyFestivalTemplateToHomepage: (templateId: string) => { success: boolean; message: string };
+  resetHomepageLayoutToDefault: () => void;
 }
 
 let activeSubscriptions: (() => void)[] = [];
@@ -959,7 +975,7 @@ export const useAppStore = create<AppState>()(
 
           // Attempt server verification via Next.js backend endpoint
           try {
-            const res = await fetch('/api/auth/verify-otp-token', {
+            const res = await apiFetch('/api/auth/verify-otp-token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ access_token: accessToken, accessToken }),
@@ -1062,7 +1078,7 @@ export const useAppStore = create<AppState>()(
 
       logout: () => {
         try {
-          fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+          apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
         } catch (_) {}
         logoutFirebaseUser();
         clearSessionCookie(); // Remove pk_session so middleware blocks portal access immediately
@@ -1076,19 +1092,62 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      // Products & Categories — start with clean empty product catalog
-      products:    [],
+      // Products & Categories — Authoritative Catalog State
+      catalogVersion: 100,
+      products:    INITIAL_PRODUCTS,
       categories:  INITIAL_CATEGORIES,
       searchQuery: '',
       selectedCategoryId: null,
       setSearchQuery: (query) => set({ searchQuery: query }),
       setSelectedCategoryId: (catId) => set({ selectedCategoryId: catId }),
+      
+      syncCatalogWithServer: async (sinceVersion = 0) => {
+        try {
+          const res = await apiFetch(`/api/v1/catalog/sync?sinceVersion=${sinceVersion}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.data) {
+              const { catalogVersion, products, deletedProductIds, isFullSync } = data.data;
+              set((state) => {
+                let merged = isFullSync ? products : [...state.products];
+                if (!isFullSync && Array.isArray(products)) {
+                  // Merge updated products
+                  products.forEach((p: Product) => {
+                    const idx = merged.findIndex((m: Product) => m.id === p.id);
+                    if (idx >= 0) {
+                      merged[idx] = p;
+                    } else {
+                      merged.unshift(p);
+                    }
+                  });
+                }
+                if (Array.isArray(deletedProductIds) && deletedProductIds.length > 0) {
+                  const deletedSet = new Set(deletedProductIds);
+                  merged = merged.filter((p: Product) => !deletedSet.has(p.id));
+                }
+                return {
+                  catalogVersion: catalogVersion || state.catalogVersion,
+                  products: merged,
+                };
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('[syncCatalogWithServer] Error syncing catalog:', err);
+        }
+      },
+
       addProduct: (productData) => {
         const newProduct: Product = {
           ...productData,
-          id: `prod-${Date.now()}`,
+          id: productData.id || `prod-${Date.now()}`,
+          version: (productData.version || 100) + 1,
+          catalogVersion: (get().catalogVersion || 100) + 1,
         };
-        set((state) => ({ products: [newProduct, ...state.products] }));
+        set((state) => ({
+          catalogVersion: (state.catalogVersion || 100) + 1,
+          products: [newProduct, ...state.products],
+        }));
         get().addAuditLog('CREATE_PRODUCT', 'Product', newProduct.id);
 
         // Sync to Firestore
@@ -1096,14 +1155,20 @@ export const useAppStore = create<AppState>()(
       },
       addProductsBatch: async (productsData) => {
         const timestamp = Date.now();
+        const baseCatVer = get().catalogVersion || 100;
         const newProducts: Product[] = productsData.map((pData, idx) => ({
           ...pData,
-          id: `prod-${timestamp}-${idx}`,
+          id: pData.id || `prod-${timestamp}-${idx}`,
+          version: (pData.version || 100) + 1,
+          catalogVersion: baseCatVer + 1,
           rating: pData.rating || 4.5,
           reviewsCount: pData.reviewsCount || Math.floor(Math.random() * 50) + 5,
         }));
 
-        set((state) => ({ products: [...newProducts, ...state.products] }));
+        set((state) => ({
+          catalogVersion: (state.catalogVersion || 100) + 1,
+          products: [...newProducts, ...state.products],
+        }));
         get().addAuditLog('BULK_CREATE_PRODUCTS', 'Product Catalog', `${newProducts.length} items batch added`);
 
         // Sync batch to Firestore
@@ -1112,7 +1177,17 @@ export const useAppStore = create<AppState>()(
       },
       updateProduct: (id, updates) => {
         set((state) => ({
-          products: state.products.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+          catalogVersion: (state.catalogVersion || 100) + 1,
+          products: state.products.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  ...updates,
+                  version: (p.version || 100) + 1,
+                  catalogVersion: (state.catalogVersion || 100) + 1,
+                }
+              : p
+          ),
         }));
         get().addAuditLog('UPDATE_PRODUCT', 'Product', id);
 
@@ -1121,6 +1196,7 @@ export const useAppStore = create<AppState>()(
       },
       deleteProduct: (id) => {
         set((state) => ({
+          catalogVersion: (state.catalogVersion || 100) + 1,
           products: state.products.filter((p) => p.id !== id),
         }));
         get().addAuditLog('DELETE_PRODUCT', 'Product', id);
@@ -1290,7 +1366,7 @@ export const useAppStore = create<AppState>()(
       fetchBrands: async (categoryId) => {
         try {
           const url = categoryId ? `/api/brands?categoryId=${categoryId}` : '/api/brands?includeInactive=true';
-          const res = await fetch(url);
+          const res = await apiFetch(url);
           const data = await res.json();
           if (res.ok && Array.isArray(data.brands)) {
             set({ brands: data.brands });
@@ -1302,7 +1378,7 @@ export const useAppStore = create<AppState>()(
 
       addBrand: async (brandData) => {
         try {
-          const res = await fetch('/api/brands', {
+          const res = await apiFetch('/api/brands', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(brandData),
@@ -1349,7 +1425,7 @@ export const useAppStore = create<AppState>()(
         }));
 
         try {
-          const res = await fetch(`/api/brands/${id}`, {
+          const res = await apiFetch(`/api/brands/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates),
@@ -1370,7 +1446,7 @@ export const useAppStore = create<AppState>()(
           if (options?.reassignBrandId) queryParams.set('reassignBrandId', options.reassignBrandId);
           if (options?.forceDeactivate) queryParams.set('forceDeactivate', 'true');
 
-          const res = await fetch(`/api/brands/${id}?${queryParams.toString()}`, {
+          const res = await apiFetch(`/api/brands/${id}?${queryParams.toString()}`, {
             method: 'DELETE',
           });
           const data = await res.json();
@@ -1413,7 +1489,7 @@ export const useAppStore = create<AppState>()(
         }));
 
         try {
-          await fetch(`/api/brands/${id}`, {
+          await apiFetch(`/api/brands/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ isActive: newStatus }),
@@ -1441,7 +1517,7 @@ export const useAppStore = create<AppState>()(
 
         try {
           const items = orderedIds.map((id, idx) => ({ id, displayOrder: idx + 1 }));
-          await fetch('/api/brands/reorder', {
+          await apiFetch('/api/brands/reorder', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items }),
@@ -1476,6 +1552,10 @@ export const useAppStore = create<AppState>()(
             quantity: qty,
             price: effectivePrice,
             mrp: effectiveMrp,
+            measurementType: variant?.measurementType || product.measurementType,
+            measurementUnit: variant?.measurementUnit || product.measurementUnit,
+            measurementValue: variant?.measurementValue ?? product.measurementValue,
+            packagingType: variant?.packagingType || product.packagingType,
             ...(variant && {
               variantId: variant.id,
               variantName: variant.variantName,
@@ -1508,21 +1588,31 @@ export const useAppStore = create<AppState>()(
       },
       clearCart: () => set({ cart: [], appliedCoupon: null }),
       applyCoupon: (code) => {
-        const coupon = get().coupons.find(
-          (c) => c.code.toUpperCase() === code.toUpperCase() && c.active
+        const clean = (code || '').trim().toUpperCase();
+        if (!clean) {
+          return { success: false, message: 'Please enter a coupon code' };
+        }
+        const allCoupons = [
+          ...(get().coupons || []),
+          ...INITIAL_COUPONS,
+        ];
+        const coupon = allCoupons.find(
+          (c) => c.code.toUpperCase() === clean && (c.active ?? true)
         );
         if (!coupon) {
           return { success: false, message: 'Invalid or expired coupon code' };
         }
         const subtotal = get().cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
         if (subtotal < coupon.minimumOrder) {
+          const needed = coupon.minimumOrder - subtotal;
           return {
             success: false,
-            message: `Minimum order value of ₹${coupon.minimumOrder} required for coupon ${coupon.code}`,
+            message: `Minimum order of ₹${coupon.minimumOrder} required for ${coupon.code} (Add ₹${needed} more to apply)`,
           };
         }
         set({ appliedCoupon: coupon });
-        return { success: true, message: `Coupon ${coupon.code} applied successfully!` };
+        const discountText = coupon.type === 'fixed' ? `₹${coupon.value}` : `${coupon.value}%`;
+        return { success: true, message: `Coupon ${coupon.code} applied! (${discountText} OFF)` };
       },
       removeCoupon: () => set({ appliedCoupon: null }),
 
@@ -1593,7 +1683,7 @@ export const useAppStore = create<AppState>()(
       activeOrderTrackingId: null,
       setActiveOrderTrackingId: (id) => set({ activeOrderTrackingId: id }),
       placeOrder: (addressId, deliverySlot, paymentMethod, cloudOrderId, cloudOrderNumber) => {
-        const { cart, appliedCoupon, addresses, currentUser } = get();
+        const { cart, addresses, currentUser, appliedCoupon } = get();
         const address = addresses.find((a) => a.id === addressId) || addresses[0];
 
         const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -1602,11 +1692,11 @@ export const useAppStore = create<AppState>()(
           if (appliedCoupon.type === 'fixed') {
             discount = appliedCoupon.value;
           } else {
-            discount = Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
+            discount = Math.round((subtotal * appliedCoupon.value) / 100);
           }
         }
-        const deliveryCharge = subtotal > 499 ? 0 : 29;
-        const tax = Math.round((subtotal - discount) * 0.05);
+        const deliveryCharge = subtotal > 500 ? 0 : 30;
+        const tax = Math.round(subtotal * 0.05); // 5% GST
         const total = Math.max(0, subtotal - discount + deliveryCharge + tax);
 
         const orderId = cloudOrderId || `ord-${Date.now()}`;
@@ -1641,7 +1731,7 @@ export const useAppStore = create<AppState>()(
           deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
           estimatedDeliveryTime: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
           items: cart.map((item) => ({
-            id: `oi-${Date.now()}-${item.productId}`,
+            id: `oi-${Date.now()}-${item.productId}-${item.variantId || 'def'}`,
             orderId,
             productId: item.productId,
             product: item.product,
@@ -1650,6 +1740,15 @@ export const useAppStore = create<AppState>()(
             unitPrice: item.price,
             totalPrice: item.price * item.quantity,
             subtotal: item.price * item.quantity,
+            mrp: item.mrp || item.product.mrp,
+            sellingPrice: item.price,
+            variantId: item.variantId,
+            variantName: item.variantName,
+            measurementType: item.measurementType || item.product.measurementType,
+            measurementUnit: item.measurementUnit || item.product.measurementUnit,
+            measurementValue: item.measurementValue ?? item.product.measurementValue,
+            packagingType: item.packagingType || item.product.packagingType,
+            sku: item.selectedVariant?.sku || item.product.sku,
           })),
           statusHistory: [
             {
@@ -4858,6 +4957,192 @@ export const useAppStore = create<AppState>()(
         // Return highest priority campaign
         return campaigns.sort((a, b) => (b.priority || 0) - (a.priority || 0))[0];
       },
+
+      // 🌟 Dynamic Homepage CMS & Personalization Engine Implementation
+      homepageLayouts: [DEFAULT_HOMEPAGE_LAYOUT],
+      activeHomepageLayout: DEFAULT_HOMEPAGE_LAYOUT,
+
+      saveHomepageSection: (section) => {
+        set((state) => {
+          const currentSections = state.activeHomepageLayout?.sections || [];
+          const exists = currentSections.some((s) => s.id === section.id);
+          const updatedSections = exists
+            ? currentSections.map((s) => (s.id === section.id ? section : s))
+            : [...currentSections, section];
+
+          const updatedLayout: HomepageLayoutConfig = {
+            ...state.activeHomepageLayout,
+            sections: updatedSections,
+            updatedAt: new Date().toISOString(),
+          };
+
+          return {
+            activeHomepageLayout: updatedLayout,
+            homepageLayouts: state.homepageLayouts.map((l) =>
+              l.id === updatedLayout.id ? updatedLayout : l
+            ),
+          };
+        });
+      },
+
+      reorderHomepageSections: (orderedIds) => {
+        set((state) => {
+          const sectionMap = new Map(
+            (state.activeHomepageLayout?.sections || []).map((s) => [s.id, s])
+          );
+          const reordered: HomepageSectionConfig[] = [];
+          orderedIds.forEach((id, idx) => {
+            const sec = sectionMap.get(id);
+            if (sec) {
+              reordered.push({ ...sec, displayOrder: idx + 1 });
+              sectionMap.delete(id);
+            }
+          });
+          sectionMap.forEach((sec) =>
+            reordered.push({ ...sec, displayOrder: reordered.length + 1 })
+          );
+
+          const updatedLayout: HomepageLayoutConfig = {
+            ...state.activeHomepageLayout,
+            sections: reordered,
+            updatedAt: new Date().toISOString(),
+          };
+
+          return {
+            activeHomepageLayout: updatedLayout,
+            homepageLayouts: state.homepageLayouts.map((l) =>
+              l.id === updatedLayout.id ? updatedLayout : l
+            ),
+          };
+        });
+      },
+
+      deleteHomepageSection: (sectionId) => {
+        set((state) => {
+          const updatedSections = (state.activeHomepageLayout?.sections || []).filter(
+            (s) => s.id !== sectionId
+          );
+          const updatedLayout: HomepageLayoutConfig = {
+            ...state.activeHomepageLayout,
+            sections: updatedSections,
+            updatedAt: new Date().toISOString(),
+          };
+          return {
+            activeHomepageLayout: updatedLayout,
+            homepageLayouts: state.homepageLayouts.map((l) =>
+              l.id === updatedLayout.id ? updatedLayout : l
+            ),
+          };
+        });
+      },
+
+      duplicateHomepageSection: (sectionId) => {
+        const section = (get().activeHomepageLayout?.sections || []).find(
+          (s) => s.id === sectionId
+        );
+        if (!section) return null;
+
+        const duplicated: HomepageSectionConfig = {
+          ...section,
+          id: `sec-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          title: `${section.title} (Copy)`,
+          displayOrder: (section.displayOrder || 0) + 1,
+        };
+
+        get().saveHomepageSection(duplicated);
+        return duplicated;
+      },
+
+      publishHomepageLayout: (layoutId) => {
+        const targetId = layoutId || get().activeHomepageLayout?.id;
+        const layout =
+          get().homepageLayouts.find((l) => l.id === targetId) || get().activeHomepageLayout;
+        const newVersion = (layout?.version || 1) + 1;
+        const now = new Date().toISOString();
+
+        const published: HomepageLayoutConfig = {
+          ...layout,
+          version: newVersion,
+          status: 'PUBLISHED',
+          publishedAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          activeHomepageLayout: published,
+          homepageLayouts: state.homepageLayouts.map((l) =>
+            l.id === published.id ? published : l
+          ),
+        }));
+
+        return {
+          success: true,
+          message: `Homepage CMS Layout Version ${newVersion} published successfully!`,
+          version: newVersion,
+        };
+      },
+
+      applyFestivalTemplateToHomepage: (templateId) => {
+        const template = get().festivalTemplates.find((t) => t.id === templateId);
+        if (!template) {
+          return { success: false, message: 'Template not found' };
+        }
+
+        const convertedSections: HomepageSectionConfig[] = (template.sections || []).map(
+          (s, idx) => ({
+            id: `sec-${Date.now()}-${idx}`,
+            type: s.type === 'Hero' ? 'FestivalHero' : (s.type as any),
+            title: s.title || template.name,
+            subtitle: s.subtitle,
+            badge: s.badge || template.name.toUpperCase(),
+            ctaText: s.ctaText,
+            ctaLink: s.ctaLink,
+            image: s.image,
+            mobileImage: s.mobileImage,
+            desktopImage: s.desktopImage,
+            layoutStyle: (s.layoutStyle as any) || 'carousel',
+            targetCategoryIds: s.categoryIds || (s.categoryId ? [s.categoryId] : []),
+            targetProductIds: s.productIds || [],
+            maxItems: s.maxItems || 8,
+            displayOrder: idx + 1,
+            targetPersona: 'ALL',
+            targetDate: s.targetDate,
+            showTimer: s.showTimer || s.type === 'Countdown',
+            isActive: s.active !== false,
+          })
+        );
+
+        const newLayout: HomepageLayoutConfig = {
+          id: `layout-fest-${Date.now()}`,
+          name: `${template.name} Homepage`,
+          description: template.description,
+          festivalKey: template.festivalKey,
+          version: 1,
+          status: 'PUBLISHED',
+          sections:
+            convertedSections.length > 0 ? convertedSections : DEFAULT_HOMEPAGE_SECTIONS,
+          publishedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: 'Admin via Homepage Studio',
+        };
+
+        set((state) => ({
+          activeHomepageLayout: newLayout,
+          homepageLayouts: [newLayout, ...state.homepageLayouts],
+        }));
+
+        return {
+          success: true,
+          message: `Applied ${template.name} to Homepage CMS!`,
+        };
+      },
+
+      resetHomepageLayoutToDefault: () => {
+        set({
+          activeHomepageLayout: DEFAULT_HOMEPAGE_LAYOUT,
+        });
+      },
     }),
     {
       name: 'pocketkirana-store-v4',
@@ -4887,6 +5172,8 @@ export const useAppStore = create<AppState>()(
         festivalCampaigns: state.festivalCampaigns,
         festivalAuditLogs: state.festivalAuditLogs,
         isFestivalEmergencyDisabled: state.isFestivalEmergencyDisabled,
+        homepageLayouts: state.homepageLayouts,
+        activeHomepageLayout: state.activeHomepageLayout,
       }),
     }
   )

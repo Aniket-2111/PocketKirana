@@ -12,7 +12,7 @@
 import { PoolClient, Pool } from 'pg';
 
 export interface OutboxEventInput {
-  aggregateType: 'order' | 'payment' | 'inventory' | 'delivery' | 'user';
+  aggregateType: 'order' | 'payment' | 'inventory' | 'delivery' | 'user' | 'catalog';
   aggregateId: string;
   eventType:
     | 'order.placed'
@@ -29,7 +29,15 @@ export interface OutboxEventInput {
     | 'delivery.assigned'
     | 'delivery.picked_up'
     | 'delivery.out_for_delivery'
-    | 'delivery.delivered';
+    | 'delivery.delivered'
+    | 'catalog.product_created'
+    | 'catalog.product_updated'
+    | 'catalog.product_published'
+    | 'catalog.product_unpublished'
+    | 'catalog.product_deleted'
+    | 'catalog.variant_updated'
+    | 'catalog.price_updated'
+    | 'catalog.version_bumped';
   payload: Record<string, any>;
   id?: string;
   maxRetries?: number;

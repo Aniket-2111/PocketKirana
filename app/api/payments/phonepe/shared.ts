@@ -21,13 +21,17 @@ export async function OPTIONS() {
 
 /** Read the session cookie (same names the middleware accepts). */
 export async function getSessionToken(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return (
-    cookieStore.get('pk_session')?.value || // written by login (lib/sessionCookie.ts)
-    cookieStore.get('__pk_session')?.value ||
-    cookieStore.get('__session')?.value ||
-    null
-  );
+  try {
+    const cookieStore = await cookies();
+    return (
+      cookieStore.get('pk_session')?.value || // written by login (lib/sessionCookie.ts)
+      cookieStore.get('__pk_session')?.value ||
+      cookieStore.get('__session')?.value ||
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 
 // Edge/Node-safe JWT payload decoder (same logic as middleware.ts)

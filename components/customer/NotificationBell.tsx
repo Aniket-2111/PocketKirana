@@ -194,74 +194,123 @@ export const NotificationBell: React.FC = () => {
                 </p>
               </div>
             ) : (
-              filteredNotifs.map((notif) => (
-                <div
-                  key={notif.id}
-                  onClick={() => handleNotificationClick(notif)}
-                  className={`p-3.5 hover:bg-slate-50 transition-colors cursor-pointer relative group flex gap-3 ${!notif.isRead ? 'bg-emerald-50/30' : ''
-                    }`}
-                >
-                  {/* Icon */}
+              (() => {
+                const now = new Date();
+                const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+                const todayNotifs = filteredNotifs.filter(
+                  (n) => new Date(n.createdAt || 0).getTime() >= todayStart
+                );
+                const olderNotifs = filteredNotifs.filter(
+                  (n) => new Date(n.createdAt || 0).getTime() < todayStart
+                );
+
+                const renderItem = (notif: Notification) => (
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${notif.category === 'offer'
-                        ? 'bg-amber-100'
-                        : notif.category === 'delivery'
+                    key={notif.id}
+                    onClick={() => handleNotificationClick(notif)}
+                    className={`p-3.5 hover:bg-slate-50 transition-colors cursor-pointer relative group flex gap-3 ${
+                      !notif.isRead ? 'bg-emerald-50/40' : ''
+                    }`}
+                  >
+                    {/* Icon */}
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+                        notif.category === 'offer'
+                          ? 'bg-amber-100'
+                          : notif.category === 'delivery'
                           ? 'bg-emerald-100'
                           : 'bg-emerald-100/70'
                       }`}
-                  >
-                    {getNotificationIcon(notif.type, notif.category)}
-                  </div>
-
-                  {/* Body */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-1 mb-0.5">
-                      <h4
-                        className={`text-xs leading-tight truncate ${!notif.isRead ? 'font-black text-slate-900' : 'font-bold text-slate-700'
-                          }`}
-                      >
-                        {notif.title}
-                      </h4>
-                      <span className="text-[10px] text-slate-400 shrink-0 font-medium flex items-center gap-0.5">
-                        <Clock className="w-2.5 h-2.5" />
-                        {formatTimeAgo(notif.createdAt)}
-                      </span>
+                    >
+                      {getNotificationIcon(notif.type, notif.category)}
                     </div>
 
-                    <p className="text-xs text-slate-600 leading-snug line-clamp-2">{notif.message}</p>
-
-                    {/* Promotional Coupon Tag */}
-                    {notif.couponCode && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <button
-                          onClick={(e) => handleCopyCode(e, notif.couponCode!)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-800 border border-amber-300/60 rounded-md font-mono text-[11px] font-black hover:bg-amber-500/20 transition-colors"
+                    {/* Body */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-1 mb-0.5">
+                        <h4
+                          className={`text-xs leading-tight truncate ${
+                            !notif.isRead ? 'font-black text-slate-900' : 'font-bold text-slate-700'
+                          }`}
                         >
-                          <Copy className="w-3 h-3" />
-                          <span>{notif.couponCode}</span>
-                        </button>
-                        <span className="text-[10px] font-semibold text-amber-700">Tap to copy code</span>
+                          {notif.title}
+                        </h4>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" />
+                            {formatTimeAgo(notif.createdAt)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNotification(notif.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-rose-500 text-slate-400 transition-opacity"
+                            title="Delete notification"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-snug line-clamp-2">{notif.message}</p>
+
+                      {/* Promotional Coupon Tag */}
+                      {notif.couponCode && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            onClick={(e) => handleCopyCode(e, notif.couponCode!)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-800 border border-amber-300/60 rounded-md font-mono text-[11px] font-black hover:bg-amber-500/20 transition-colors"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>{notif.couponCode}</span>
+                          </button>
+                          <span className="text-[10px] font-semibold text-amber-700">Tap to copy code</span>
+                        </div>
+                      )}
+
+                      {/* Image Banner if available */}
+                      {notif.imageUrl && (
+                        <div className="mt-2 rounded-lg overflow-hidden border border-slate-200">
+                          <img
+                            src={notif.imageUrl}
+                            alt="Offer"
+                            className="w-full h-24 object-cover hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Unread indicator dot */}
+                    {!notif.isRead && (
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1.5 shadow-xs" />
+                    )}
+                  </div>
+                );
+
+                return (
+                  <div>
+                    {todayNotifs.length > 0 && (
+                      <div>
+                        <div className="px-3.5 py-1.5 bg-slate-100/70 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                          Today
+                        </div>
+                        {todayNotifs.map(renderItem)}
                       </div>
                     )}
-
-                    {/* Image Banner if available */}
-                    {notif.imageUrl && (
-                      <div className="mt-2 rounded-lg overflow-hidden border border-slate-200">
-                        <img
-                          src={notif.imageUrl}
-                          alt="Offer"
-                          className="w-full h-24 object-cover hover:scale-105 transition-transform duration-300"
-                        />
+                    {olderNotifs.length > 0 && (
+                      <div>
+                        <div className="px-3.5 py-1.5 bg-slate-100/70 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                          Older
+                        </div>
+                        {olderNotifs.map(renderItem)}
                       </div>
                     )}
                   </div>
-
-                  {/* Unread indicator dot */}
-                  {!notif.isRead && (
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1.5 shadow-xs" />
-                  )}
-                </div>
-              ))
+                );
+              })()
             )}
           </div>
 

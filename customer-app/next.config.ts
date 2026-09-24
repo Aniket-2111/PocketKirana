@@ -4,7 +4,19 @@ import path from "path";
 const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig: NextConfig = {
-  ...(isProd ? { output: 'export', trailingSlash: true } : {}),
+  ...(isProd
+    ? { output: 'export', trailingSlash: true }
+    : {
+        async rewrites() {
+          const target = (process.env.NEXT_PUBLIC_API_URL || 'https://pocketkirana.in').replace(/\/+$/, '');
+          return [
+            {
+              source: '/api/:path*',
+              destination: `${target}/api/:path*`,
+            },
+          ];
+        },
+      }),
   outputFileTracingRoot: path.join(__dirname),
   transpilePackages: ['@msg91comm/sendotp-sdk'],
   reactStrictMode: false,

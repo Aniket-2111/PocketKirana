@@ -6,6 +6,8 @@
  * remain exclusively on the server backend.
  */
 
+import { buildApiUrl, apiFetch } from './apiClient';
+
 export interface InitiatePhonePeOptions {
   orderId: string;
   amount: number; // in Rupees
@@ -29,21 +31,6 @@ export interface PhonePeVerifyResult {
   error?: string;
 }
 
-function getApiBaseUrl(): string {
-  // If running in browser or Capacitor with backend env URL
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL;
-  }
-  if (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost:')) {
-    // If in Capacitor WebView on Android (origin is https://localhost), fallback to current dev server
-    if (window.location.origin === 'https://localhost') {
-      return 'http://192.168.0.103:3000'; // Client LAN server or production API
-    }
-    return window.location.origin;
-  }
-  return '';
-}
-
 /**
  * Initiates PhonePe Payment via secure backend server API
  */
@@ -51,10 +38,7 @@ export async function initiatePhonePePayment(options: InitiatePhonePeOptions): P
   const { orderId } = options;
 
   try {
-    const apiBase = getApiBaseUrl();
-    const endpoint = apiBase ? `${apiBase}/api/payments/phonepe/create` : '/api/payments/phonepe/create';
-
-    const res = await fetch(endpoint, {
+    const res = await apiFetch('/api/payments/phonepe/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,12 +46,22 @@ export async function initiatePhonePePayment(options: InitiatePhonePeOptions): P
       body: JSON.stringify({ orderId }),
     });
 
-    const json = await res.json();
-
-    if (!res.ok || !json.success) {
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // Non-JSON response (e.g. 404 or 502 HTML)
       return {
         success: false,
-        error: json.error || 'Failed to initiate PhonePe payment',
+        error: `Server error (${res.status}): Payment gateway service is currently unreachable.`,
+      };
+    }
+
+    if (!res.ok || !json?.success) {
+      return {
+        success: false,
+        error: json?.error || 'Failed to initiate PhonePe payment',
       };
     }
 
@@ -90,10 +84,7 @@ export async function initiatePhonePePayment(options: InitiatePhonePeOptions): P
  */
 export async function verifyPhonePeStatus(merchantTransactionId: string, orderId?: string): Promise<PhonePeVerifyResult> {
   try {
-    const apiBase = getApiBaseUrl();
-    const endpoint = apiBase ? `${apiBase}/api/payments/phonepe/verify` : '/api/payments/phonepe/verify';
-
-    const res = await fetch(endpoint, {
+    const res = await apiFetch('/api/payments/phonepe/verify', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -104,14 +95,25 @@ export async function verifyPhonePeStatus(merchantTransactionId: string, orderId
       }),
     });
 
-    const json = await res.json();
-
-    if (!res.ok || !json.success) {
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
       return {
         success: false,
         verified: false,
-        status: json.error || 'VERIFICATION_FAILED',
-        error: json.error,
+        status: 'SERVER_ERROR',
+        error: `Server error (${res.status}): Verification service returned invalid response.`,
+      };
+    }
+
+    if (!res.ok || !json?.success) {
+      return {
+        success: false,
+        verified: false,
+        status: json?.error || 'VERIFICATION_FAILED',
+        error: json?.error,
       };
     }
 

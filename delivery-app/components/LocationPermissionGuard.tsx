@@ -36,8 +36,8 @@ export function LocationPermissionGuard({ children }: LocationPermissionGuardPro
       setLocState(nextState);
     });
 
-    // Check on mount
-    locationManager.checkState({ forceFresh: true });
+    // Check silently on mount — never flashes prompt if already granted
+    locationManager.checkState({ silent: true });
 
     return () => unsubscribe();
   }, [isLoginRoute]);
@@ -61,7 +61,7 @@ export function LocationPermissionGuard({ children }: LocationPermissionGuardPro
         await locationManager.getCurrentCoordinates();
         showToast('📍 Location access enabled for delivery tracking!', 'success');
       } else {
-        await locationManager.checkState({ forceFresh: true });
+        await locationManager.checkState({ forceFresh: true, silent: true });
       }
     } catch (err) {
       console.warn('handleTurnOnLocation error:', err);
@@ -72,10 +72,15 @@ export function LocationPermissionGuard({ children }: LocationPermissionGuardPro
 
   // ── Render Conditions ──────────────────────────────────────────────────
   if (isLoginRoute) return <>{children}</>;
-  if (locState.status === 'READY') return <>{children}</>;
-
+  
+  // If location is ready, idle, or checking in background, don't show prompt
   const isHardDenied = locState.permission === 'DENIED';
   const isGpsOff = locState.gps === 'DISABLED' || locState.status === 'GPS_DISABLED';
+  const isPermissionRequired = locState.status === 'PERMISSION_REQUIRED';
+
+  const shouldShowPrompt = isHardDenied || isGpsOff || isPermissionRequired;
+
+  if (!shouldShowPrompt) return <>{children}</>;
 
   return (
     <>

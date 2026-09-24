@@ -1,23 +1,48 @@
 'use client';
 
-/**
- * NotificationWrapper — Client Component shell for RealtimeNotificationToast.
- *
- * next/dynamic with ssr: false may ONLY be used inside Client Components.
- * This thin wrapper satisfies that requirement, allowing app/layout.tsx
- * (a Server Component) to mount the notification toast without a build error.
- */
-
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
+const PWARegister = dynamic(
+  () => import('./PWARegister').then((m) => m.PWARegister),
+  { ssr: false }
+);
+const NetworkStatusBanner = dynamic(
+  () => import('@/components/states/NetworkStatusBanner').then((m) => m.NetworkStatusBanner),
+  { ssr: false }
+);
 const RealtimeNotificationToast = dynamic(
-  () =>
-    import('@/components/customer/RealtimeNotificationToast').then(
-      (m) => ({ default: m.RealtimeNotificationToast })
-    ),
+  () => import('@/components/customer/RealtimeNotificationToast').then((m) => m.RealtimeNotificationToast),
+  { ssr: false }
+);
+const NotificationPermissionPrompt = dynamic(
+  () => import('@/components/customer/NotificationPermissionPrompt').then((m) => m.NotificationPermissionPrompt),
   { ssr: false }
 );
 
+/**
+ * NotificationWrapper — Client Component shell for browser-only runtime features.
+ * Mounts PWA listeners, network status banner, toast notifications,
+ * and permission prompts only after client-side hydration.
+ */
 export function NotificationWrapper() {
-  return <RealtimeNotificationToast />;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
+  return (
+    <>
+      <PWARegister />
+      <NetworkStatusBanner />
+      <RealtimeNotificationToast />
+      <NotificationPermissionPrompt />
+    </>
+  );
 }
+

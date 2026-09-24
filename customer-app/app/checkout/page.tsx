@@ -19,6 +19,7 @@ import {
 import { showToast } from '@/components/ui/Toast';
 import { OrderConfirmationAnimation } from '@/components/customer/OrderConfirmationAnimation';
 import { initiatePhonePePayment } from '@/lib/phonepeClient';
+import { calculateDeliveryFee } from '@/lib/freeDelivery';
 import type { PaymentMethod, Order } from '@/types';
 
 export default function CheckoutPage() {
@@ -71,7 +72,7 @@ export default function CheckoutPage() {
     if (appliedCoupon.type === 'fixed') return appliedCoupon.value;
     return Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
   }, [mounted, appliedCoupon, subtotal]);
-  const deliveryCharge = mounted && subtotal > 499 ? 0 : mounted && subtotal > 0 ? 29 : 0;
+  const deliveryCharge = mounted ? calculateDeliveryFee(subtotal) : 0;
   const tax = mounted ? Math.round((subtotal - discount) * 0.05) : 0;
   const total = mounted ? Math.max(0, subtotal - discount + deliveryCharge + tax) : 0;
   const cartCount = mounted ? cart.length : 0;
@@ -91,6 +92,7 @@ export default function CheckoutPage() {
 
     try {
       // 1. Create order in Backend / Store with safe address fallback
+      const cartBackup = [...cart];
       const targetAddressId = selectedAddressId || addresses.find((a) => a.isDefault)?.id || addresses[0]?.id || 'addr-default';
       const selectedAddr = addresses.find((a) => a.id === targetAddressId) || addresses[0];
 
@@ -123,10 +125,17 @@ export default function CheckoutPage() {
       // If PhonePe payment selected, initiate PhonePe gateway redirect
       if (paymentMethod === 'phonepe') {
         const addr = addresses.find((a) => a.id === selectedAddressId) || addresses[0];
+        try {
+          const { saveOrderFS } = await import('@/lib/firebaseServices');
+          await saveOrderFS(createdOrder);
+        } catch (fsErr) {
+          console.warn('[Checkout] Background saveOrderFS non-fatal error:', fsErr);
+        }
+
         const res = await initiatePhonePePayment({
           orderId: createdOrder.id,
           amount: total,
-          mobileNumber: addr?.phone || '8698893348',
+          mobileNumber: addr?.phone || currentUser?.mobile || '8698893348',
           customerId: currentUser?.id || 'customer',
           redirectPath: '/checkout/success/',
         });
@@ -135,6 +144,19 @@ export default function CheckoutPage() {
           window.location.href = res.redirectUrl;
           return;
         } else {
+          // In local browser testing without a running payment backend, provide a smooth dev simulation
+          if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            showToast('Simulating PhonePe payment flow (Local Dev)...', 'info');
+            setBtnState('success');
+            setConfirmedOrder(createdOrder);
+            setTimeout(() => {
+              setShowAnimationModal(true);
+            }, 750);
+            return;
+          }
+
+          // Restore cart so user doesn't see an empty cart screen on payment error
+          useAppStore.setState({ cart: cartBackup });
           showToast(res.error || 'Failed to connect to PhonePe gateway', 'error');
           setBtnState('idle');
           isSubmittingRef.current = false;

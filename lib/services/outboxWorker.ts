@@ -158,6 +158,32 @@ export class OutboxWorker {
           },
           { merge: true }
         );
+      } else if (aggregateType === 'catalog') {
+        if (eventType === 'catalog.product_deleted') {
+          await firestore.collection('products').doc(aggregateId).delete();
+        } else {
+          const productDocRef = firestore.collection('products').doc(aggregateId);
+          await productDocRef.set(
+            {
+              ...payload,
+              _last_applied_event_id: eventId,
+              _last_event_type: eventType,
+              _projected_at: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        }
+        // Update catalog metadata version
+        if (payload.catalogVersion) {
+          await firestore.collection('catalog_meta').doc('global_catalog').set(
+            {
+              version: payload.catalogVersion,
+              lastUpdatedAt: new Date().toISOString(),
+              _last_applied_event_id: eventId,
+            },
+            { merge: true }
+          );
+        }
       }
     } catch (err: any) {
       console.warn(`[OutboxWorker] Firestore projection warning for ${aggregateId}:`, err.message);

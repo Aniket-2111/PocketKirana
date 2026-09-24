@@ -13,7 +13,7 @@ export interface AuditLogEntry {
   userId?: string;
   userRole?: string;
   action: string;
-  entityType: 'ORDER' | 'PRODUCT' | 'INVENTORY' | 'AUTH' | 'PAYMENT' | 'DELIVERY' | 'SYSTEM';
+  entityType: 'ORDER' | 'PRODUCT' | 'INVENTORY' | 'AUTH' | 'PAYMENT' | 'DELIVERY' | 'SYSTEM' | 'BANNER' | 'BRAND' | 'CATEGORY' | 'OFFER' | 'COUPON';
   entityId?: string;
   details?: Record<string, any>;
   ipAddress?: string;

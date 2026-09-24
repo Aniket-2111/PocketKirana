@@ -1,40 +1,38 @@
 import { NextResponse } from 'next/server';
-import { fetchProductsFS } from '@/lib/firebaseServices';
+import { validateServerPricing } from '@/lib/catalogSync';
 
+/**
+ * POST /api/cart/validate
+ * Server-authoritative cart validation endpoint for Web & APK clients.
+ * Validates:
+ * - Authoritative base/variant selling price vs submitted item price
+ * - Variant active status & product publish status
+ * - Current stock availability
+ */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { items = [] } = body;
+    const { items = [], storeId = 'store-001' } = body;
 
-    const liveProducts = await fetchProductsFS();
-    const outOfStockItems: any[] = [];
-    const priceChanges: any[] = [];
+    const formattedItems = items.map((it: any) => ({
+      productId: it.productId || it.id,
+      variantId: it.variantId,
+      quantity: Number(it.quantity) || 1,
+      unitPrice: it.price !== undefined ? Number(it.price) : (it.unitPrice !== undefined ? Number(it.unitPrice) : undefined),
+      productName: it.name || it.product?.name || it.productName,
+    }));
 
-    for (const item of items) {
-      const liveProduct = liveProducts.find((p) => p.id === item.productId);
-      if (!liveProduct || liveProduct.status === 'out_of_stock') {
-        outOfStockItems.push({
-          productId: item.productId,
-          productName: item.product?.name || 'Item',
-          available: 0,
-        });
-      } else if (liveProduct.sellingPrice !== item.price) {
-        priceChanges.push({
-          productId: item.productId,
-          oldPrice: item.price,
-          newPrice: liveProduct.sellingPrice,
-        });
-      }
-    }
-
-    const isValid = outOfStockItems.length === 0 && priceChanges.length === 0;
+    const result = await validateServerPricing(formattedItems, { storeId });
 
     return NextResponse.json({
       success: true,
       data: {
-        isValid,
-        outOfStockItems,
-        priceChanges,
+        isValid: result.isValid,
+        recalculatedSubtotal: result.recalculatedSubtotal,
+        priceChanges: result.priceChanges,
+        outOfStockItems: result.outOfStockItems,
+        inactiveItems: result.inactiveItems,
+        validatedItems: result.items,
       },
     });
   } catch (error: any) {

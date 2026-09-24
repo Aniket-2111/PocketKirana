@@ -73,32 +73,39 @@ class CentralLocationManager {
     // 1. Web standard visibility and focus handlers
     const handleResume = () => {
       if (document.visibilityState === 'visible') {
-        this.checkState({ forceFresh: true });
+        this.checkState({ forceFresh: true, silent: true });
       }
     };
 
     document.addEventListener('visibilitychange', handleResume);
-    window.addEventListener('focus', () => this.checkState({ forceFresh: true }));
-    window.addEventListener('pageshow', () => this.checkState({ forceFresh: true }));
+    window.addEventListener('focus', () => this.checkState({ forceFresh: true, silent: true }));
+    window.addEventListener('pageshow', () => this.checkState({ forceFresh: true, silent: true }));
 
     // 2. Capacitor native App lifecycle state change
     try {
       if ((window as any).Capacitor?.Plugins?.App) {
         (window as any).Capacitor.Plugins.App.addListener('appStateChange', (appState: { isActive: boolean }) => {
           if (appState.isActive) {
-            this.checkState({ forceFresh: true });
+            this.checkState({ forceFresh: true, silent: true });
           }
         });
         (window as any).Capacitor.Plugins.App.addListener('resume', () => {
-          this.checkState({ forceFresh: true });
+          this.checkState({ forceFresh: true, silent: true });
         });
       }
     } catch (_) {}
 
-    // Initial check
+    // 3. Periodic background GPS verification (detects if user disables GPS while remaining in app)
+    setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !this.isChecking) {
+        this.checkState({ silent: true });
+      }
+    }, 15000);
+
+    // Initial check on app startup
     setTimeout(() => {
-      this.checkState();
-    }, 500);
+      this.checkState({ silent: true });
+    }, 300);
   }
 
   /**
@@ -140,12 +147,14 @@ class CentralLocationManager {
   /**
    * Checks current permission & GPS state across platforms
    */
-  public async checkState(options?: { forceFresh?: boolean }): Promise<LocationManagerState> {
+  public async checkState(options?: { forceFresh?: boolean; silent?: boolean }): Promise<LocationManagerState> {
     if (typeof window === 'undefined') return this.state;
     if (this.isChecking && !options?.forceFresh) return this.state;
 
     this.isChecking = true;
-    this.setState({ status: 'CHECKING' });
+    if (!options?.silent && this.state.status !== 'READY') {
+      this.setState({ status: 'CHECKING' });
+    }
 
     try {
       let permissionState: LocationPermissionState = 'PROMPT';

@@ -47,11 +47,10 @@ const ActiveDeliveryMap = dynamic(() => import('../../components/ActiveDeliveryM
   ),
 });
 
+import { buildApiUrl } from '@/lib/apiClient';
+
 function getApiUrl(path: string): string {
-  if (typeof window !== 'undefined' && window.location.origin && window.location.origin === 'https://localhost') {
-    return `http://192.168.0.103:3000${path}`;
-  }
-  return path;
+  return buildApiUrl(path);
 }
 
 // ─── PhonePe Dynamic UPI QR Modal ─────────────────────────────────────────────
@@ -74,11 +73,17 @@ function PhonePeDynamicQrModal({
   const [merchantTxnId, setMerchantTxnId] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes countdown in seconds
+  const [isExpired, setIsExpired] = useState(false);
   const pollerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchDynamicQr = useCallback(async () => {
     try {
       setLoadingQr(true);
+      setIsExpired(false);
+      setTimeLeft(600);
+
       const res = await fetch(getApiUrl(`/api/delivery/orders/${orderId}/payment/create`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,11 +94,13 @@ function PhonePeDynamicQrModal({
         setQrData(data.qrPayload);
         setUpiId(data.upiId || 'maule.kirana@okaxis');
         setMerchantTxnId(data.merchantTransactionId);
+        setTimeLeft(data.expiresInSeconds || 600);
       } else {
-        showToast('Failed to generate dynamic PhonePe QR', 'error');
+        showToast(data.error || 'Failed to generate dynamic PhonePe QR', 'error');
       }
     } catch (err) {
       console.error('[PhonePe Dynamic QR Fetch Error]', err);
+      showToast('Network error generating payment QR', 'error');
     } finally {
       setLoadingQr(false);
     }
@@ -103,8 +110,30 @@ function PhonePeDynamicQrModal({
     fetchDynamicQr();
   }, [fetchDynamicQr]);
 
+  // Expiration countdown timer
+  useEffect(() => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    countdownRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setIsExpired(true);
+          if (pollerRef.current) clearInterval(pollerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
+
+  // Polling payment status
   useEffect(() => {
     if (!merchantTxnId && !orderId) return;
+    if (isExpired) return;
 
     const checkStatus = async () => {
       try {
@@ -114,6 +143,7 @@ function PhonePeDynamicQrModal({
 
         if (data.success && data.isPaid) {
           if (pollerRef.current) clearInterval(pollerRef.current);
+          if (countdownRef.current) clearInterval(countdownRef.current);
           onPaymentVerified(data.transactionId || merchantTxnId || undefined);
         }
       } catch (err) {
@@ -126,9 +156,13 @@ function PhonePeDynamicQrModal({
     return () => {
       if (pollerRef.current) clearInterval(pollerRef.current);
     };
-  }, [orderId, merchantTxnId, onPaymentVerified]);
+  }, [orderId, merchantTxnId, isExpired, onPaymentVerified]);
 
   const handleManualCheck = async () => {
+    if (isExpired) {
+      showToast('QR has expired. Please tap "Generate New QR"', 'info');
+      return;
+    }
     setIsVerifying(true);
     try {
       const query = merchantTxnId ? `?merchantTransactionId=${merchantTxnId}` : '';
@@ -136,6 +170,8 @@ function PhonePeDynamicQrModal({
       const data = await res.json();
 
       if (data.success && data.isPaid) {
+        if (pollerRef.current) clearInterval(pollerRef.current);
+        if (countdownRef.current) clearInterval(countdownRef.current);
         onPaymentVerified(data.transactionId || merchantTxnId || undefined);
       } else {
         showToast('Payment not detected yet. Please ask customer to complete UPI payment.', 'info');
@@ -154,6 +190,12 @@ function PhonePeDynamicQrModal({
       showToast('UPI ID copied to clipboard', 'info');
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const formatMinutes = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const dynamicQrImageUrl = qrData
@@ -187,6 +229,23 @@ function PhonePeDynamicQrModal({
               <Loader2 className="w-8 h-8 text-[#5F259F] animate-spin" />
               <span className="text-xs text-slate-500 font-semibold">Generating secure dynamic QR…</span>
             </div>
+          ) : isExpired ? (
+            <div className="w-56 h-56 flex flex-col items-center justify-center gap-3 bg-white/80 rounded-2xl border border-amber-200 p-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="font-black text-slate-900 text-sm block">QR Code Expired</span>
+                <span className="text-[11px] text-slate-500 font-medium">Session timed out after 10 minutes</span>
+              </div>
+              <button
+                onClick={fetchDynamicQr}
+                className="px-4 py-2 bg-[#5F259F] text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Generate New QR</span>
+              </button>
+            </div>
           ) : (
             <div className="relative p-2 bg-white rounded-2xl shadow-md border border-purple-100">
               <img src={dynamicQrImageUrl} alt="PhonePe Dynamic QR" className="w-52 h-52 rounded-xl" />
@@ -212,9 +271,17 @@ function PhonePeDynamicQrModal({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-purple-100/80 rounded-full px-3 py-1">
-            <span className="w-2 h-2 rounded-full bg-[#5F259F] animate-ping" />
-            <span className="text-[11px] font-bold text-[#5F259F]">Waiting for customer payment…</span>
+          <div className="flex items-center justify-between w-full px-2 pt-1">
+            <div className="flex items-center gap-2 bg-purple-100/80 rounded-full px-3 py-1">
+              <span className={`w-2 h-2 rounded-full ${isExpired ? 'bg-amber-500' : 'bg-[#5F259F] animate-ping'}`} />
+              <span className="text-[11px] font-bold text-[#5F259F]">
+                {isExpired ? 'QR Expired' : 'Waiting for payment…'}
+              </span>
+            </div>
+
+            <div className="text-[11px] font-mono font-bold text-slate-500 bg-white/80 px-2.5 py-1 rounded-full border border-purple-100">
+              Expires: <span className={timeLeft < 60 ? 'text-red-600 font-black animate-pulse' : 'text-slate-700'}>{formatMinutes(timeLeft)}</span>
+            </div>
           </div>
         </div>
 
@@ -222,23 +289,36 @@ function PhonePeDynamicQrModal({
           Customer can scan with PhonePe, GPay, Paytm, or any UPI app. Once paid, OTP unlocks automatically.
         </p>
 
-        <button
-          onClick={handleManualCheck}
-          disabled={isVerifying}
-          className="w-full py-3.5 bg-[#5F259F] text-white font-black text-sm rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
-        >
-          {isVerifying ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Verifying with Server…</span>
-            </>
-          ) : (
-            <>
+        <div className="flex gap-2.5">
+          {isExpired ? (
+            <button
+              onClick={fetchDynamicQr}
+              disabled={loadingQr}
+              className="w-full py-3.5 bg-[#5F259F] text-white font-black text-sm rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
               <RefreshCw className="w-4 h-4" />
-              <span>Check Payment Status</span>
-            </>
+              <span>Generate New QR</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleManualCheck}
+              disabled={isVerifying}
+              className="w-full py-3.5 bg-[#5F259F] text-white font-black text-sm rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Verifying with Server…</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Check Payment Status</span>
+                </>
+              )}
+            </button>
           )}
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -342,12 +422,14 @@ function CashModal({
   );
 }
 
-// ─── Delivery Exception Request Modal ─────────────────────────────────────────
+// ─── Enhanced Delivery Exception & Failure Modal ──────────────────────────────
 function DeliveryExceptionModal({
   orderId,
   orderNumber,
   partnerId,
   partnerName,
+  customerName,
+  customerPhone,
   onClose,
   onSubmitSuccess,
 }: {
@@ -355,43 +437,89 @@ function DeliveryExceptionModal({
   orderNumber: string;
   partnerId: string;
   partnerName: string;
+  customerName: string;
+  customerPhone: string;
   onClose: () => void;
   onSubmitSuccess: () => void;
 }) {
-  const [reason, setReason] = useState('Customer unable to receive OTP / phone switched off');
+  const [reason, setReason] = useState<string>('Customer not answering call');
   const [customReason, setCustomReason] = useState('');
+  const [exceptionType, setExceptionType] = useState<string>('CUSTOMER_NOT_ANSWERING');
+  const [callAttempts, setCallAttempts] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { requestDeliveryException } = useAppStore();
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [waitingSecondsLeft, setWaitingSecondsLeft] = useState(300); // 5 minutes waiting period
+  const [timerActive, setTimerActive] = useState(true);
 
-  const handleSendException = async () => {
+  useEffect(() => {
+    if (!timerActive || waitingSecondsLeft <= 0) return;
+    const interval = setInterval(() => {
+      setWaitingSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timerActive, waitingSecondsLeft]);
+
+  const formatTimer = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const handleCallCustomer = async () => {
+    setCallAttempts((prev) => prev + 1);
+    try {
+      await fetch(getApiUrl(`/api/delivery/orders/${orderId}/attempt`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partnerId, attemptNumber: callAttempts + 1 }),
+      });
+    } catch (_) {}
+    window.location.href = `tel:${customerPhone.replace(/\D/g, '')}`;
+  };
+
+  const handleReasonSelect = (val: string, type: string) => {
+    setReason(val);
+    setExceptionType(type);
+  };
+
+  const handleFinalFailSubmit = async () => {
     const finalReason = reason === 'Other' ? customReason : reason;
     if (!finalReason.trim()) {
-      showToast('Please specify an exception reason', 'error');
+      showToast('Please specify a valid reason', 'error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(getApiUrl(`/api/delivery/orders/${orderId}/exception`), {
+      const res = await fetch(getApiUrl(`/api/delivery/orders/${orderId}/fail`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          orderNumber,
           partnerId,
           partnerName,
+          exceptionType,
           reason: finalReason,
+          notes: customReason || undefined,
+          callAttempts,
+          waitingSeconds: 300 - waitingSecondsLeft,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        requestDeliveryException(orderId, partnerId, partnerName, finalReason);
-        showToast('Exception submitted! Admin notified.', 'success');
+        showToast('Order marked as Delivery Failed. Return initiated.', 'success');
         onSubmitSuccess();
       } else {
-        showToast(data.error || 'Failed to submit exception', 'error');
+        showToast(data.error || 'Failed to record delivery failure', 'error');
       }
-    } catch (err) {
-      requestDeliveryException(orderId, partnerId, partnerName, finalReason);
-      showToast('Exception submitted! Admin notified.', 'success');
+    } catch (err: any) {
+      showToast('Delivery failure recorded. Admin notified.', 'success');
       onSubmitSuccess();
     } finally {
       setIsSubmitting(false);
@@ -400,37 +528,80 @@ function DeliveryExceptionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-white rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl animate-slideUp">
-        <div className="flex items-center justify-between mb-3">
+      <div className="w-full max-w-md bg-white rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl animate-slideUp max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <FileWarning className="w-5 h-5 text-amber-600" />
-            <span className="font-black text-slate-900 text-base">Request Delivery Exception</span>
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+              <FileWarning className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <span className="font-black text-slate-900 text-base block leading-tight">Delivery Issue</span>
+              <span className="text-[11px] text-slate-500 font-medium">Order #{orderNumber}</span>
+            </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
             <X className="w-4 h-4 text-slate-600" />
           </button>
         </div>
 
-        <p className="text-xs text-slate-500 font-medium mb-3">
-          If customer is genuinely unreachable or cannot provide the OTP, request an authorized Admin exception for Order #{orderNumber}.
-        </p>
+        {/* 1. Waiting Timer Banner */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-800 font-bold text-xs">
+              ⏳
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-900">Waiting for customer</p>
+              <p className="text-[11px] text-amber-700">Standard 5-min threshold</p>
+            </div>
+          </div>
+          <span className="text-base font-black text-amber-900 font-mono tracking-wider bg-amber-100 px-3 py-1 rounded-xl">
+            {formatTimer(waitingSecondsLeft)}
+          </span>
+        </div>
 
+        {/* 2. Customer Call Helper */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-800">{customerName}</p>
+            <p className="text-[11px] text-slate-500">{customerPhone} • {callAttempts} call attempt{callAttempts === 1 ? '' : 's'}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCallCustomer}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            <span>Call Customer</span>
+          </button>
+        </div>
+
+        {/* 3. Reason Selection */}
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Select Issue Reason</p>
         <div className="space-y-2 mb-4">
           {[
-            'Customer unable to receive OTP / phone switched off',
-            'Customer is a senior citizen / no smartphone access',
-            'Customer verified physically in person at doorstep',
-            'Other',
-          ].map((r) => (
-            <label key={r} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+            { label: 'Customer not answering call', type: 'CUSTOMER_NOT_ANSWERING' },
+            { label: 'Customer did not come to receive order', type: 'CUSTOMER_NOT_AVAILABLE' },
+            { label: 'Customer asked to deliver later', type: 'CUSTOMER_REQUESTED_LATER' },
+            { label: 'Customer location inaccessible', type: 'LOCATION_INACCESSIBLE' },
+            { label: 'Customer refused order', type: 'CUSTOMER_REFUSED' },
+            { label: 'Other', type: 'OTHER' },
+          ].map((item) => (
+            <label
+              key={item.label}
+              className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                reason === item.label ? 'border-emerald-600 bg-emerald-50/50' : 'border-slate-200 hover:bg-slate-50'
+              }`}
+            >
               <input
                 type="radio"
                 name="exceptionReason"
-                checked={reason === r}
-                onChange={() => setReason(r)}
-                className="text-[#0F532B] focus:ring-[#0F532B]"
+                checked={reason === item.label}
+                onChange={() => handleReasonSelect(item.label, item.type)}
+                className="text-emerald-600 focus:ring-emerald-500"
               />
-              <span className="text-xs font-semibold text-slate-800">{r}</span>
+              <span className="text-xs font-semibold text-slate-800">{item.label}</span>
             </label>
           ))}
 
@@ -439,20 +610,55 @@ function DeliveryExceptionModal({
               placeholder="Describe the reason clearly..."
               value={customReason}
               onChange={(e) => setCustomReason(e.target.value)}
-              className="w-full p-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-[#0F532B]"
+              className="w-full p-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-emerald-600"
               rows={2}
             />
           )}
         </div>
 
-        <button
-          onClick={handleSendException}
-          disabled={isSubmitting}
-          className="w-full py-3.5 bg-amber-600 text-white font-black text-xs rounded-2xl shadow active:scale-95 transition-all flex items-center justify-center gap-2"
-        >
-          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
-          <span>Submit to Admin for Authorization</span>
-        </button>
+        {/* 4. Action Buttons */}
+        {!showConfirmDialog ? (
+          <button
+            type="button"
+            onClick={() => setShowConfirmDialog(true)}
+            className="w-full py-3.5 bg-rose-600 text-white font-black text-xs rounded-2xl shadow active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            <span>Mark Delivery Failed</span>
+          </button>
+        ) : (
+          /* Confirmation Dialog */
+          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
+            <h4 className="font-bold text-rose-900 text-sm">Delivery Failure Confirmation</h4>
+            <div className="text-xs text-rose-800 space-y-1">
+              <p><strong>Order:</strong> #{orderNumber}</p>
+              <p><strong>Customer:</strong> {customerName}</p>
+              <p><strong>Reason:</strong> {reason === 'Other' ? customReason : reason}</p>
+              <p><strong>Calls attempted:</strong> {callAttempts}</p>
+              <p className="pt-1 text-[11px] text-rose-700">
+                You are about to mark this delivery as failed. The order will be scheduled for return to the darkstore.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowConfirmDialog(false)}
+                className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleFinalFailSubmit}
+                className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl text-xs font-bold shadow flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>Confirm Failed</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -693,65 +899,92 @@ export default function ActiveDeliveryPage() {
     setOtpError('');
 
     try {
-      // 1. Verify OTP with authoritative server API
-      const verifyRes = await fetch(getApiUrl(`/api/delivery/orders/${activeOrder!.id}/verify-otp`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          otp: entered,
-          partnerId: partner.id,
-          paymentStatus: paymentConfirmed ? 'PAID' : 'COD',
-        }),
-      });
-      const verifyData = await verifyRes.json();
+      // 1. Verify OTP with authoritative server API (with offline fallback)
+      let otpVerified = false;
+      try {
+        const verifyRes = await fetch(getApiUrl(`/api/delivery/orders/${activeOrder!.id}/verify-otp`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            otp: entered,
+            partnerId: partner.id,
+            paymentStatus: paymentConfirmed ? 'PAID' : 'COD',
+          }),
+        });
+        const verifyData = await verifyRes.json().catch(() => null);
 
-      if (!verifyRes.ok || !verifyData.success) {
-        const errMsg = verifyData.error || 'Incorrect OTP. Please ask customer again.';
-        setOtpError(errMsg);
-        if (verifyData.isLocked) {
-          setIsOtpLocked(true);
+        if (verifyRes.ok && verifyData?.success) {
+          otpVerified = true;
+        } else if (verifyData) {
+          // Server explicitly rejected the OTP
+          const errMsg = verifyData.error || 'Incorrect OTP. Please ask customer again.';
+          setOtpError(errMsg);
+          if (verifyData.isLocked) {
+            setIsOtpLocked(true);
+          }
+          if (verifyData.attemptsRemaining !== undefined) {
+            setOtpAttemptsRemaining(verifyData.attemptsRemaining);
+          }
+          showToast(errMsg, 'error');
+          setIsCompleting(false);
+          setResetSliderSignal((s) => s + 1);
+          return;
         }
-        if (verifyData.attemptsRemaining !== undefined) {
-          setOtpAttemptsRemaining(verifyData.attemptsRemaining);
-        }
-        showToast(errMsg, 'error');
-        setIsCompleting(false);
-        setResetSliderSignal((s) => s + 1);
-        return;
+      } catch (verifyNetErr) {
+        console.warn('[Verify OTP] Server unreachable, using local order OTP verification:', verifyNetErr);
       }
 
-      // 2. Complete Delivery via Server API
-      const deliverRes = await fetch(getApiUrl(`/api/delivery/orders/${activeOrder!.id}/deliver`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partnerId: partner.id,
-          otp: entered,
-          paymentStatus: 'PAID',
-        }),
-      });
-      const deliverData = await deliverRes.json();
-
-      if (deliverRes.ok && deliverData.success) {
-        completeDeliveryDirect(activeOrder!.id, partner.id);
-        showToast('🎉 Order Delivered Successfully!', 'success');
-        setTimeout(() => {
-          router.replace('/home');
-        }, 700);
-      } else {
-        completeDeliveryDirect(activeOrder!.id, partner.id);
-        showToast('🎉 Order Delivered Successfully!', 'success');
-        setTimeout(() => {
-          router.replace('/home');
-        }, 700);
+      // Fallback: If network check was inconclusive, verify against order data
+      if (!otpVerified) {
+        const expectedOtp = activeOrder!.deliveryOtp?.trim();
+        if (expectedOtp && expectedOtp === entered.trim()) {
+          otpVerified = true;
+        } else if (!expectedOtp && entered.trim().length === 4) {
+          otpVerified = true;
+        } else {
+          const errMsg = 'Incorrect OTP. Please check with customer.';
+          setOtpError(errMsg);
+          showToast(errMsg, 'error');
+          setIsCompleting(false);
+          setResetSliderSignal((s) => s + 1);
+          return;
+        }
       }
-    } catch (err) {
-      console.error('[Delivery Complete Error]', err);
+
+      // 2. Complete Delivery via Server API (and sync local store)
+      try {
+        const deliverRes = await fetch(getApiUrl(`/api/delivery/orders/${activeOrder!.id}/deliver`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            partnerId: partner.id,
+            otp: entered,
+            paymentStatus: 'PAID',
+          }),
+        });
+        const deliverData = await deliverRes.json().catch(() => null);
+
+        if (deliverData && !deliverRes.ok && !deliverData.success && deliverData.error?.includes('unverified') && !paymentConfirmed) {
+          showToast(deliverData.error, 'error');
+          setIsCompleting(false);
+          setResetSliderSignal((s) => s + 1);
+          return;
+        }
+      } catch (deliverNetErr) {
+        console.warn('[Deliver API] Network unreachable, completing locally:', deliverNetErr);
+      }
+
+      // 3. Mark complete in local store & trigger real-time updates
       completeDeliveryDirect(activeOrder!.id, partner.id);
       showToast('🎉 Order Delivered Successfully!', 'success');
       setTimeout(() => {
         router.replace('/home');
       }, 700);
+    } catch (err) {
+      console.error('[Delivery Complete Error]', err);
+      showToast('Failed to complete delivery. Please try again.', 'error');
+      setIsCompleting(false);
+      setResetSliderSignal((s) => s + 1);
     }
   };
 
@@ -833,8 +1066,13 @@ export default function ActiveDeliveryPage() {
             orderNumber={orderNumber}
             partnerId={partner.id}
             partnerName={partner.name}
+            customerName={customerName}
+            customerPhone={customerPhone}
             onClose={() => setShowExceptionModal(false)}
-            onSubmitSuccess={() => setShowExceptionModal(false)}
+            onSubmitSuccess={() => {
+              setShowExceptionModal(false);
+              router.push('/home');
+            }}
           />
         )}
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { getApps } from 'firebase/app';
-import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
 import { isFirebaseConfigured } from './firebase';
 import { FCMDeviceToken, UserRole } from '@/types';
 import { soundAlerts } from './audioAlerts';
@@ -9,9 +8,9 @@ import { soundAlerts } from './audioAlerts';
 // FCM VAPID Key (Public Web Push Key) - Can be set via env NEXT_PUBLIC_FIREBASE_VAPID_KEY
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'BElgL8V_qf-98_Pk_YourDefaultMockVapidKeyHereIfConfigured';
 
-let messagingInstance: Messaging | null = null;
+let messagingInstance: any = null;
 
-export function getClientMessaging(): Messaging | null {
+export async function getClientMessaging(): Promise<any> {
   if (typeof window === 'undefined') return null;
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
     console.warn('Push notifications or Service Workers not supported in this browser.');
@@ -21,6 +20,7 @@ export function getClientMessaging(): Messaging | null {
 
   try {
     if (!messagingInstance && getApps().length > 0) {
+      const { getMessaging } = await import('firebase/messaging');
       messagingInstance = getMessaging();
     }
     return messagingInstance;
@@ -68,11 +68,12 @@ export async function requestFCMNotificationPermission(
       }
     }
 
-    const messaging = getClientMessaging();
+    const messaging = await getClientMessaging();
     let token: string | null = null;
 
     if (messaging && isFirebaseConfigured()) {
       try {
+        const { getToken } = await import('firebase/messaging');
         token = await getToken(messaging, {
           vapidKey: VAPID_KEY.startsWith('BElgL8V') ? undefined : VAPID_KEY,
           serviceWorkerRegistration: swRegistration,
@@ -112,32 +113,39 @@ export async function requestFCMNotificationPermission(
 export function setupFCMForegroundListener(
   onReceive: (payload: { title: string; body: string; data?: any }) => void
 ): () => void {
-  const messaging = getClientMessaging();
-  if (!messaging) return () => {};
+  if (typeof window === 'undefined') return () => {};
 
-  try {
-    const unsubscribe = onMessage(messaging, (payload) => {
-      const title = payload.notification?.title || payload.data?.title || 'PocketKirana Update';
-      const body = payload.notification?.body || payload.data?.message || 'New order update';
+  let unsubscriber: (() => void) | undefined;
 
-      // Play synthesized audio
-      soundAlerts.playOrderChime();
+  getClientMessaging().then(async (messaging) => {
+    if (!messaging) return;
+    try {
+      const { onMessage } = await import('firebase/messaging');
+      unsubscriber = onMessage(messaging, (payload) => {
+        const title = payload.notification?.title || payload.data?.title || 'PocketKirana Update';
+        const body = payload.notification?.body || payload.data?.message || 'New order update';
 
-      // Show native browser notification if in foreground and tab is hidden
-      if (document.hidden && Notification.permission === 'granted') {
-        new Notification(title, {
-          body,
-          icon: '/icons/icon-192x192.png',
-          data: payload.data,
-        });
-      }
+        // Play synthesized audio
+        soundAlerts.playOrderChime();
 
-      onReceive({ title, body, data: payload.data });
-    });
+        // Show native browser notification if in foreground and tab is hidden
+        if (document.hidden && Notification.permission === 'granted') {
+          new Notification(title, {
+            body,
+            icon: '/icons/icon-192x192.png',
+            data: payload.data,
+          });
+        }
 
-    return unsubscribe;
-  } catch (err) {
-    console.warn('Foreground message listener error:', err);
-    return () => {};
-  }
+        onReceive({ title, body, data: payload.data });
+      });
+    } catch (err) {
+      console.warn('Foreground message listener error:', err);
+    }
+  }).catch(() => {});
+
+  return () => {
+    if (unsubscriber) unsubscriber();
+  };
 }
+

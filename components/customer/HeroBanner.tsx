@@ -64,18 +64,18 @@ export const HeroBanner: React.FC = () => {
               'Pure milk, organic vegetables, fresh bakery and pantry essentials delivered directly to your doorstep in 30 minutes.'}
           </p>
 
-          {/* Buttons */}
+          {/* Buttons & Badges */}
           <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2.5 sm:gap-3">
             <Link
               href={current.redirectUrl || '/category/fruits-vegetables'}
-              className="bg-[#E65100] hover:bg-[#D84315] text-white font-black text-xs sm:text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl shadow-md transition-all active:scale-95 flex items-center gap-2 group/btn cursor-pointer"
+              className="bg-[#075C3C] hover:bg-[#0B8F5A] active:bg-[#05442C] text-white font-bold text-xs sm:text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 group/btn cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#075C3C]"
             >
               <span>SHOP NOW</span>
-              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover/btn:translate-x-1 transition-transform" />
+              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover/btn:translate-x-1 transition-transform" aria-hidden="true" />
             </Link>
 
-            <div className="hidden md:flex items-center gap-2 text-xs font-extrabold text-[#075C3C] dark:text-emerald-400 bg-white/80 dark:bg-[#151B23]/80 px-3.5 py-2.5 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#0B8F5A] dark:text-emerald-400" />
+            <div className="hidden md:flex items-center gap-2 text-xs font-bold text-[#075C3C] dark:text-emerald-400 bg-white/70 dark:bg-[#151B23]/70 px-3 py-1.5 rounded-lg border border-emerald-200/60 dark:border-emerald-800/40 shadow-2xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#0B8F5A] dark:text-emerald-400" aria-hidden="true" />
               <span>30 Min Express</span>
             </div>
           </div>

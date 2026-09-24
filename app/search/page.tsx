@@ -9,6 +9,7 @@ import { ProductCard } from '@/components/customer/ProductCard';
 import { ProductDetailModal } from '@/components/customer/ProductDetailModal';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { NoSearchResults } from '@/components/states/NoSearchResults';
 import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { Product, Brand } from '@/types';
@@ -310,10 +311,19 @@ function SearchContent() {
                 ))}
               </div>
             ) : sorted.length === 0 ? (
-              <EmptyState
-                variant="search"
-                description={`No products found for "${query}". Try searching with different keywords.`}
-              />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                <NoSearchResults
+                  query={query}
+                  onClearSearch={() => {
+                    setLocalQ('');
+                    router.push('/search');
+                  }}
+                  onSelectSuggestion={(suggestion) => {
+                    setLocalQ(suggestion);
+                    router.push(`/search?q=${encodeURIComponent(suggestion)}`);
+                  }}
+                />
+              </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {sorted.map((prod) => (

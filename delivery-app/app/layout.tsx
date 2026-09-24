@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "Driver application for Pocket Kirana grocery order deliveries.",
 };
 
+import { DeliveryNotificationListener } from "../components/DeliveryNotificationListener";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -23,6 +25,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-emerald-600 selection:text-white" suppressHydrationWarning>
+        <DeliveryNotificationListener />
         <main className="flex-1 flex flex-col min-h-screen">
           {children}
         </main>

@@ -26,6 +26,7 @@ import {
 import { showToast } from '@/components/ui/Toast';
 import type { Product, ProductVariant } from '@/types';
 import { normalizeProductSections, sanitizeVisibleSectionsForCustomer } from '@/lib/productSectionUtils';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function ProductDetailClient() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function ProductDetailClient() {
   useEffect(() => {
     setMounted(true);
     if (idOrSlug) {
-      fetch(`/api/v1/products/${idOrSlug}`)
+      apiFetch(`/api/v1/products/${idOrSlug}`)
         .then((r) => r.json())
         .then((data) => {
           if (data.success && data.data) {

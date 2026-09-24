@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
-import { PWARegister } from '@/components/common/PWARegister';
-import { NotificationWrapper } from '@/components/common/NotificationWrapper';
+import { GlobalErrorBoundary } from '@/components/states/GlobalErrorBoundary';
 import './globals.css';
+
+import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
+import { NotificationWrapper } from '@/components/common/NotificationWrapper';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -104,10 +105,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background flex flex-col font-sans antialiased text-foreground" suppressHydrationWarning>
-        <PWARegister />
         <GlobalErrorSuppressor />
         <NotificationWrapper />
-        {children}
+        <GlobalErrorBoundary>
+          {children}
+        </GlobalErrorBoundary>
       </body>
     </html>
   );

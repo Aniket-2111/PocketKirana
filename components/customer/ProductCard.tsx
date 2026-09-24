@@ -7,6 +7,7 @@ import { useAppStore } from '@/lib/store';
 import { getProductBrand } from '@/lib/brandUtils';
 import { Heart, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { ProductImage } from './ProductImage';
 
 interface ProductCardProps {
   product: Product;
@@ -151,7 +152,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
       {/* ── CARD ── */}
       <div
         onClick={() => onOpenDetail ? onOpenDetail(product) : undefined}
-        className="w-full h-[290px] sm:h-[315px] bg-white dark:bg-[#151B23] rounded-2xl sm:rounded-3xl border border-[#E5E7EB] dark:border-[#263241] hover:border-[#008F5A]/40 dark:hover:border-[#008F5A]/60 p-2.5 sm:p-3.5 flex flex-col justify-between group transition-all duration-200 shadow-2xs hover:shadow-md cursor-pointer relative overflow-hidden"
+        className="w-full h-[330px] sm:h-[350px] bg-white dark:bg-[#151B23] rounded-2xl sm:rounded-3xl border border-[#E5E7EB] dark:border-[#263241] hover:border-[#075C3C]/50 dark:hover:border-[#008F5A]/70 p-3 sm:p-3.5 flex flex-col justify-between group transition-all duration-200 shadow-2xs hover:shadow-md cursor-pointer relative overflow-hidden"
       >
         {/* ── TOP BADGE & WISHLIST ROW ── */}
         <div className="flex items-center justify-between gap-1 z-10 shrink-0">
@@ -168,7 +169,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
           )}
 
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 border border-emerald-600 rounded-xs flex items-center justify-center p-0.5 bg-white dark:bg-[#151B23]">
+            <div className="w-3.5 h-3.5 border border-emerald-600 rounded-xs flex items-center justify-center p-0.5 bg-white dark:bg-[#151B23]" title="Vegetarian">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
             </div>
             <button
@@ -178,29 +179,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
                 e.stopPropagation();
                 toggleWishlist(product.id);
               }}
-              className={`p-1 rounded-full transition-transform active:scale-90 ${isWishlisted ? 'text-rose-500 fill-rose-500' : 'text-slate-300 dark:text-slate-600 hover:text-rose-500'
-                }`}
-              title="Wishlist"
-              aria-label="Toggle wishlist"
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all active:scale-90 border shadow-2xs ${
+                isWishlisted
+                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 text-rose-500'
+                  : 'bg-slate-50/90 dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700 text-slate-400 hover:text-rose-500 hover:bg-rose-50/50'
+              }`}
+              title={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             >
-              <Heart className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
+              <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isWishlisted ? 'fill-current text-rose-500' : ''}`} aria-hidden="true" />
             </button>
           </div>
         </div>
 
         {/* ── PRODUCT IMAGE ── */}
-        <div className="w-full h-[95px] sm:h-[110px] flex items-center justify-center p-1 sm:p-2 my-0.5 relative shrink-0">
-          <img
-            ref={imgRef}
-            src={product.thumbnail || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80'}
+        <div className="w-full h-28 sm:h-32 rounded-xl sm:rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 p-1.5 my-1 relative shrink-0 overflow-hidden flex items-center justify-center">
+          <ProductImage
+            src={product.thumbnail}
             alt={product.name}
-            loading="lazy"
-            decoding="async"
-            className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-xs"
+            containerClassName="w-full h-full"
+            className="w-full h-full max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-xs"
           />
           {isOutOfStock && (
             <div className="absolute inset-0 bg-white/85 dark:bg-[#151B23]/90 backdrop-blur-[1px] rounded-xl sm:rounded-2xl flex items-center justify-center">
-              <span className="bg-rose-500 text-white font-black text-[9px] sm:text-[10px] px-2 py-0.5 sm:py-1 rounded-full uppercase tracking-wider shadow-xs">
+              <span className="bg-rose-500 text-white font-bold text-[9px] sm:text-[10px] px-2 py-0.5 sm:py-1 rounded-full uppercase tracking-wider shadow-xs">
                 Out of Stock
               </span>
             </div>
@@ -208,49 +210,49 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
         </div>
 
         {/* ── PRODUCT DETAILS ── */}
-        <div className="flex flex-col flex-1 justify-between min-h-0">
+        <div className="flex flex-col flex-1 justify-between min-h-0 pt-0.5">
           <div className="space-y-0.5">
             {/* Brand Name */}
             {brand ? (
               <Link
                 href={`/brand/${brand.slug}`}
                 onClick={(e) => e.stopPropagation()}
-                className="text-[9px] sm:text-[10px] font-bold text-[#008F5A] dark:text-[#22C55E] hover:underline uppercase tracking-wider block truncate"
+                className="text-[10px] sm:text-[11px] font-bold text-[#075C3C] dark:text-emerald-400 hover:underline tracking-wide block truncate"
               >
                 {brand.name}
               </Link>
             ) : (
-              <span className="text-[9px] sm:text-[10px] font-bold text-[#6B7280] dark:text-[#9CA3AF] uppercase tracking-wider block truncate">
-                PocketKirana
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wide block truncate">
+                Farm Fresh Organic
               </span>
             )}
 
             {/* Product Title */}
-            <h3 className="font-extrabold text-xs sm:text-sm text-[#111827] dark:text-[#F9FAFB] leading-snug line-clamp-2 min-h-[32px] sm:min-h-[36px] group-hover:text-[#008F5A] dark:group-hover:text-[#22C55E] transition-colors">
+            <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-slate-100 leading-snug line-clamp-2 min-h-[32px] sm:min-h-[36px] group-hover:text-[#075C3C] dark:group-hover:text-emerald-400 transition-colors">
               {product.name}
             </h3>
 
             {/* Stock Status & Unit */}
-            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-semibold text-[#6B7280] dark:text-[#D1D5DB] pt-0.5">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-semibold text-slate-600 dark:text-slate-300 pt-0.5">
               <span className="truncate">{product.unit || '1 pc'}</span>
               {isOutOfStock ? (
                 <span className="text-rose-600 dark:text-rose-400 font-bold text-[9px] sm:text-[10px]">● Out of Stock</span>
               ) : isLowStock ? (
                 <span className="text-amber-600 dark:text-amber-400 font-bold text-[9px] sm:text-[10px]">● {product.stock} left</span>
               ) : (
-                <span className="text-[#008F5A] dark:text-[#22C55E] font-bold text-[9px] sm:text-[10px]">● In Stock</span>
+                <span className="text-[#075C3C] dark:text-emerald-400 font-bold text-[9px] sm:text-[10px]">● In Stock</span>
               )}
             </div>
           </div>
 
           {/* ── PRICING & CTA ── */}
-          <div className="pt-1.5 sm:pt-2 border-t border-[#E5E7EB] dark:border-[#263241] flex flex-col gap-1.5 sm:gap-2">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-1.5 mt-auto">
             <div className="flex items-baseline gap-1.5 sm:gap-2">
-              <span className="text-xs sm:text-base font-black text-[#008F5A] dark:text-[#22C55E]">
+              <span className="text-sm sm:text-base font-black text-[#075C3C] dark:text-emerald-400">
                 ₹{product.sellingPrice}
               </span>
               {product.mrp > product.sellingPrice && (
-                <span className="text-[10px] sm:text-xs text-[#6B7280] dark:text-[#9CA3AF] font-semibold line-through">
+                <span className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 font-semibold line-through">
                   ₹{product.mrp}
                 </span>
               )}
@@ -261,7 +263,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
                 disabled
                 type="button"
                 suppressHydrationWarning
-                className="w-full bg-slate-100 dark:bg-[#1B2430] text-slate-400 dark:text-[#6B7280] font-bold text-[11px] sm:text-xs py-1.5 sm:py-2 rounded-xl cursor-not-allowed text-center"
+                className="w-full h-8 sm:h-9 bg-slate-100 dark:bg-[#1B2430] text-slate-400 dark:text-slate-500 font-bold text-[11px] sm:text-xs rounded-xl cursor-not-allowed text-center"
               >
                 Unavailable
               </button>
@@ -270,31 +272,32 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
                 type="button"
                 suppressHydrationWarning
                 onClick={handleAddToCartClick}
-                className="w-full bg-[#E65100] hover:bg-[#D84315] text-white font-black text-[11px] sm:text-xs py-1.5 sm:py-2 px-2.5 sm:px-3 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full h-8 sm:h-9 bg-[#075C3C] hover:bg-[#0B8F5A] active:bg-[#05442C] text-white font-bold text-xs px-3 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#075C3C]"
+                aria-label={`Add ${product.name} to cart`}
               >
-                <ShoppingCart className="w-3.5 h-3.5" />
+                <ShoppingCart className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Add</span>
               </button>
             ) : (
-              <div className="w-full flex items-center justify-between bg-[#008F5A] text-white rounded-xl font-black text-xs p-0.5 sm:p-1 shadow-2xs">
+              <div className="w-full h-8 sm:h-9 flex items-center justify-between bg-[#075C3C] text-white rounded-xl font-bold text-xs p-1 shadow-2xs">
                 <button
                   type="button"
                   suppressHydrationWarning
                   onClick={handleMinusClick}
-                  className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center hover:bg-black/15 rounded-lg transition-colors cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center hover:bg-black/20 rounded-lg transition-colors cursor-pointer"
                   aria-label="Decrease quantity"
                 >
-                  <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
+                  <Minus className="w-3.5 h-3.5 stroke-[2.5]" aria-hidden="true" />
                 </button>
-                <span className="px-1 sm:px-2 font-black text-[11px] sm:text-xs">{qty} in cart</span>
+                <span className="px-1 font-bold text-[11px] sm:text-xs">{qty} in cart</span>
                 <button
                   type="button"
                   suppressHydrationWarning
                   onClick={handlePlusClick}
-                  className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center hover:bg-black/15 rounded-lg transition-colors cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center hover:bg-black/20 rounded-lg transition-colors cursor-pointer"
                   aria-label="Increase quantity"
                 >
-                  <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" aria-hidden="true" />
                 </button>
               </div>
             )}

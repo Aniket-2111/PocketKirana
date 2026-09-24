@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
                   <span className="text-base sm:text-2xl font-black tracking-tight text-[#075C3C] dark:text-emerald-400 leading-none">
                     Pocket<span className="text-[#0B8F5A] dark:text-emerald-500">Kirana</span>
                   </span>
-                  <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-[#9CA3AF] tracking-wider uppercase mt-0.5">
+                  <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-slate-400 tracking-wide mt-0.5">
                     30 Min Groceries
                   </span>
                 </div>
@@ -108,20 +108,21 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
                 suppressHydrationWarning
                 onClick={() => setShowLocationModal(true)}
                 type="button"
-                className="hidden lg:flex items-center gap-2 bg-[#FFF8E7] dark:bg-[#151B23] hover:bg-[#FFF3D6] dark:hover:bg-[#1B2430] border border-amber-200/80 dark:border-[#263241] px-3 py-1.5 rounded-2xl text-left transition-colors cursor-pointer"
+                className="hidden lg:flex items-center gap-2.5 bg-slate-50 dark:bg-[#151B23] hover:bg-slate-100 dark:hover:bg-[#1B2430] border border-slate-200 dark:border-slate-700 px-3.5 py-2 rounded-xl text-left transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#075C3C]"
+                aria-label={`Delivering to ${defaultAddr ? defaultAddr.addressLine1 : 'Select Location'}`}
               >
-                <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
-                  <MapPin className="w-3.5 h-3.5" />
+                <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-[#075C3C] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" aria-hidden="true" />
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider leading-none">
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 leading-none">
                     Delivering To
                   </span>
-                  <div className="flex items-center gap-1 text-xs font-black text-slate-800 dark:text-[#F9FAFB] leading-tight truncate max-w-[140px] mt-0.5">
+                  <div className="flex items-center gap-1 text-xs font-bold text-slate-900 dark:text-white leading-tight truncate max-w-[140px] mt-0.5">
                     <span className="truncate">
                       {defaultAddr ? defaultAddr.addressLine1 : 'Select Location'}
                     </span>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-[#9CA3AF] shrink-0" />
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" aria-hidden="true" />
                   </div>
                 </div>
               </button>
@@ -143,7 +144,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
                     onFocus={() => setShowSearchDrop(true)}
                     className="w-full bg-[#FBFBF7] dark:bg-[#151B23] border-2 border-slate-200 dark:border-[#263241] focus:border-[#0B8F5A] dark:focus:border-emerald-500 focus:bg-white dark:focus:bg-[#151B23] text-slate-900 dark:text-[#F9FAFB] placeholder-slate-400 dark:placeholder-[#9CA3AF] rounded-l-2xl py-2.5 pl-10 pr-8 text-xs sm:text-sm font-medium focus:outline-none transition-all"
                   />
-                  <Search className="w-4 h-4 text-slate-400 dark:text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-4 h-4 text-slate-400 dark:text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
                   {localQuery && (
                     <button
                       type="button"
@@ -160,13 +161,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
                   )}
                 </div>
 
-                {/* Search Button */}
+                {/* Search Button (Utility CTA aligned with secondary/brand styling) */}
                 <button
                   type="submit"
                   suppressHydrationWarning
-                  className="bg-[#E65100] hover:bg-[#D84315] text-white font-black text-xs uppercase px-5 py-3 rounded-r-2xl flex items-center gap-1.5 transition-colors shadow-2xs shrink-0 cursor-pointer"
+                  className="bg-[#075C3C] hover:bg-[#0B8F5A] text-white font-bold text-xs px-5 py-3 rounded-r-2xl flex items-center gap-1.5 transition-colors shadow-2xs shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#075C3C]"
+                  aria-label="Search products"
                 >
-                  <Search className="w-3.5 h-3.5" />
+                  <Search className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Search</span>
                 </button>
               </form>
@@ -302,9 +304,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenCart, onOpenAuth }) => {
           <button
             type="submit"
             suppressHydrationWarning
-            className="bg-[#E65100] hover:bg-[#D84315] text-white font-black text-xs uppercase px-3.5 py-2.5 rounded-r-2xl flex items-center justify-center transition-colors shadow-2xs shrink-0 cursor-pointer"
+            className="bg-[#075C3C] hover:bg-[#0B8F5A] text-white font-bold text-xs px-3.5 py-2.5 rounded-r-2xl flex items-center justify-center transition-colors shadow-2xs shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#075C3C]"
+            aria-label="Submit search"
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </form>
 

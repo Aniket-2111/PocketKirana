@@ -683,8 +683,12 @@ CREATE TABLE IF NOT EXISTS sales_summaries (
 -- PERFORMANCE INDEXES
 --------------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_subcategory ON products(subcategory_id);
 CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand_id);
+CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
+CREATE INDEX IF NOT EXISTS idx_products_discover_sort ON products(is_featured DESC, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id);
+CREATE INDEX IF NOT EXISTS idx_variants_product_display ON product_variants(product_id, display_order, created_at);
 CREATE INDEX IF NOT EXISTS idx_variants_sku ON product_variants(sku);
 CREATE INDEX IF NOT EXISTS idx_inventory_store_variant ON inventory(store_id, variant_id);
 CREATE INDEX IF NOT EXISTS idx_carts_firebase_uid ON carts(firebase_uid);

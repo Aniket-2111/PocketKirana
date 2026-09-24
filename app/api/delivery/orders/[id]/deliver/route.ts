@@ -59,8 +59,9 @@ export async function POST(
 
     // 2. Strict Payment / Collection Gate
     const isOnlinePrepaid = paymentMethod === 'online' || paymentMethod === 'upi' || paymentMethod === 'razorpay' || paymentMethod === 'phonepe' || paymentMethod === 'card';
-    const isCodCash = paymentMethod.includes('cash') || paymentMethod === 'cod_cash' || collectionMethod === 'CASH';
     const isCodUpi = paymentMethod.includes('upi') || paymentMethod === 'phonepe_upi' || paymentMethod === 'cod_upi' || collectionMethod === 'UPI';
+    const isCodCash = paymentMethod === 'cod' || paymentMethod.includes('cash') || paymentMethod === 'cod_cash' || collectionMethod === 'CASH';
+    const isCodOrder = paymentMethod.includes('cod') || isCodCash || isCodUpi || (!isOnlinePrepaid);
 
     if (isOnlinePrepaid) {
       if (paymentStatus !== 'paid' && paymentStatus !== 'completed') {
@@ -71,19 +72,19 @@ export async function POST(
         response.headers.set('Access-Control-Allow-Origin', '*');
         return response;
       }
-    } else if (isCodCash) {
-      if (collectionStatus !== 'COLLECTED' && paymentStatus !== 'paid') {
+    } else if (isCodUpi) {
+      if (paymentStatus !== 'paid' && paymentStatus !== 'completed') {
         const response = NextResponse.json(
-          { success: false, error: 'Cannot complete delivery: Cash must be collected before OTP verification.' },
+          { success: false, error: 'Cannot complete delivery: PhonePe UPI payment is unverified.' },
           { status: 400 }
         );
         response.headers.set('Access-Control-Allow-Origin', '*');
         return response;
       }
-    } else if (isCodUpi) {
-      if (paymentStatus !== 'paid' && paymentStatus !== 'completed') {
+    } else if (isCodOrder || isCodCash) {
+      if (collectionStatus !== 'COLLECTED' && paymentStatus !== 'paid' && paymentStatus !== 'completed') {
         const response = NextResponse.json(
-          { success: false, error: 'Cannot complete delivery: PhonePe UPI payment is unverified.' },
+          { success: false, error: 'Cannot complete delivery: COD payment (Cash or UPI QR) must be verified before completing delivery.' },
           { status: 400 }
         );
         response.headers.set('Access-Control-Allow-Origin', '*');

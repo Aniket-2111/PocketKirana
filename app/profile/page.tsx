@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { requestFCMNotificationPermission } from '@/lib/fcmClient';
 import { ThemeMode, getStoredTheme, setAppTheme, initThemeListener } from '@/lib/themeUtils';
+import { EmptyState, ProductImageWithFallback } from '@/components/states';
 
 export default function UserProfilePage() {
   const router = useRouter();
@@ -380,16 +381,13 @@ export default function UserProfilePage() {
                 </div>
 
                 {orders.length === 0 ? (
-                  <div className="text-center py-12 space-y-3">
-                    <ShoppingBag className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto" />
-                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No orders placed yet</p>
-                    <Link
-                      href="/"
-                      className="inline-block bg-[#006E2F] text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md hover:bg-emerald-800 transition-colors"
-                    >
-                      Start Shopping
-                    </Link>
-                  </div>
+                  <EmptyState
+                    type="orders"
+                    primaryAction={{
+                      label: "Start Shopping",
+                      onClick: () => router.push('/'),
+                    }}
+                  />
                 ) : (
                   <div className="space-y-4">
                     {orders.map((ord, idx) => {
@@ -547,15 +545,11 @@ export default function UserProfilePage() {
                 </div>
 
                 {customerNotifs.length === 0 ? (
-                  <div className="text-center py-16 space-y-3">
-                    <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
-                      <Bell className="w-7 h-7" />
-                    </div>
-                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No notifications yet</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto">
-                      We will notify you about your order progress, dispatch status, and exclusive discount codes here.
-                    </p>
-                  </div>
+                  <EmptyState
+                    type="notifications"
+                    title="No Notifications Yet"
+                    description="We will notify you about your order progress, dispatch status, and exclusive discount codes here."
+                  />
                 ) : (
                   <div className="space-y-3">
                     {customerNotifs.map((notif) => (
@@ -733,12 +727,26 @@ export default function UserProfilePage() {
                         className="w-4 h-4 text-emerald-600 rounded-sm cursor-pointer accent-[#006E2F]"
                       />
                     </div>
+
+                    {/* Cart Reminders */}
+                    <div className="flex items-center justify-between pt-3">
+                      <div>
+                        <strong className="font-bold text-gray-900 dark:text-white block">Cart Reminders</strong>
+                        <span className="text-gray-500 dark:text-gray-400 text-[11px]">Helpful reminder when items remain in your cart before stock runs out.</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={notificationPreferences.promotionalMessages ?? true}
+                        onChange={(e) => updateNotificationPreferences({ promotionalMessages: e.target.checked })}
+                        className="w-4 h-4 text-emerald-600 rounded-sm cursor-pointer accent-[#006E2F]"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Section B: Delivery Channels */}
                 <div className="bg-gray-50/70 dark:bg-[#1A2232]/70 border border-gray-200 dark:border-[#263241] rounded-2xl p-5 space-y-4">
-                  <h4 className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-wider">Notification Channels</h4>
+                  <h4 className="font-black text-xs text-gray-900 dark:text-white uppercase tracking-wider">Notification Channels &amp; Hardware</h4>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     {/* Web Push */}
@@ -763,8 +771,8 @@ export default function UserProfilePage() {
                       <div className="flex items-center gap-2.5">
                         <Volume2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                         <div>
-                          <strong className="font-bold text-gray-900 dark:text-white block">Audio Chimes</strong>
-                          <span className="text-gray-500 dark:text-gray-400 text-[10px]">In-app sound effects</span>
+                          <strong className="font-bold text-gray-900 dark:text-white block">Audio Sound</strong>
+                          <span className="text-gray-500 dark:text-gray-400 text-[10px]">Order chime sound effects</span>
                         </div>
                       </div>
                       <input
@@ -772,6 +780,23 @@ export default function UserProfilePage() {
                         checked={notificationPreferences.soundEnabled}
                         onChange={(e) => updateNotificationPreferences({ soundEnabled: e.target.checked })}
                         className="w-4 h-4 accent-[#006E2F] cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Device Vibration */}
+                    <div className="flex items-center justify-between p-3 bg-white dark:bg-[#151B23] border border-gray-200 dark:border-[#263241] rounded-xl">
+                      <div className="flex items-center gap-2.5">
+                        <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <div>
+                          <strong className="font-bold text-gray-900 dark:text-white block">Device Vibration</strong>
+                          <span className="text-gray-500 dark:text-gray-400 text-[10px]">Haptic feedback on alerts</span>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={true}
+                        disabled
+                        className="w-4 h-4 accent-[#006E2F] cursor-not-allowed opacity-80"
                       />
                     </div>
 
@@ -835,18 +860,13 @@ export default function UserProfilePage() {
                 </div>
 
                 {addresses.length === 0 ? (
-                  <div className="text-center py-12 space-y-3">
-                    <MapPin className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto" />
-                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No saved addresses yet</p>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenLocationPicker()}
-                      className="inline-flex items-center gap-1.5 bg-[#006E2F] text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md hover:bg-emerald-800 transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Delivery Address</span>
-                    </button>
-                  </div>
+                  <EmptyState
+                    type="addresses"
+                    primaryAction={{
+                      label: "Add Delivery Address",
+                      onClick: () => handleOpenLocationPicker(),
+                    }}
+                  />
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {addresses.map((addr) => (
@@ -1011,10 +1031,12 @@ export default function UserProfilePage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {wishlistedProducts.map((prod) => (
                       <div key={prod.id} className="border border-gray-200 dark:border-[#263241] rounded-2xl p-3 bg-white dark:bg-[#1A2232] space-y-2 relative">
-                        <img src={prod.thumbnail} alt={prod.name} className="w-full h-24 object-contain" />
+                        <div className="w-full h-24 flex items-center justify-center overflow-hidden rounded-xl bg-gray-50 dark:bg-[#151B23]">
+                          <ProductImageWithFallback src={prod.thumbnail || prod.image} alt={prod.name} className="w-full h-full object-contain" />
+                        </div>
                         <h4 className="font-bold text-xs text-gray-900 dark:text-white line-clamp-1">{prod.name}</h4>
                         <div className="flex items-center justify-between">
-                          <span className="font-black text-xs text-gray-900 dark:text-white">₹{prod.price}</span>
+                          <span className="font-black text-xs text-gray-900 dark:text-white">₹{prod.sellingPrice || prod.price}</span>
                           <button
                             type="button"
                             onClick={() => addToCart(prod, 1)}
@@ -1027,10 +1049,13 @@ export default function UserProfilePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 space-y-2">
-                    <Heart className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto" />
-                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Your wishlist is currently empty</p>
-                  </div>
+                  <EmptyState
+                    type="wishlist"
+                    primaryAction={{
+                      label: "Explore Groceries",
+                      onClick: () => router.push('/'),
+                    }}
+                  />
                 )}
               </div>
             )}

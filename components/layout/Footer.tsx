@@ -32,7 +32,7 @@ export const Footer: React.FC = () => {
                 <span className="text-xl font-black tracking-tight text-[#075C3C] dark:text-emerald-400 leading-none">
                   Pocket<span className="text-[#0B8F5A] dark:text-emerald-500">Kirana</span>
                 </span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase mt-0.5">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-wide mt-0.5">
                   Fresh Grocery Hub
                 </span>
               </div>
@@ -44,15 +44,15 @@ export const Footer: React.FC = () => {
 
             <div className="space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
               <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-[#0B8F5A] dark:text-emerald-400 shrink-0" />
+                <Phone className="w-3.5 h-3.5 text-[#075C3C] dark:text-emerald-400 shrink-0" aria-hidden="true" />
                 <span>+91 98765 43210</span>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-[#0B8F5A] dark:text-emerald-400 shrink-0" />
+                <Mail className="w-3.5 h-3.5 text-[#075C3C] dark:text-emerald-400 shrink-0" aria-hidden="true" />
                 <span className="truncate">support@pocketkirana.com</span>
               </div>
               <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-[#0B8F5A] dark:text-emerald-400 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-[#075C3C] dark:text-emerald-400 shrink-0" aria-hidden="true" />
                 <span>Neral DarkStore Hub, Maharashtra</span>
               </div>
             </div>
@@ -60,22 +60,22 @@ export const Footer: React.FC = () => {
 
           {/* Column 2 & 3: Expanded Dynamic Categories on Two Columns/Lines */}
           <div className="lg:col-span-2">
-            <h4 className="text-xs font-black uppercase text-[#075C3C] dark:text-emerald-400 tracking-wider mb-4">
+            <h3 className="text-xs font-black uppercase text-[#075C3C] dark:text-emerald-400 tracking-wider mb-4">
               Categories
-            </h4>
+            </h3>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
               {availableCategories.map((cat) => (
                 <li key={cat.id}>
                   <Link
                     href={`/category/${cat.slug}`}
-                    className="hover:text-[#0B8F5A] dark:hover:text-emerald-400 transition-colors"
+                    className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors"
                   >
                     {cat.name}
                   </Link>
                 </li>
               ))}
               <li className="sm:col-span-2 pt-1">
-                <Link href="/categories" className="text-[#0B8F5A] dark:text-emerald-400 font-bold hover:underline inline-flex items-center gap-1">
+                <Link href="/categories" className="text-[#075C3C] dark:text-emerald-400 font-bold hover:underline inline-flex items-center gap-1">
                   View All Categories &rarr;
                 </Link>
               </li>
@@ -84,16 +84,16 @@ export const Footer: React.FC = () => {
 
           {/* Column 4: About & Help */}
           <div className="lg:col-span-1">
-            <h4 className="text-xs font-black uppercase text-[#075C3C] dark:text-emerald-400 tracking-wider mb-4">
+            <h3 className="text-xs font-black uppercase text-[#075C3C] dark:text-emerald-400 tracking-wider mb-4">
               About &amp; Help
-            </h4>
+            </h3>
             <ul className="space-y-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-              <li><Link href="/about" className="hover:text-[#0B8F5A] dark:hover:text-emerald-400 transition-colors">About Us</Link></li>
-              <li><Link href="/faq" className="hover:text-[#0B8F5A] dark:hover:text-emerald-400 transition-colors">Frequently Asked Questions</Link></li>
-              <li><Link href="/terms" className="hover:text-[#0B8F5A] dark:hover:text-emerald-400 transition-colors">Terms of Service</Link></li>
-              <li><Link href="/privacy" className="hover:text-[#0B8F5A] dark:hover:text-emerald-400 transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/refund-policy" className="hover:text-[#0B8F5A] dark:hover:text-emerald-400 transition-colors">Shipping &amp; Returns</Link></li>
-              <li><Link href="/contact" className="hover:text-[#0B8F5A] dark:hover:text-emerald-400 transition-colors">Partner with Us</Link></li>
+              <li><Link href="/about" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">About Us</Link></li>
+              <li><Link href="/faq" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Frequently Asked Questions</Link></li>
+              <li><Link href="/terms" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Terms of Service</Link></li>
+              <li><Link href="/privacy" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/refund-policy" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Shipping &amp; Returns</Link></li>
+              <li><Link href="/contact" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Partner with Us</Link></li>
             </ul>
           </div>
 
@@ -105,13 +105,13 @@ export const Footer: React.FC = () => {
             © {new Date().getFullYear()} PocketKirana DarkStore Technologies. All rights reserved.
           </p>
 
-          {/* Payment Method Badges (Matching Reference Bottom Bar) */}
-          <div className="flex items-center gap-2 flex-wrap text-[10px] font-black text-slate-600 dark:text-slate-300">
-            <span className="bg-slate-100 dark:bg-[#1A2232] border border-slate-200 dark:border-[#263241] px-2 py-1 rounded-md">UPI</span>
-            <span className="bg-slate-100 dark:bg-[#1A2232] border border-slate-200 dark:border-[#263241] px-2 py-1 rounded-md">VISA</span>
-            <span className="bg-slate-100 dark:bg-[#1A2232] border border-slate-200 dark:border-[#263241] px-2 py-1 rounded-md">MASTERCARD</span>
-            <span className="bg-slate-100 dark:bg-[#1A2232] border border-slate-200 dark:border-[#263241] px-2 py-1 rounded-md">RUPAY</span>
-            <span className="bg-[#E6F4EA] dark:bg-emerald-950/50 text-[#0B8F5A] dark:text-emerald-400 border border-[#0B8F5A]/20 dark:border-emerald-800/40 px-2 py-1 rounded-md">
+          {/* Payment Method Badges (Consistent neutral badge system) */}
+          <div className="flex items-center gap-2 flex-wrap text-[10px] font-bold text-slate-600 dark:text-slate-300">
+            <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded-md">UPI</span>
+            <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded-md">VISA</span>
+            <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded-md">MASTERCARD</span>
+            <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded-md">RUPAY</span>
+            <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded-md">
               CASH ON DELIVERY
             </span>
           </div>

@@ -119,6 +119,9 @@ export interface NotificationPayload {
   title: string;
   body: string;
   deepLink?: string;
+  imageUrl?: string;
+  icon?: string;
+  ctaText?: string;
   sound?: string;
   priority?: 'high' | 'normal';
   channelId?: string;
@@ -142,8 +145,11 @@ function buildPayload(
     estimatedDeliveryTime?: string;
     offerTitle?: string;
     offerMessage?: string;
+    imageUrl?: string;
+    ctaText?: string;
     deepLink?: string;
     customMessage?: string;
+    [key: string]: any;
   }
 ): NotificationPayload {
   const {
@@ -157,6 +163,8 @@ function buildPayload(
     estimatedDeliveryTime = '15-20 mins',
     offerTitle,
     offerMessage,
+    imageUrl,
+    ctaText,
     deepLink,
     customMessage,
   } = context;
@@ -430,6 +438,8 @@ function buildPayload(
   };
 
   if (deepLink) payload.deepLink = deepLink;
+  if (imageUrl) payload.imageUrl = imageUrl;
+  if (ctaText) payload.ctaText = ctaText;
   return payload;
 }
 
@@ -643,39 +653,49 @@ async function writePostgresNotificationRecord(
   try {
     const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // Record in notification_events idempotency ledger if eventId exists
-    if (eventId) {
-      await queryPostgres(
-        `INSERT INTO notification_events (id, event_id, recipient_id, notification_type, order_id)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (event_id, recipient_id, notification_type) DO NOTHING`,
-        [`ne_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, eventId, userId, event, orderId]
-      );
-    }
+    // Quick timeout race (1000ms max)
+    const writePromise = async () => {
+      // Record in notification_events idempotency ledger if eventId exists
+      if (eventId) {
+        await queryPostgres(
+          `INSERT INTO notification_events (id, event_id, recipient_id, notification_type, order_id)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (event_id, recipient_id, notification_type) DO NOTHING`,
+          [`ne_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, eventId, userId, event, orderId]
+        );
+      }
 
-    // Insert notification record
-    await queryPostgres(
-      `INSERT INTO notifications (
-        id, event_id, order_id, user_id, firebase_uid, recipient_type, role,
-        notification_type, title, message, channel, priority, sound, status, is_read, created_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'SENT', FALSE, CURRENT_TIMESTAMP)`,
-      [
-        notifId,
-        eventId || null,
-        orderId,
-        userId,
-        userId,
-        recipientType,
-        recipientType,
-        event,
-        payload.title,
-        payload.body,
-        'PUSH_AND_INAPP',
-        payload.priority?.toUpperCase() || 'NORMAL',
-        payload.sound || 'default',
-      ]
+      // Insert notification record
+      await queryPostgres(
+        `INSERT INTO notifications (
+          id, event_id, order_id, user_id, firebase_uid, recipient_type, role,
+          notification_type, title, message, channel, priority, sound, status, is_read, created_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'SENT', FALSE, CURRENT_TIMESTAMP)`,
+        [
+          notifId,
+          eventId || null,
+          orderId,
+          userId,
+          userId,
+          recipientType,
+          recipientType,
+          event,
+          payload.title,
+          payload.body,
+          'PUSH_AND_INAPP',
+          payload.priority?.toUpperCase() || 'NORMAL',
+          payload.sound || 'default',
+        ]
+      );
+    };
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Postgres write timeout')), 1000)
     );
+
+    await Promise.race([writePromise(), timeoutPromise]);
   } catch (err: any) {
+    // Non-fatal: notifications are isolated side-effects
     console.warn('[NotificationDispatcher] Postgres notification write notice:', err.message);
   }
 }
@@ -782,12 +802,16 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<{ sen
       notification: {
         title: payload.title,
         body: payload.body,
+        ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
       },
       data: {
         orderId: String(orderId || ''),
         orderNumber: String(orderNumber || ''),
         event: String(event),
         recipientType: String(recipientType),
+        deepLink: String(payload.deepLink || (orderNumber ? `/orders/${orderNumber}/track` : '/orders')),
+        ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
+        ...(payload.ctaText ? { ctaText: payload.ctaText } : {}),
         ...(eventId ? { eventId: String(eventId) } : {}),
         ...Object.fromEntries(
           Object.entries(context).map(([k, v]) => [k, String(v ?? '')])
@@ -795,10 +819,12 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<{ sen
       },
       android: {
         notification: {
+          channelId: payload.channelId || 'pocketkirana_general',
           icon: 'ic_notification',
           color: '#16A34A',
           priority: payload.priority === 'high' ? 'high' : 'normal',
           sound: payload.sound || 'default',
+          ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
         },
       },
       apns: {
@@ -806,7 +832,25 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<{ sen
           aps: {
             sound: payload.sound || 'default',
             badge: 1,
+            'mutable-content': 1,
           },
+        },
+        ...(payload.imageUrl
+          ? {
+              fcm_options: {
+                image: payload.imageUrl,
+              },
+            }
+          : {}),
+      },
+      webpush: {
+        fcm_options: {
+          link: payload.deepLink || '/',
+        },
+        notification: {
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png',
+          ...(payload.imageUrl ? { image: payload.imageUrl } : {}),
         },
       },
     };

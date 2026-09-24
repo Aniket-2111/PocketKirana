@@ -95,7 +95,7 @@ function ProfileContent() {
             className="py-3 px-4 rounded-2xl bg-slate-50 hover:bg-amber-50 border border-slate-200 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer text-slate-700 hover:text-slate-900 shadow-xs"
           >
             <Sparkles className="w-4.5 h-4.5 text-amber-600 shrink-0" />
-            <span>Report Barcode</span>
+            <span>Request Item / SKU</span>
           </button>
         </div>
 

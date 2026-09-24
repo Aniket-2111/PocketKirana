@@ -9,7 +9,6 @@ import { Header } from '@/components/customer/Header';
 import { CartDrawer } from '@/components/customer/CartDrawer';
 import { AuthModal } from '@/components/customer/AuthModal';
 import { ToastContainer } from '@/components/ui/Toast';
-import { NotificationSimulator } from '@/components/common/NotificationSimulator';
 import { Footer } from '@/components/layout/Footer';
 
 interface CustomerLayoutProps {
@@ -125,7 +124,6 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
 
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
       <ToastContainer />
-      <NotificationSimulator />
     </div>
   );
 };
