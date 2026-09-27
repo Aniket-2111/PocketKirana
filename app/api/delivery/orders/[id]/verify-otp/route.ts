@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { INITIAL_ORDERS } from '@/lib/mockData';
+import { getRouteAuth } from '@/lib/routeAuth';
 
 export async function OPTIONS() {
   const res = NextResponse.json({ status: 'ok' });
   res.headers.set('Access-Control-Allow-Origin', '*');
   res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-pk-role, x-pk-uid');
   return res;
 }
 
@@ -19,11 +20,27 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 1. Authentication Check
+    const auth = getRouteAuth(request);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Authentication required.' },
+        { status: 401 }
+      );
+    }
+
+    if (auth.role !== 'delivery_partner' && auth.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden. Only delivery partners or admins can verify delivery OTP.' },
+        { status: 403 }
+      );
+    }
+
     const { id: orderId } = await params;
     const body = await request.json().catch(() => ({}));
-    const { otp, partnerId } = body;
+    const { otp } = body;
 
-    let expectedOtp = '4341';
+    let expectedOtp: string | null = null;
     let orderNumber = orderId;
     let paymentStatus = 'pending';
     let paymentMethod = 'cod';
@@ -34,34 +51,42 @@ export async function POST(
     let otpAttempts = 0;
     let isOtpLocked = false;
 
-    // 1. Fetch Order Data
+    // 2. Fetch Order Data
     if (isFirebaseConfigured() && db) {
       const orderRef = doc(db, 'orders', orderId);
       const orderSnap = await getDoc(orderRef);
-      if (orderSnap.exists()) {
-        const orderData = orderSnap.data();
-        expectedOtp = orderData.deliveryOtp || orderData.otp || expectedOtp;
-        orderNumber = orderData.orderNumber || orderId;
-        paymentStatus = (orderData.paymentStatus || '').toLowerCase();
-        paymentMethod = (orderData.paymentMethod || '').toLowerCase();
-        collectionStatus = orderData.collectionStatus || (paymentStatus === 'paid' ? 'COLLECTED' : 'PENDING');
-        collectionMethod = orderData.collectionMethod || (paymentMethod.includes('cash') ? 'CASH' : paymentMethod.includes('upi') ? 'UPI' : 'ONLINE');
-        assignedPartnerId = orderData.partnerId || '';
-        orderStatus = orderData.orderStatus || 'OUT_FOR_DELIVERY';
-        otpAttempts = orderData.deliveryOtpAttempts || 0;
-        isOtpLocked = !!orderData.deliveryOtpLocked;
+      if (!orderSnap.exists()) {
+        return NextResponse.json(
+          { success: false, error: 'Order not found.' },
+          { status: 404 }
+        );
       }
+
+      const orderData = orderSnap.data();
+      expectedOtp = orderData.deliveryOtp ? String(orderData.deliveryOtp).trim() : (orderData.otp ? String(orderData.otp).trim() : null);
+      orderNumber = orderData.orderNumber || orderId;
+      paymentStatus = (orderData.paymentStatus || '').toLowerCase();
+      paymentMethod = (orderData.paymentMethod || '').toLowerCase();
+      collectionStatus = orderData.collectionStatus || (paymentStatus === 'paid' ? 'COLLECTED' : 'PENDING');
+      collectionMethod = orderData.collectionMethod || (paymentMethod.includes('cash') ? 'CASH' : paymentMethod.includes('upi') ? 'UPI' : 'ONLINE');
+      assignedPartnerId = orderData.partnerId || '';
+      orderStatus = orderData.orderStatus || 'OUT_FOR_DELIVERY';
+      otpAttempts = orderData.deliveryOtpAttempts || 0;
+      isOtpLocked = !!orderData.deliveryOtpLocked;
     } else {
       const mockOrder = INITIAL_ORDERS.find((o) => o.id === orderId || o.orderNumber === orderId);
-      if (mockOrder) {
-        expectedOtp = (mockOrder as any).deliveryOtp || (mockOrder as any).otp || expectedOtp;
-        orderNumber = mockOrder.orderNumber || orderId;
-        paymentStatus = ((mockOrder as any).paymentStatus || '').toLowerCase();
-        paymentMethod = (mockOrder.paymentMethod || '').toLowerCase();
-        collectionStatus = (mockOrder as any).collectionStatus || (paymentStatus === 'paid' ? 'COLLECTED' : 'PENDING');
-        assignedPartnerId = mockOrder.partnerId || '';
-        orderStatus = mockOrder.orderStatus || 'OUT_FOR_DELIVERY';
+      if (!mockOrder) {
+        return NextResponse.json({ success: false, error: 'Order not found.' }, { status: 404 });
       }
+
+      expectedOtp = (mockOrder as any).deliveryOtp ? String((mockOrder as any).deliveryOtp).trim() : ((mockOrder as any).otp ? String((mockOrder as any).otp).trim() : null);
+      orderNumber = mockOrder.orderNumber || orderId;
+      paymentStatus = ((mockOrder as any).paymentStatus || '').toLowerCase();
+      paymentMethod = (mockOrder.paymentMethod || '').toLowerCase();
+      collectionStatus = (mockOrder as any).collectionStatus || (paymentStatus === 'paid' ? 'COLLECTED' : 'PENDING');
+      assignedPartnerId = mockOrder.partnerId || '';
+      orderStatus = mockOrder.orderStatus || 'OUT_FOR_DELIVERY';
+
       const memState = otpAttemptStore.get(orderId);
       if (memState) {
         otpAttempts = memState.attempts;
@@ -69,17 +94,17 @@ export async function POST(
       }
     }
 
-    // 2. CHECK 1: Partner Assignment Check (if partnerId provided)
-    if (partnerId && assignedPartnerId && assignedPartnerId !== partnerId && assignedPartnerId !== 'partner-1') {
+    // 3. Partner Assignment Check
+    if (auth.role !== 'admin' && assignedPartnerId && assignedPartnerId !== auth.uid) {
       const response = NextResponse.json(
-        { success: false, error: 'You are not assigned to deliver this order.' },
+        { success: false, error: 'Forbidden. You are not assigned to deliver this order.' },
         { status: 403 }
       );
       response.headers.set('Access-Control-Allow-Origin', '*');
       return response;
     }
 
-    // 3. CHECK 2: Order Status Check
+    // 4. Order Status Check
     const upperStatus = orderStatus.toUpperCase();
     if (upperStatus === 'DELIVERED' || upperStatus === 'COMPLETED') {
       const response = NextResponse.json(
@@ -89,8 +114,16 @@ export async function POST(
       response.headers.set('Access-Control-Allow-Origin', '*');
       return response;
     }
+    if (upperStatus === 'CANCELLED') {
+      const response = NextResponse.json(
+        { success: false, error: 'Order has been cancelled.' },
+        { status: 400 }
+      );
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      return response;
+    }
 
-    // 4. CHECK 3: Strict Payment & Collection Gate
+    // 5. Strict Payment & Collection Gate
     const isOnlinePrepaid = paymentMethod === 'online' || paymentMethod === 'upi' || paymentMethod === 'razorpay' || paymentMethod === 'phonepe' || paymentMethod === 'card';
     const isCodCash = paymentMethod.includes('cash') || paymentMethod === 'cod_cash' || collectionMethod === 'CASH';
     const isCodUpi = paymentMethod.includes('upi') || paymentMethod === 'phonepe_upi' || paymentMethod === 'cod_upi' || collectionMethod === 'UPI';
@@ -147,7 +180,7 @@ export async function POST(
       return response;
     }
 
-    // 5. CHECK 4: Check if OTP is Locked due to brute force
+    // 6. Check if OTP is Locked due to brute force
     if (isOtpLocked || otpAttempts >= 5) {
       const response = NextResponse.json(
         {
@@ -162,11 +195,25 @@ export async function POST(
       return response;
     }
 
-    // 6. CHECK 5: OTP Match
+    // 7. Authoritative OTP Validation
     const cleanOtp = (otp || '').toString().trim();
-    const isMatching = cleanOtp === expectedOtp || cleanOtp === '4341' || cleanOtp === '1234';
+    if (!cleanOtp) {
+      return NextResponse.json(
+        { success: false, error: 'Delivery OTP is required.' },
+        { status: 400 }
+      );
+    }
 
-    if (!cleanOtp || !isMatching) {
+    if (!expectedOtp) {
+      return NextResponse.json(
+        { success: false, error: 'No delivery OTP configured for this order.' },
+        { status: 400 }
+      );
+    }
+
+    const isMatching = cleanOtp === expectedOtp;
+
+    if (!isMatching) {
       const newAttempts = otpAttempts + 1;
       const willLock = newAttempts >= 5;
 
@@ -186,8 +233,8 @@ export async function POST(
             action: 'OTP_VERIFICATION_LOCKED',
             orderId,
             orderNumber,
-            actorId: partnerId || 'unknown_partner',
-            actorRole: 'delivery_partner',
+            actorId: auth.uid,
+            actorRole: auth.role,
             description: `⚠️ OTP Verification locked for Order #${orderNumber} after 5 failed attempts.`,
             timestamp: new Date().toISOString(),
           });
@@ -211,7 +258,19 @@ export async function POST(
       return response;
     }
 
-    // 7. Success Response
+    // 8. Update order on success
+    if (isFirebaseConfigured() && db) {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        deliveryOtpAttempts: 0,
+        deliveryOtpLocked: false,
+        deliveryOtpVerified: true,
+        deliveryOtpVerifiedAt: new Date().toISOString(),
+        deliveryOtpVerifiedBy: auth.uid,
+      });
+    }
+
+    // 9. Success Response
     const response = NextResponse.json({
       success: true,
       message: 'Delivery OTP verified successfully!',

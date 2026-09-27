@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const BASE_URL = 'https://pocketkirana.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pocketkirana.in';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

@@ -26,7 +26,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebaseDb, isFirebaseConfigured } from '@/lib/firebase';
 
-const SEED_SECRET = process.env.SEED_SECRET || 'pocketkirana-seed-2024';
+const SEED_SECRET = process.env.SEED_SECRET;
 
 const STORE_CONFIG = {
   storeId: 'store-001',
@@ -183,9 +183,14 @@ const COUPONS = [
 ];
 
 export async function POST(request: NextRequest) {
-  // Secret check
+  // Completely disable in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Endpoint disabled in production.' }, { status: 403 });
+  }
+
+  // Secret check: SEED_SECRET must be configured and matched
   const secret = request.headers.get('X-Seed-Secret');
-  if (secret !== SEED_SECRET) {
+  if (!SEED_SECRET || !secret || secret !== SEED_SECRET) {
     return NextResponse.json({ error: 'Unauthorized. Provide valid X-Seed-Secret header.' }, { status: 401 });
   }
 
@@ -302,8 +307,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Endpoint disabled in production.' }, { status: 403 });
+  }
   return NextResponse.json({
     message: 'PocketKirana Seeder API. Use POST with X-Seed-Secret header.',
-    usage: 'curl -X POST http://localhost:3000/api/seed -H "X-Seed-Secret: pocketkirana-seed-2024"',
   });
 }

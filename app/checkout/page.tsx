@@ -250,22 +250,40 @@ export default function CheckoutPage() {
 
       if (result.success) {
         if (result.requiresPayment) {
-          // ── PHONEPE PAYMENT FLOW ──
+          // ── PHONEPE PAYMENT FLOW (Native Android / Web) ──
           if (selectedPayment === 'phonepe') {
-            const orderResponse = await fetch('/api/payments/phonepe/create', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId: result.orderId }),
+            const { startPhonePeCheckoutFlow } = await import('@/lib/phonepeClient');
+            const res = await startPhonePeCheckoutFlow({
+              orderId: result.orderId,
+              amount: result.total,
+              mobileNumber: selectedAddr.phone || currentUser?.mobile || '9999999999',
+              customerId: currentUser?.id || 'customer',
+              redirectPath: '/checkout/success/',
             });
-            const orderResData = await orderResponse.json();
 
-            if (!orderResData.success) {
-              throw new Error(orderResData.error || 'Failed to create PhonePe order');
+            if (res.status === 'REDIRECTED') {
+              return;
             }
 
-            const { redirectUrl } = orderResData.data;
-            window.location.href = redirectUrl;
-            return;
+            if (res.verified || res.status === 'SUCCESS') {
+              const placed = placeOrder(
+                selectedAddr.id,
+                `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
+                selectedPayment,
+                result.orderId,
+                result.orderNumber
+              );
+              setConfirmedOrder(placed);
+              setShowSuccessAnimation(true);
+              setIsProcessing(false);
+              return;
+            } else if (res.status === 'CANCELLED') {
+              showToast('Payment was cancelled.', 'info');
+              setIsProcessing(false);
+              return;
+            } else {
+              throw new Error(res.error || 'Failed to complete PhonePe payment');
+            }
           }
 
           // ── ONLINE PAYMENT WORKFLOW (Razorpay) ──

@@ -22,9 +22,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'crypto';
+import { NextRequest } from 'next/server';
 import { POST as phonepeCreateHandler } from '../app/api/payments/phonepe/create/route';
 import { POST as phonepeVerifyHandler } from '../app/api/payments/phonepe/verify/route';
 import { POST as phonepeWebhookHandler } from '../app/api/payments/phonepe/webhook/route';
+import { GET as phonepeStatusHandler } from '../app/api/payments/phonepe/status/route';
 import { POST as deliveryPaymentCreateHandler } from '../app/api/delivery/orders/[id]/payment/create/route';
 import { GET as deliveryPaymentStatusHandler } from '../app/api/delivery/orders/[id]/payment/status/route';
 import { POST as deliveryCollectCashHandler } from '../app/api/delivery/orders/[id]/payment/collect-cash/route';
@@ -298,6 +300,96 @@ describe('PART A: Customer APK PhonePe Business Online Payments', () => {
     expect(paymentDoc.status).toBe('failed');
     expect(paymentDoc.failureReason).toContain('amount mismatch');
   });
+
+  it('3B. Status Recovery Endpoint: retrieves authoritative payment status for mobile app restart', async () => {
+    const { db } = await import('../lib/firebase');
+    const txnId = 'TXN_PK_PK-101_STATUS_REC_1';
+    (db as any)._payments.set(`pay_pk_${txnId}`, {
+      paymentId: `pay_pk_${txnId}`,
+      orderId: 'ord_online_test_101',
+      customerId: 'usr-cust-1',
+      amount: 512,
+      status: 'completed',
+    });
+
+    const req = new Request(`http://localhost:3000/api/payments/phonepe/status?merchantTransactionId=${txnId}&orderId=ord_online_test_101`, {
+      method: 'GET',
+    });
+
+    const res = await phonepeStatusHandler(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.data.orderId).toBe('ord_online_test_101');
+    expect(json.data.verified).toBe(true);
+  });
+
+  it('3C. Verify Endpoint: queries PhonePe status API and confirms order idempotently', async () => {
+    const txnId = 'TXN_PK_PK-101_VERIFY_1';
+    const { db } = await import('../lib/firebase');
+    (db as any)._orders.set('ord_online_test_101', {
+      id: 'ord_online_test_101',
+      orderNumber: 'PK-101',
+      customerId: 'usr-cust-1',
+      total: 512,
+      paymentStatus: 'pending',
+      orderStatus: 'CREATED',
+    });
+    (db as any)._payments.set(`pay_pk_${txnId}`, {
+      paymentId: `pay_pk_${txnId}`,
+      orderId: 'ord_online_test_101',
+      customerId: 'usr-cust-1',
+      amount: 512,
+      status: 'pending',
+    });
+
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(async (url: any) => {
+      if (String(url).includes('/pg/v1/status/')) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            code: 'PAYMENT_SUCCESS',
+            message: 'Payment Successful',
+            data: {
+              merchantId: TEST_MERCHANT_ID,
+              merchantTransactionId: txnId,
+              transactionId: 'T_VERIFY_SUCCESS_77',
+              amount: 51200,
+              state: 'COMPLETED',
+              responseCode: 'SUCCESS',
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      return originalFetch(url);
+    });
+
+    const req = new Request('http://localhost:3000/api/payments/phonepe/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        merchantTransactionId: txnId,
+        orderId: 'ord_online_test_101',
+      }),
+    });
+
+    const res = await phonepeVerifyHandler(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.data.verified).toBe(true);
+    expect(json.data.status).toBe('SUCCESS');
+
+    const updatedOrder = (db as any)._orders.get('ord_online_test_101');
+    expect(updatedOrder.paymentStatus).toBe('paid');
+    expect(updatedOrder.orderStatus).toBe('CONFIRMED');
+
+    global.fetch = originalFetch;
+  });
 });
 
 describe('PART B: Delivery APK Dynamic COD QR & Delivery Completion Gate', () => {
@@ -396,9 +488,13 @@ describe('PART B: Delivery APK Dynamic COD QR & Delivery Completion Gate', () =>
     });
 
     // 1. Partner records cash collection
-    const cashReq = new Request('http://localhost:3000/api/delivery/orders/ord_cod_test_202/payment/collect-cash', {
+    const cashReq = new NextRequest('http://localhost:3000/api/delivery/orders/ord_cod_test_202/payment/collect-cash', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-pk-uid': 'partner-alpha',
+        'x-pk-role': 'delivery_partner',
+      },
       body: JSON.stringify({
         partnerId: 'partner-alpha',
         amountCollected: 350,
@@ -415,9 +511,13 @@ describe('PART B: Delivery APK Dynamic COD QR & Delivery Completion Gate', () =>
     expect(cashJson.paymentStatus).toBe('PAID');
 
     // 2. Now complete delivery with OTP
-    const deliverReq = new Request('http://localhost:3000/api/delivery/orders/ord_cod_test_202/deliver', {
+    const deliverReq = new NextRequest('http://localhost:3000/api/delivery/orders/ord_cod_test_202/deliver', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-pk-uid': 'partner-alpha',
+        'x-pk-role': 'delivery_partner',
+      },
       body: JSON.stringify({
         partnerId: 'partner-alpha',
         otp: '4341',

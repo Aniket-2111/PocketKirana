@@ -10,7 +10,7 @@ const targetHost = process.env.DB_HOST || '192.168.0.106';
 const targetPort = parseInt(process.env.DB_PORT || '5433', 10);
 const targetDb = process.env.DB_NAME || 'pocketkirana_db';
 const targetUser = process.env.DB_USER || 'postgres';
-const targetPass = process.env.DB_PASSWORD || 'varbusiness';
+const targetPass = process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
 
 const connectionString = process.env.DATABASE_URL || `postgresql://${targetUser}:${encodeURIComponent(targetPass)}@${targetHost}:${targetPort}/${targetDb}`;
 

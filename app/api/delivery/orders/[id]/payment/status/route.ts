@@ -85,16 +85,22 @@ export async function GET(
 
         const rawStatus = (orderData.paymentStatus || '').toLowerCase();
         const rawMethod = (orderData.paymentMethod || '').toLowerCase();
+        paymentMethod = rawMethod || paymentMethod;
 
-        if (rawStatus === 'paid' || rawStatus === 'completed' || (rawMethod && rawMethod !== 'cod' && rawMethod !== 'cash')) {
+        if (rawStatus === 'paid' || rawStatus === 'completed') {
           isPaid = true;
           paymentStatus = 'PAID';
-          paymentMethod = orderData.paymentMethod || 'phonepe_upi';
           transactionId = orderData.paymentDetails?.transactionId || transactionId;
+        } else if (rawStatus === 'failed') {
+          paymentStatus = 'FAILED';
+        } else if (rawStatus === 'cancelled') {
+          paymentStatus = 'CANCELLED';
+        } else {
+          paymentStatus = rawMethod.includes('cod') || rawMethod.includes('cash') ? 'COD' : 'PENDING';
         }
       }
 
-      // If merchantTransactionId was provided, also inspect payments doc
+      // If merchantTransactionId was provided, inspect authoritative payments doc
       if (merchantTransactionId) {
         const payRef = doc(db, 'payments', `pay_pk_${merchantTransactionId}`);
         const paySnap = await getDoc(payRef);
@@ -103,8 +109,10 @@ export async function GET(
           if (payData.status === 'completed' || payData.status === 'paid') {
             isPaid = true;
             paymentStatus = 'PAID';
-            paymentMethod = payData.method || 'phonepe_upi';
+            paymentMethod = payData.method || paymentMethod;
             transactionId = payData.gatewayPaymentId || merchantTransactionId;
+          } else if (payData.status === 'failed') {
+            if (!isPaid) paymentStatus = 'FAILED';
           }
         }
       }
@@ -114,12 +122,15 @@ export async function GET(
       if (mockOrder) {
         total = mockOrder.total || 450;
         orderNumber = mockOrder.orderNumber || orderId;
-        const rawStatus = (mockOrder.paymentStatus || '').toLowerCase();
+        const rawStatus = ((mockOrder as any).paymentStatus || '').toLowerCase();
         const rawMethod = (mockOrder.paymentMethod || '').toLowerCase();
-        if (rawStatus === 'paid' || (rawMethod && rawMethod !== 'cod' && rawMethod !== 'cash')) {
+        paymentMethod = rawMethod || paymentMethod;
+
+        if (rawStatus === 'paid' || rawStatus === 'completed') {
           isPaid = true;
           paymentStatus = 'PAID';
-          paymentMethod = mockOrder.paymentMethod || 'phonepe_upi';
+        } else {
+          paymentStatus = rawMethod.includes('cod') || rawMethod.includes('cash') ? 'COD' : 'PENDING';
         }
       }
     }

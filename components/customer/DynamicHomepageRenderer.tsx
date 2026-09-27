@@ -619,93 +619,109 @@ export const DynamicHomepageRenderer: React.FC<DynamicHomepageRendererProps> = (
   return (
     <div className="space-y-6 sm:space-y-8">
       {visibleSections.map((section) => {
-        switch (section.type) {
-          case 'Hero':
-          case 'FestivalHero':
-            return renderHero(section);
+        try {
+          switch (section.type) {
+            case 'Hero':
+            case 'FestivalHero':
+            case 'Banner':
+            case 'OfferBanner':
+            case 'CouponBanner':
+            case 'InformationalBanner':
+              return renderHero(section);
 
-          case 'ShopByCategory':
-            return (
-              <div key={section.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#0B8F5A]" />
-                    <h2 className="text-base sm:text-xl font-black text-[#075C3C] dark:text-emerald-400 tracking-tight">
-                      {section.title}
-                    </h2>
+            case 'ShopByCategory':
+            case 'CategoryGrid':
+              return (
+                <div key={section.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#0B8F5A]" />
+                      <h2 className="text-base sm:text-xl font-black text-[#075C3C] dark:text-emerald-400 tracking-tight">
+                        {section.title}
+                      </h2>
+                    </div>
+                    <Link
+                      href={section.ctaLink || '/categories'}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#075C3C] dark:bg-emerald-950/40 dark:text-emerald-400 font-bold text-xs sm:text-sm transition-all border border-emerald-200/60"
+                    >
+                      <span>{section.ctaText || 'View All'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
-                  <Link
-                    href="/categories"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#075C3C] dark:bg-emerald-950/40 dark:text-emerald-400 font-bold text-xs sm:text-sm transition-all border border-emerald-200/60"
-                  >
-                    <span>View All</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                  <CategoryGrid />
                 </div>
-                <CategoryGrid />
-              </div>
-            );
+              );
 
-          case 'BuyAgain':
-            return renderBuyAgain(section);
+            case 'BuyAgain':
+              return renderBuyAgain(section);
 
-          case 'FlashSale':
-            return renderFlashSale(section);
+            case 'FlashSale':
+              return renderFlashSale(section);
 
-          case 'FrequentlyBoughtTogether':
-          case 'ComboOffers':
-            return renderFrequentlyBoughtTogether(section);
+            case 'FrequentlyBoughtTogether':
+            case 'ComboOffers':
+            case 'Buy1Get1':
+            case 'BuyXGetY':
+              return renderFrequentlyBoughtTogether(section);
 
-          case 'FreeGift':
-          case 'FreeDeliveryBanner':
-          case 'DiscountAboveThreshold':
-            return renderSmartOfferProgress(section);
+            case 'FreeGift':
+            case 'FreeProductOffer':
+            case 'FreeDeliveryBanner':
+            case 'DiscountAboveThreshold':
+              return renderSmartOfferProgress(section);
 
-          case 'BecauseYouBought':
-            return renderBecauseYouBought(section);
+            case 'BecauseYouBought':
+              return renderBecauseYouBought(section);
 
-          case 'RecommendedForYou':
-          case 'PersonalizedProducts':
-            return renderRecommendedForYou(section);
+            case 'RecommendedForYou':
+            case 'PersonalizedProducts':
+              return renderRecommendedForYou(section);
 
-          case 'LoyaltyProgress':
-          case 'CustomerRewards':
-            return renderLoyaltyProgress(section);
+            case 'LoyaltyProgress':
+            case 'CustomerRewards':
+            case 'OrderMilestone':
+              return renderLoyaltyProgress(section);
 
-          case 'BrandCollections':
-            return renderBrandCollections(section);
+            case 'BrandCollections':
+              return renderBrandCollections(section);
 
-          case 'ExploreMore':
-          case 'ExploreMoreProducts':
-            return (
-              <ExploreMoreProducts
-                key={section.id}
-                title={section.title || 'Explore More Products'}
-                subtitle={section.subtitle || 'Continuous discovery from our full catalog'}
-                badge={section.badge || 'Catalog'}
-                excludedProductIds={curatedProductIds}
-                onOpenDetail={handleProductClick}
-              />
-            );
+            case 'ExploreMore':
+            case 'ExploreMoreProducts':
+              return (
+                <ExploreMoreProducts
+                  key={section.id}
+                  title={section.title || 'Explore More Products'}
+                  subtitle={section.subtitle || 'Continuous discovery from our full catalog'}
+                  badge={section.badge || 'Catalog'}
+                  excludedProductIds={curatedProductIds}
+                  onOpenDetail={handleProductClick}
+                />
+              );
 
-          case 'PopularProducts':
-          case 'TrendingProducts':
-          case 'BestSellers':
-          case 'NewArrivals':
-          case 'TopDeals':
-          case 'DailyEssentials':
-          case 'FreshArrivals':
-          default:
-            return (
-              <ProductCarouselSection
-                key={section.id}
-                title={section.title}
-                badge={section.badge}
-                viewAllHref="/categories"
-                products={validProducts.slice(0, section.maxItems || 8)}
-                onOpenDetail={handleProductClick}
-              />
-            );
+            case 'ProductCarousel':
+            case 'ProductGrid':
+            case 'PopularProducts':
+            case 'TrendingProducts':
+            case 'BestSellers':
+            case 'NewArrivals':
+            case 'TopDeals':
+            case 'DailyEssentials':
+            case 'FreshArrivals':
+            default:
+              return (
+                <ProductCarouselSection
+                  key={section.id}
+                  title={section.title}
+                  badge={section.badge}
+                  viewAllHref={section.ctaLink || '/categories'}
+                  products={validProducts.slice(0, section.maxItems || 8)}
+                  onOpenDetail={handleProductClick}
+                />
+              );
+          }
+        } catch (sectionErr) {
+          console.warn(`[DynamicHomepageRenderer] Error rendering section ${section.id} (${section.type}):`, sectionErr);
+          return null;
         }
       })}
 

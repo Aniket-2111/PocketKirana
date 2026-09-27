@@ -12,6 +12,8 @@ import {
   WEIGHT_OPTIONS,
   VOLUME_OPTIONS,
   PACKAGING_OPTIONS,
+  getMeasurementInputRules,
+  validateMeasurementQuantity,
 } from '../lib/measurementUtils';
 import { Product, ProductVariant, CartItem, OrderItem } from '../types';
 
@@ -260,6 +262,79 @@ describe('PocketKirana Admin — Measurement, Unit & Variant System', () => {
       expect(orderItem.measurementValue).toBe(5);
       expect(orderItem.unitPrice).toBe(265);
       expect(orderItem.totalPrice).toBe(530);
+    });
+  });
+
+  describe('9. Unit-Dependent Measurement Input Rules & Validation', () => {
+    it('should return correct step, min and placeholder for WEIGHT units', () => {
+      // KG defaults: step 0.01, min 0.01
+      const kgRules = getMeasurementInputRules('WEIGHT', 'KG');
+      expect(kgRules.step).toBe('0.01');
+      expect(kgRules.min).toBe('0.01');
+      expect(kgRules.placeholder).toContain('0.5, 1, 2.5');
+
+      // G defaults: step 1, min 1
+      const gRules = getMeasurementInputRules('WEIGHT', 'G');
+      expect(gRules.step).toBe('1');
+      expect(gRules.min).toBe('1');
+      expect(gRules.placeholder).toContain('100, 250, 500');
+    });
+
+    it('should return correct step, min and placeholder for VOLUME units', () => {
+      // LTR defaults: step 0.01, min 0.01
+      const ltrRules = getMeasurementInputRules('VOLUME', 'LTR');
+      expect(ltrRules.step).toBe('0.01');
+      expect(ltrRules.min).toBe('0.01');
+      expect(ltrRules.placeholder).toContain('0.5, 1, 2');
+
+      // ML defaults: step 1, min 1
+      const mlRules = getMeasurementInputRules('VOLUME', 'ML');
+      expect(mlRules.step).toBe('1');
+      expect(mlRules.min).toBe('1');
+      expect(mlRules.placeholder).toContain('200, 500, 750');
+    });
+
+    it('should return correct step, min and placeholder for UNIT counts', () => {
+      const unitRules = getMeasurementInputRules('UNIT', 'piece');
+      expect(unitRules.step).toBe('1');
+      expect(unitRules.min).toBe('1');
+      expect(unitRules.placeholder).toContain('1, 2, 6, 12');
+    });
+
+    it('should validate and accept 1 KG and fractional weights properly', () => {
+      // 1 KG must be accepted!
+      const res1Kg = validateMeasurementQuantity('WEIGHT', 'KG', 1);
+      expect(res1Kg.valid).toBe(true);
+      expect(res1Kg.normalizedValue).toBe(1);
+
+      // 0.5 KG and 0.01 KG must be accepted
+      expect(validateMeasurementQuantity('WEIGHT', 'KG', 0.5).valid).toBe(true);
+      expect(validateMeasurementQuantity('WEIGHT', 'KG', '0.01').valid).toBe(true);
+
+      // Rejects 0 or negative KG
+      expect(validateMeasurementQuantity('WEIGHT', 'KG', 0).valid).toBe(false);
+      expect(validateMeasurementQuantity('WEIGHT', 'KG', -1).valid).toBe(false);
+      expect(validateMeasurementQuantity('WEIGHT', 'KG', 0.005).valid).toBe(false);
+    });
+
+    it('should validate Grams (G) properly', () => {
+      expect(validateMeasurementQuantity('WEIGHT', 'G', 500).valid).toBe(true);
+      expect(validateMeasurementQuantity('WEIGHT', 'G', 1).valid).toBe(true);
+      expect(validateMeasurementQuantity('WEIGHT', 'G', 0.5).valid).toBe(false);
+    });
+
+    it('should validate Volume (LTR and ML) properly', () => {
+      expect(validateMeasurementQuantity('VOLUME', 'LTR', 1).valid).toBe(true);
+      expect(validateMeasurementQuantity('VOLUME', 'LTR', 0.5).valid).toBe(true);
+      expect(validateMeasurementQuantity('VOLUME', 'ML', 750).valid).toBe(true);
+      expect(validateMeasurementQuantity('VOLUME', 'ML', 0.5).valid).toBe(false);
+    });
+
+    it('should validate Countable UNIT quantities properly', () => {
+      expect(validateMeasurementQuantity('UNIT', 'piece', 1).valid).toBe(true);
+      expect(validateMeasurementQuantity('UNIT', 'pack', 6).valid).toBe(true);
+      expect(validateMeasurementQuantity('UNIT', 'piece', 0).valid).toBe(false);
+      expect(validateMeasurementQuantity('UNIT', 'piece', -2).valid).toBe(false);
     });
   });
 

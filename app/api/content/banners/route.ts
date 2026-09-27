@@ -4,6 +4,8 @@ import { INITIAL_BANNERS } from '@/lib/mockData';
 import { queryPostgres } from '@/lib/postgres';
 import { logAuditEvent } from '@/lib/auditLogger';
 
+import { evaluateBannerStatus } from '@/lib/promotionsEngine';
+
 declare global {
   // eslint-disable-next-line no-var
   var _pkBannerCache: Map<string, Banner> | undefined;
@@ -24,23 +26,6 @@ function getBannerCache(): Map<string, Banner> {
     });
   }
   return globalThis._pkBannerCache;
-}
-
-export function evaluateBannerStatus(banner: Banner): 'LIVE' | 'SCHEDULED' | 'PAUSED' | 'EXPIRED' | 'DRAFT' {
-  if (banner.status === 'DRAFT') return 'DRAFT';
-  if (banner.status === 'PAUSED' || banner.active === false) return 'PAUSED';
-
-  const now = Date.now();
-  if (banner.startDate) {
-    const start = new Date(banner.startDate).getTime();
-    if (!isNaN(start) && now < start) return 'SCHEDULED';
-  }
-  if (banner.endDate) {
-    const end = new Date(banner.endDate).getTime();
-    if (!isNaN(end) && now > end) return 'EXPIRED';
-  }
-
-  return 'LIVE';
 }
 
 /**

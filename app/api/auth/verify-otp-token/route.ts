@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchUserFS, saveUserFS } from '@/lib/firebaseServices';
 import { SESSION_COOKIE_NAME } from '@/lib/sessionCookie';
+import { createServerSession } from '@/lib/serverSession';
 
 const MSG91_VERIFY_URL =
   'https://control.msg91.com/api/v5/widget/verifyAccessToken';
@@ -180,10 +181,13 @@ export async function POST(request: NextRequest) {
       user = newUser;
     }
 
-    // ── 5. Build session token & write HttpOnly cookie ────────────────────────
-    // In production this would be a Firebase Custom Token or a signed JWT.
-    // For now we write a deterministic session ID that middleware recognises.
-    const sessionToken = `pks_${cleanDigits}_${Date.now()}`;
+    // ── 5. Build cryptographically random session & write HttpOnly cookie ──
+    const serverSession = createServerSession({
+      userId: user.id,
+      role: (user.role as any) || 'customer',
+      mobile: user.mobile,
+    });
+    const sessionToken = serverSession.sessionId;
 
     const response = NextResponse.json({
       success: true,
@@ -194,13 +198,15 @@ export async function POST(request: NextRequest) {
         status: user.status,
         createdAt: user.createdAt,
       },
+      token: sessionToken,
+      sessionId: sessionToken,
       isDemoMode,
     });
 
-    // Write pk_session cookie — HttpOnly on HTTPS, Lax for CSRF protection
-    const isSecure = request.headers.get('x-forwarded-proto') === 'https';
+    // Write pk_session cookie — HttpOnly, Secure in production or HTTPS, Lax SameSite
+    const isSecure = process.env.NODE_ENV === 'production' || request.headers.get('x-forwarded-proto') === 'https';
     response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-      httpOnly: false,         // kept false to match existing sessionCookie.ts client writes
+      httpOnly: true,
       secure: isSecure,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 30, // 30 days

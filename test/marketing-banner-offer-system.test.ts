@@ -10,7 +10,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   evaluateBannerStatus,
-} from '../app/api/content/banners/route';
+} from '../lib/promotionsEngine';
 import { Banner, Offer } from '../types';
 
 // ──────────────────────────────────────────────────────────────

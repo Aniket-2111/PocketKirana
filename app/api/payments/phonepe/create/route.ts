@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     }
 
     const orderData = orderSnap.data()!;
-    if (orderData.customerId && uid !== 'usr-cust-1' && orderData.customerId !== uid) {
+    if (orderData.customerId && orderData.customerId !== uid) {
       return corsResponse(
         { success: false, error: 'Access denied: Order ownership mismatch' },
         { status: 403 }
@@ -90,8 +90,11 @@ export async function POST(request: Request) {
       return corsResponse({
         success: true,
         data: {
+          orderId,
           merchantTransactionId: mockTxnId,
+          amount: totalAmount,
           redirectUrl: `/checkout/mock-phonepe?transactionId=${mockTxnId}&orderId=${orderId}&amount=${totalAmount}`,
+          token: `token_mock_${Date.now()}`,
           isSimulation: true
         }
       });
@@ -171,9 +174,18 @@ export async function POST(request: Request) {
       buildPaymentDoc(orderId, customerId, totalAmount, merchantTransactionId)
     );
 
+    const token = apiJson.data?.instrumentResponse?.token || apiJson.data?.token || '';
+
     return corsResponse({
       success: true,
-      data: { merchantTransactionId, redirectUrl, isSimulation: false }
+      data: {
+        orderId,
+        merchantTransactionId,
+        redirectUrl,
+        token,
+        amount: totalAmount,
+        isSimulation: false
+      }
     });
   } catch (error: any) {
     console.error('[PhonePe Create Order Exception]', error);

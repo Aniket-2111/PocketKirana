@@ -126,8 +126,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const isProduction = process.env.NODE_ENV === 'production';
   const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 
-  // Dev bypass: local, non-strict, non-production ONLY. Never injects x-pk-*
-  // for /api/* (route-level auth handles API identity), only for protected pages.
+  // Dev bypass: local, non-strict, non-production ONLY.
   const match = PROTECTED_ROUTES.find((route) => pathname.startsWith(route.prefix));
   if (match && !isProduction && isLocalhost && !strictModeEnabled) {
     const devRole =
@@ -135,26 +134,24 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       pathname.startsWith('/picker') ? 'picker' :
       pathname.startsWith('/delivery') ? 'delivery_partner' : 'customer';
 
-    response.headers.set('x-pk-uid', 'dev-user');
-    response.headers.set('x-pk-role', devRole);
-    response.headers.set('x-pk-dev-bypass', '1');
-    return response;
+    requestHeaders.set('x-pk-uid', 'dev-user');
+    requestHeaders.set('x-pk-role', devRole);
+    requestHeaders.set('x-pk-dev-bypass', '1');
+
+    const devResponse = NextResponse.next({ request: { headers: requestHeaders } });
+    attachSecurityHeaders(devResponse, origin, host, pathname);
+    return devResponse;
   }
 
   // ── Verified-token identity for protected pages AND /api routes ──────────
-  // On success, x-pk-uid/x-pk-role are injected from a SIGNATURE-VERIFIED
-  // Firebase token — these are the only x-pk-* headers routeAuth ever sees.
-  // On failure with a malformed/invalid token present: 401 for API, redirect
-  // for pages. No token: pass through (route-level auth decides for /api;
-  // protected pages redirect below).
-
   if (sessionToken) {
     const verified = await verifyFirebaseIdToken(sessionToken);
 
     if (verified) {
       const role = verified.admin ? 'admin' : verified.role || 'customer';
-      response.headers.set('x-pk-uid', verified.uid);
-      response.headers.set('x-pk-role', role);
+      requestHeaders.set('x-pk-uid', verified.uid);
+      requestHeaders.set('x-pk-role', role);
+      requestHeaders.set('x-pk-session-id', sessionToken);
 
       if (match) {
         const isAdmin = verified.admin === true || role === 'admin';
@@ -162,32 +159,44 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         const allowed = isAdmin || match.requiredRoles.includes(userRole);
         if (!allowed) return redirectToLogin(sanitized.url, pathname, 'insufficient_role');
       }
-      return response;
+
+      const okResponse = NextResponse.next({ request: { headers: requestHeaders } });
+      attachSecurityHeaders(okResponse, origin, host, pathname);
+      return okResponse;
     }
 
-    // Token present but NOT verified: is it a legacy/demo token?
-    // Demo 'pks_' tokens and opaque UUID session ids are only honored when
-    // auth middleware is NOT enabled (dev/demo installs).
+    // Token present but NOT verified: is it a legacy/demo token or server session ID?
     const looksJwt = sessionToken.includes('.');
     const payload = looksJwt ? decodeJwtPayload(sessionToken) : null;
-    const isDemoToken = sessionToken.startsWith('pks_');
 
     if (!strictModeEnabled && !isProduction) {
       // Dev/demo mode: keep legacy behavior for non-JWT tokens.
       if (!looksJwt) {
-        response.headers.set('x-pk-session-id', sessionToken);
-        return response;
+        requestHeaders.set('x-pk-session-id', sessionToken);
+        const passResponse = NextResponse.next({ request: { headers: requestHeaders } });
+        attachSecurityHeaders(passResponse, origin, host, pathname);
+        return passResponse;
       }
       // Dev JWT with valid shape: decode-only, flag as unverified (dev only).
       if (payload && (payload.uid || payload.sub)) {
-        response.headers.set('x-pk-uid', String(payload.sub || payload.uid));
-        response.headers.set('x-pk-role', String(payload.role || 'customer'));
-        response.headers.set('x-pk-unverified', '1');
-        return response;
+        requestHeaders.set('x-pk-uid', String(payload.sub || payload.uid));
+        requestHeaders.set('x-pk-role', String(payload.role || 'customer'));
+        requestHeaders.set('x-pk-unverified', '1');
+        const passResponse = NextResponse.next({ request: { headers: requestHeaders } });
+        attachSecurityHeaders(passResponse, origin, host, pathname);
+        return passResponse;
       }
     }
 
-    // Strict mode or production: invalid token = fail closed.
+    // Server-side session support in strict/production mode for non-JWT session tokens
+    if (!looksJwt && sessionToken) {
+      requestHeaders.set('x-pk-session-id', sessionToken);
+      const passResponse = NextResponse.next({ request: { headers: requestHeaders } });
+      attachSecurityHeaders(passResponse, origin, host, pathname);
+      return passResponse;
+    }
+
+    // Strict mode or production: invalid JWT token = fail closed.
     if (pathname.startsWith('/api/')) {
       return new NextResponse(
         JSON.stringify({ success: false, error: 'Invalid session token' }),
@@ -199,7 +208,24 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // ── No token ─────────────────────────────────────────────────────────────
   if (match) return redirectToLogin(sanitized.url, pathname, 'unauthenticated');
-  return response; // /api with no token: route-level auth decides (fail closed there)
+
+  const finalResponse = NextResponse.next({ request: { headers: requestHeaders } });
+  attachSecurityHeaders(finalResponse, origin, host, pathname);
+  return finalResponse;
+}
+
+function attachSecurityHeaders(response: NextResponse, origin: string | null, host: string, pathname: string): void {
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('X-Frame-Options', 'DENY');
+
+  if (pathname.startsWith('/api/')) {
+    if (origin && isAllowedOrigin(origin, host)) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Vary', 'Origin');
+    }
+  }
 }
 
 function redirectToLogin(baseUrl: string, pathname: string, reason: string): NextResponse {

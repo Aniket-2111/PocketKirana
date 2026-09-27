@@ -205,6 +205,10 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
 
       const otpReq = new NextRequest(`http://localhost:3000/api/delivery/orders/${createdOrderId}/verify-otp`, {
         method: 'POST',
+        headers: {
+          'x-pk-uid': 'partner-1',
+          'x-pk-role': 'delivery_partner',
+        },
         body: JSON.stringify({ otp: '5432', partnerId: 'partner-1' }),
       });
 
@@ -291,6 +295,7 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
           orderNumber: 'PK-ORD-LOCKED',
           deliveryOtp: '9999',
           paymentStatus: 'paid',
+          partnerId: 'partner-1',
           deliveryOtpAttempts: 5,
           deliveryOtpLocked: true,
         }),
@@ -298,6 +303,10 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
 
       const req = new NextRequest('http://localhost:3000/api/delivery/orders/ord_locked/verify-otp', {
         method: 'POST',
+        headers: {
+          'x-pk-uid': 'partner-1',
+          'x-pk-role': 'delivery_partner',
+        },
         body: JSON.stringify({ otp: '9999' }), // Even the correct OTP is rejected when locked
       });
 

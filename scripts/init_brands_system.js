@@ -14,7 +14,7 @@ const pool = new Pool({
   port: parseInt(process.env.DB_PORT || '5433', 10),
   database: process.env.DB_NAME || 'pocketkirana_db',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'varbusiness',
+  password: process.env.DB_PASSWORD || process.env.PGPASSWORD || '',
 });
 
 const INITIAL_BRANDS = [

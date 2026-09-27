@@ -167,7 +167,22 @@ export async function apiFetch<T = any>(
     });
     return response;
   } catch (err: any) {
-    // If target was pocketkirana.in and failed (e.g. running in local development), attempt localhost:3000 fallback
+    // Bidirectional fallback:
+    // 1. If target was localhost:3000 and failed (e.g. sub-app running on port 3002 without root server running), attempt production fallback
+    if (typeof window !== 'undefined' && (fullUrl.includes('localhost:3000') || fullUrl.includes('127.0.0.1:3000'))) {
+      try {
+        const fallbackUrl = fullUrl.replace(/http:\/\/(localhost|127\.0\.0\.1):3000/, DEFAULT_PRODUCTION_API_URL);
+        const fallbackRes = await fetch(fallbackUrl, {
+          ...options,
+          headers,
+          signal: options.signal || controller.signal,
+        });
+        return fallbackRes;
+      } catch {
+        // Fallback also failed, re-throw original error
+      }
+    }
+    // 2. If target was pocketkirana.in and failed (e.g. offline or local development proxy), attempt localhost:3000 fallback
     if (typeof window !== 'undefined' && fullUrl.includes('pocketkirana.in')) {
       try {
         const fallbackUrl = fullUrl.replace('https://pocketkirana.in', `${window.location.protocol}//${window.location.hostname}:3000`);

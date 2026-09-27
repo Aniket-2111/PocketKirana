@@ -34,15 +34,13 @@ const IDLE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000; // 7 days idle
  * Generate a cryptographically random session ID.
  */
 export function generateSessionId(): string {
-  if (typeof window === 'undefined' && globalThis.crypto?.randomUUID) {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
     return globalThis.crypto.randomUUID();
   }
-  // Node.js crypto fallback
   try {
-    const nodeCrypto = require('crypto');
-    return nodeCrypto.randomUUID();
+    return crypto.randomUUID();
   } catch (_) {
-    return 'pks_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    return crypto.randomBytes(32).toString('hex');
   }
 }
 

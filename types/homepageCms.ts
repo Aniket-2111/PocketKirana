@@ -4,8 +4,12 @@ export type HomepageSectionType =
   | 'Hero'
   | 'FestivalHero'
   | 'OfferBanner'
+  | 'Banner'
   | 'FlashSale'
   | 'ShopByCategory'
+  | 'CategoryGrid'
+  | 'ProductCarousel'
+  | 'ProductGrid'
   | 'PopularProducts'
   | 'TrendingProducts'
   | 'BestSellers'
@@ -17,11 +21,14 @@ export type HomepageSectionType =
   | 'FrequentlyBoughtTogether'
   | 'ComboOffers'
   | 'Buy1Get1'
+  | 'BuyXGetY'
   | 'FreeGift'
+  | 'FreeProductOffer'
   | 'DiscountAboveThreshold'
   | 'LimitedTimeOffers'
   | 'CustomerRewards'
   | 'LoyaltyProgress'
+  | 'OrderMilestone'
   | 'CouponBanner'
   | 'FreeDeliveryBanner'
   | 'TopDeals'
@@ -92,6 +99,61 @@ export interface HomepageLayoutConfig {
   createdBy?: string;
   scheduledStart?: string;
   scheduledEnd?: string;
+}
+
+export type HomepageAuditAction =
+  | 'SECTION_CREATED'
+  | 'SECTION_UPDATED'
+  | 'SECTION_DELETED'
+  | 'SECTION_REORDERED'
+  | 'SECTION_ENABLED'
+  | 'SECTION_DISABLED'
+  | 'HOMEPAGE_PUBLISHED'
+  | 'HOMEPAGE_ROLLED_BACK'
+  | 'TEMPLATE_APPLIED'
+  | 'LAYOUT_RESET';
+
+export interface HomepageAuditLog {
+  id: string;
+  action: HomepageAuditAction;
+  adminId: string;
+  adminName: string;
+  adminRole?: string;
+  version: number;
+  sectionId?: string;
+  sectionTitle?: string;
+  details?: string;
+  oldState?: any;
+  newState?: any;
+  timestamp: string;
+}
+
+export interface HomepageVersionSnapshot {
+  id: string;
+  layoutId: string;
+  version: number;
+  name: string;
+  sections: HomepageSectionConfig[];
+  publishedAt: string;
+  publishedBy: string;
+  changeSummary?: string;
+}
+
+export interface HomepagePublishDiff {
+  added: string[];
+  modified: string[];
+  removed: string[];
+  reordered: boolean;
+  totalSections: number;
+  targetVersion: number;
+}
+
+export interface HomepageApiResponse {
+  version: number;
+  status: 'PUBLISHED';
+  publishedAt: string;
+  sections: HomepageSectionConfig[];
+  serverTime: string;
 }
 
 export interface RecommendationScoreResult {

@@ -8,7 +8,10 @@ import {
   HomepageSectionType,
   CustomerPersona,
   SectionLayoutStyle,
+  HomepageVersionSnapshot,
+  HomepageAuditLog,
 } from '@/types/homepageCms';
+import { HomepageCmsService } from '@/lib/homepageCmsService';
 import { DynamicHomepageRenderer } from '@/components/customer/DynamicHomepageRenderer';
 import { showToast } from '@/components/ui/Toast';
 import {
@@ -36,11 +39,17 @@ import {
   Users,
   Search,
   Check,
+  History,
+  ShieldAlert,
+  FileText,
+  Radio,
+  ArrowRight,
 } from 'lucide-react';
 
 const SECTION_TYPE_OPTIONS: { type: HomepageSectionType; label: string; icon: string; desc: string }[] = [
   { type: 'Hero', label: 'Hero Banner', icon: '🖼️', desc: 'Full-width top promotional visual with CTA' },
-  { type: 'ShopByCategory', label: 'Shop By Category', icon: '🛒', desc: 'Circular category aisles' },
+  { type: 'FestivalHero', label: 'Festival Hero Campaign', icon: '✨', desc: 'Festive themed promotional banner with countdown' },
+  { type: 'ShopByCategory', label: 'Shop By Category', icon: '🛒', desc: 'Circular category aisles with 1-tap navigation' },
   { type: 'BuyAgain', label: 'Buy Again (Reorder)', icon: '🔄', desc: '1-tap instant reorder for customer staples' },
   { type: 'FlashSale', label: 'Flash Sale Deals', icon: '⚡', desc: 'Countdown deals with deep discounts' },
   { type: 'FrequentlyBoughtTogether', label: 'Frequently Bought Together', icon: '✨', desc: 'Curated 3-item value bundle with 1-tap add' },
@@ -52,12 +61,15 @@ const SECTION_TYPE_OPTIONS: { type: HomepageSectionType; label: string; icon: st
   { type: 'BrandCollections', label: 'Brand Collections', icon: '🏢', desc: 'Amul, Tata, Fortune, Aashirvaad logos' },
   { type: 'DailyEssentials', label: 'Daily Essentials', icon: '🥛', desc: 'Dairy, Bakery, Veg & Atta essentials' },
   { type: 'OfferBanner', label: 'Coupon / Promo Strip', icon: '🏷️', desc: 'Special discount code banner' },
+  { type: 'ExploreMore', label: 'Explore More Catalog', icon: '📦', desc: 'Continuous catalog browsing and discovery' },
 ];
 
 export const HomepageStudioTab: React.FC = () => {
   const {
     activeHomepageLayout,
     homepageLayouts,
+    homepageVersionHistory,
+    homepageAuditLogs,
     festivalTemplates,
     products,
     categories,
@@ -67,20 +79,29 @@ export const HomepageStudioTab: React.FC = () => {
     deleteHomepageSection,
     duplicateHomepageSection,
     publishHomepageLayout,
+    rollbackHomepageLayout,
     applyFestivalTemplateToHomepage,
     resetHomepageLayoutToDefault,
   } = useAppStore();
 
-  const [previewDevice, setPreviewDevice] = useState<'DESKTOP' | 'MOBILE'>('DESKTOP');
+  const [previewDevice, setPreviewDevice] = useState<'DESKTOP' | 'MOBILE' | 'APK'>('DESKTOP');
   const [previewPersona, setPreviewPersona] = useState<CustomerPersona>('ALL');
   const [editingSection, setEditingSection] = useState<HomepageSectionConfig | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [publishNotes, setPublishNotes] = useState('');
 
   const sections = useMemo(
     () => [...(activeHomepageLayout?.sections || [])].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)),
     [activeHomepageLayout]
   );
+
+  const publishDiff = useMemo(() => {
+    return HomepageCmsService.getPublishDiff();
+  }, [activeHomepageLayout]);
 
   // Move section UP
   const handleMoveUp = (index: number) => {
@@ -124,11 +145,26 @@ export const HomepageStudioTab: React.FC = () => {
     showToast('Section removed', 'info');
   };
 
-  // Publish layout
-  const handlePublish = () => {
-    const res = publishHomepageLayout();
+  // Publish layout confirmation
+  const handleConfirmPublish = () => {
+    const res = publishHomepageLayout(undefined, publishNotes || undefined);
     if (res.success) {
-      showToast(res.message, 'success');
+      setIsPublishModalOpen(false);
+      setPublishNotes('');
+      showToast(`✓ Published successfully. Available to Customer Web and Customer APK. (v${res.version})`, 'success');
+    }
+  };
+
+  // Rollback to past version
+  const handleRollback = (ver: number) => {
+    if (confirm(`Are you sure you want to rollback to Version ${ver}? This will create a new published version.`)) {
+      const res = rollbackHomepageLayout(ver);
+      if (res.success) {
+        setIsHistoryModalOpen(false);
+        showToast(`✓ Successfully rolled back to Version ${ver}. Available live.`, 'success');
+      } else {
+        showToast(res.message, 'error');
+      }
     }
   };
 
@@ -180,13 +216,31 @@ export const HomepageStudioTab: React.FC = () => {
                 </span>
               </h2>
               <p className="text-xs text-slate-500">
-                Visually customize sections, reorder blocks, apply 20+ festival presets &amp; test personalized personas
+                Single source of truth for Customer Website &amp; Customer APK • Reorder blocks &amp; instant sync
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* History & Rollback */}
+          <button
+            onClick={() => setIsHistoryModalOpen(true)}
+            className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <History className="w-4 h-4 text-blue-600" />
+            <span>Publish History ({homepageVersionHistory?.length || 1})</span>
+          </button>
+
+          {/* Audit Logs */}
+          <button
+            onClick={() => setIsAuditModalOpen(true)}
+            className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <FileText className="w-4 h-4 text-purple-600" />
+            <span>Audit Log</span>
+          </button>
+
           {/* Apply Festival Template */}
           <button
             onClick={() => setIsTemplateModalOpen(true)}
@@ -214,14 +268,14 @@ export const HomepageStudioTab: React.FC = () => {
               }
             }}
             className="px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
-            title="Reset layout"
+            title="Reset layout to default"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
-          {/* Publish Live */}
+          {/* Publish Live Button (Opens Confirmation Modal) */}
           <button
-            onClick={handlePublish}
+            onClick={() => setIsPublishModalOpen(true)}
             className="px-4 py-2 rounded-xl bg-[#0B8F5A] hover:bg-[#075C3C] text-white font-extrabold text-xs shadow-md active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <Save className="w-4 h-4" />
@@ -268,6 +322,11 @@ export const HomepageStudioTab: React.FC = () => {
                         {section.targetPersona !== 'ALL' && (
                           <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.2 rounded border border-purple-200/60">
                             {section.targetPersona}
+                          </span>
+                        )}
+                        {!section.isActive && (
+                          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1 rounded">
+                            OFF
                           </span>
                         )}
                       </div>
@@ -358,7 +417,16 @@ export const HomepageStudioTab: React.FC = () => {
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
-                  <span>Mobile</span>
+                  <span>Mobile Web</span>
+                </button>
+                <button
+                  onClick={() => setPreviewDevice('APK')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    previewDevice === 'APK' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500'
+                  }`}
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>Customer APK</span>
                 </button>
               </div>
             </div>
@@ -385,13 +453,21 @@ export const HomepageStudioTab: React.FC = () => {
           <div className="flex justify-center w-full">
             <div
               className={`transition-all duration-300 ${
-                previewDevice === 'MOBILE'
+                previewDevice === 'MOBILE' || previewDevice === 'APK'
                   ? 'w-[385px] max-w-full bg-white dark:bg-slate-900 rounded-[38px] p-3 shadow-2xl border-8 border-slate-800'
                   : 'w-full bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-800'
               }`}
             >
-              {previewDevice === 'MOBILE' && (
+              {(previewDevice === 'MOBILE' || previewDevice === 'APK') && (
                 <div className="w-32 h-4 bg-slate-800 rounded-full mx-auto mb-3" />
+              )}
+
+              {/* APK Preview Top Bar */}
+              {previewDevice === 'APK' && (
+                <div className="mb-3 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-500">Search products in PocketKirana APK...</span>
+                </div>
               )}
 
               <div className="max-h-[720px] overflow-y-auto pr-1">
@@ -403,10 +479,217 @@ export const HomepageStudioTab: React.FC = () => {
 
       </div>
 
+      {/* ── MODAL: PUBLISH CONFIRMATION ── */}
+      {isPublishModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-white">Publish Homepage Live</h3>
+                  <p className="text-xs text-slate-500">Atomic publication to Customer Website &amp; Customer APK</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPublishModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                <div className="flex items-center justify-between font-bold">
+                  <span className="text-slate-600 dark:text-slate-400">Target Version:</span>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">
+                    Version {(activeHomepageLayout?.version || 1) + 1}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between font-bold">
+                  <span className="text-slate-600 dark:text-slate-400">Total Active Sections:</span>
+                  <span className="text-slate-900 dark:text-white font-black">
+                    {sections.filter((s) => s.isActive).length} / {sections.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Diff Summary */}
+              <div className="space-y-1.5">
+                <span className="font-bold text-slate-700 dark:text-slate-300 block">Publication Summary:</span>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono text-[11px] space-y-1 max-h-36 overflow-y-auto">
+                  {publishDiff.added.map((item, idx) => (
+                    <div key={idx} className="text-emerald-700 dark:text-emerald-400 font-semibold">{item}</div>
+                  ))}
+                  {publishDiff.modified.map((item, idx) => (
+                    <div key={idx} className="text-amber-700 dark:text-amber-400 font-semibold">{item}</div>
+                  ))}
+                  {publishDiff.removed.map((item, idx) => (
+                    <div key={idx} className="text-rose-700 dark:text-rose-400 font-semibold">{item}</div>
+                  ))}
+                  {publishDiff.added.length === 0 && publishDiff.modified.length === 0 && publishDiff.removed.length === 0 && (
+                    <div className="text-slate-500">No block schema modifications; publishing active snapshot.</div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Change Note / Release Summary (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Navratri festival hero banner and essentials carousel"
+                  value={publishNotes}
+                  onChange={(e) => setPublishNotes(e.target.value)}
+                  className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => setIsPublishModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmPublish}
+                className="px-5 py-2.5 rounded-xl bg-[#0B8F5A] hover:bg-[#075C3C] text-white font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Save className="w-4 h-4" />
+                <span>Publish Live Now</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: VERSION HISTORY & ROLLBACK ── */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-white">Publish History &amp; Instant Rollback</h3>
+                  <p className="text-xs text-slate-500">Audit snapshots of every published homepage version</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+              {(homepageVersionHistory || []).map((ver) => {
+                const isCurrent = ver.version === activeHomepageLayout?.version;
+                return (
+                  <div
+                    key={ver.id || ver.version}
+                    className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      isCurrent
+                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-sm text-slate-900 dark:text-white">
+                          Version {ver.version}
+                        </span>
+                        {isCurrent && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-bold text-[10px]">
+                            CURRENT LIVE
+                          </span>
+                        )}
+                        <span className="text-[11px] text-slate-400">
+                          {new Date(ver.publishedAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium">
+                        {ver.changeSummary || ver.name}
+                      </p>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        Published by: <span className="font-bold text-slate-600 dark:text-slate-300">{ver.publishedBy}</span> • {ver.sections?.length || 0} sections
+                      </div>
+                    </div>
+
+                    {!isCurrent && (
+                      <button
+                        onClick={() => handleRollback(ver.version)}
+                        className="px-3.5 py-1.5 rounded-xl border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-900 font-extrabold text-xs shadow-2xs transition-all cursor-pointer self-start sm:self-center shrink-0"
+                      >
+                        Rollback to v{ver.version}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: AUDIT LOG TRAIL ── */}
+      {isAuditModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-white">Homepage CMS Audit Trail</h3>
+                  <p className="text-xs text-slate-500">Immutable chronological record of admin modifications</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAuditModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+              {(homepageAuditLogs || []).map((log) => (
+                <div
+                  key={log.id}
+                  className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs space-y-1"
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="text-purple-700 dark:text-purple-400">{log.action}</span>
+                    <span className="text-[11px] text-slate-400">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-slate-800 dark:text-slate-200 font-medium">{log.details}</p>
+                  <div className="text-[10px] text-slate-500">
+                    Actor: {log.adminName} ({log.adminRole || 'Admin'}) • Layout v{log.version}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL: EDIT SECTION MODAL ── */}
       {editingSection && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-black text-sm text-slate-900 dark:text-white">
                 Edit Section: {editingSection.type}
@@ -459,7 +742,7 @@ export const HomepageStudioTab: React.FC = () => {
                     }
                     className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-2 font-bold focus:outline-none"
                   >
-                    <option value="ALL">All Customers</option>
+                    <option value="ALL">All Customers (Default)</option>
                     <option value="NEW_CUSTOMER">New Customers Only</option>
                     <option value="RETURNING_CUSTOMER">Returning Customers</option>
                     <option value="FREQUENT_BUYER">Frequent Buyers</option>
@@ -467,6 +750,17 @@ export const HomepageStudioTab: React.FC = () => {
                     <option value="LOYALTY_VIP">Loyalty VIPs</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Banner Image URL</label>
+                <input
+                  type="text"
+                  placeholder="https://images.unsplash.com/..."
+                  value={editingSection.image || ''}
+                  onChange={(e) => setEditingSection({ ...editingSection, image: e.target.value })}
+                  className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

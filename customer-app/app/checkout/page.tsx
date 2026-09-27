@@ -122,7 +122,7 @@ export default function CheckoutPage() {
         throw new Error('Order creation returned invalid ID');
       }
 
-      // If PhonePe payment selected, initiate PhonePe gateway redirect
+      // If PhonePe payment selected, initiate PhonePe Android Native / Web checkout
       if (paymentMethod === 'phonepe') {
         const addr = addresses.find((a) => a.id === selectedAddressId) || addresses[0];
         try {
@@ -132,32 +132,42 @@ export default function CheckoutPage() {
           console.warn('[Checkout] Background saveOrderFS non-fatal error:', fsErr);
         }
 
-        const res = await initiatePhonePePayment({
+        const { startPhonePeCheckoutFlow } = await import('@/lib/phonepeClient');
+        const res = await startPhonePeCheckoutFlow({
           orderId: createdOrder.id,
           amount: total,
           mobileNumber: addr?.phone || currentUser?.mobile || '8698893348',
           customerId: currentUser?.id || 'customer',
           redirectPath: '/checkout/success/',
+        }, {
+          onPending: () => {
+            showToast('Opening PhonePe checkout...', 'info');
+          }
         });
 
-        if (res.success && res.redirectUrl) {
-          window.location.href = res.redirectUrl;
+        if (res.status === 'REDIRECTED') {
+          // Handled via redirect
+          return;
+        }
+
+        if (res.verified || res.status === 'SUCCESS') {
+          // Native payment confirmed and verified by server
+          setBtnState('success');
+          setConfirmedOrder(createdOrder);
+          setTimeout(() => {
+            setShowAnimationModal(true);
+          }, 750);
+          return;
+        } else if (res.status === 'CANCELLED') {
+          useAppStore.setState({ cart: cartBackup });
+          showToast('Payment was cancelled.', 'info');
+          setBtnState('idle');
+          isSubmittingRef.current = false;
           return;
         } else {
-          // In local browser testing without a running payment backend, provide a smooth dev simulation
-          if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-            showToast('Simulating PhonePe payment flow (Local Dev)...', 'info');
-            setBtnState('success');
-            setConfirmedOrder(createdOrder);
-            setTimeout(() => {
-              setShowAnimationModal(true);
-            }, 750);
-            return;
-          }
-
-          // Restore cart so user doesn't see an empty cart screen on payment error
+          // Restore cart on payment error
           useAppStore.setState({ cart: cartBackup });
-          showToast(res.error || 'Failed to connect to PhonePe gateway', 'error');
+          showToast(res.error || 'Payment could not be verified. Please retry.', 'error');
           setBtnState('idle');
           isSubmittingRef.current = false;
           return;

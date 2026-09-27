@@ -20,6 +20,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+import { generateProductExcelTemplate } from '@/lib/productExcelUtils';
+
 interface BulkCSVUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -43,7 +45,7 @@ interface ParsedCSVRow {
 }
 
 export const BulkCSVUploadModal: React.FC<BulkCSVUploadModalProps> = ({ isOpen, onClose }) => {
-  const { categories, addProductsBatch, addCategory } = useAppStore();
+  const { categories, brands, addProductsBatch, addCategory } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fileName, setFileName] = useState<string>('');
@@ -54,24 +56,24 @@ export const BulkCSVUploadModal: React.FC<BulkCSVUploadModalProps> = ({ isOpen, 
 
   if (!isOpen) return null;
 
-  // Generate and Download Sample CSV
+  // Generate and Download Section-Wise Official Template
   const handleDownloadSampleCSV = () => {
-    const csvContent =
-      `Name,Category,Selling Price,MRP,Unit,Weight(g),Description,Image URL,SKU\n` +
-      `"Fortune Sunflower Refined Oil 1L","Oils & Ghee",145,175,"1 L",900,"100% pure refined sunflower oil rich in vitamins.","https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=400&q=80","SKU-OIL-101"\n` +
-      `"Aashirvaad Shuddh Chakki Atta 5kg","Atta & Rice",235,275,"5 kg",5000,"High quality whole wheat flour for soft and fluffy rotis.","https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80","SKU-ATTA-202"\n` +
-      `"Amul Taaza Toned Milk 1L","Dairy & Eggs",68,72,"1 L",1000,"Fresh pasteurized toned milk full of cream.","https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=400&q=80","SKU-MILK-303"\n` +
-      `"Lays India's Magic Masala Chips","Snacks & Drinks",20,20,"50g",50,"Crispy potato chips coated in spicy Indian spices.","https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=400&q=80","SKU-SNK-404"`;
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'sample_pocketkirana_products.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Downloaded sample_pocketkirana_products.csv template!', 'info');
+    try {
+      const bytes = generateProductExcelTemplate(categories, brands);
+      const blob = new Blob([bytes as any], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'PocketKirana_Product_Import_Template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Downloaded PocketKirana_Product_Import_Template.xlsx (Section-Wise Format)', 'success');
+    } catch (err: any) {
+      showToast(`Download failed: ${err?.message || 'Error'}`, 'error');
+    }
   };
 
   // Helper to resolve or auto-match Category ID by name

@@ -14,8 +14,8 @@ import { apiFetch } from '@/lib/apiClient';
 
 const MSG91_API_BASE = 'https://control.msg91.com/api/v5/widget';
 
-const WIDGET_ID = process.env.NEXT_PUBLIC_MSG91_WIDGET_ID ?? '36697062464a373338323931';
-const TOKEN_KEY = process.env.NEXT_PUBLIC_MSG91_TOKEN_KEY ?? '571687TkSXq4wON6aaa00baP1';
+const WIDGET_ID = process.env.NEXT_PUBLIC_MSG91_WIDGET_ID ?? '';
+const TOKEN_KEY = process.env.NEXT_PUBLIC_MSG91_TOKEN_KEY ?? '';
 
 let configuredWidgetId: string = WIDGET_ID;
 let configuredTokenAuth: string = TOKEN_KEY;

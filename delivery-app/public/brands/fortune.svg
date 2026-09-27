@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="100%" height="100%">
+  <rect width="200" height="80" rx="12" fill="#FFFDF5"/>
+  <text x="100" y="48" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="900" fill="#E65100" text-anchor="middle" letter-spacing="-0.5">Fortune</text>
+  <circle cx="160" cy="30" r="4" fill="#075C3C"/>
+</svg>

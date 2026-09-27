@@ -17,7 +17,7 @@ const targetHost = process.env.DB_HOST || 'localhost';
 const targetPort = parseInt(process.env.DB_PORT || '5432', 10);
 const targetDb = process.env.DB_NAME || 'pocketkirana_db';
 const targetUser = process.env.DB_USER || 'postgres';
-const targetPass = process.env.DB_PASSWORD || 'postgres';
+const targetPass = process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
 const sslMode = process.env.DATABASE_SSL === 'true' || process.env.NODE_ENV === 'production';
 
 const connectionString = process.env.DATABASE_URL || 

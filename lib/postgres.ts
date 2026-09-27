@@ -9,11 +9,11 @@ import { Pool, QueryResult, PoolClient } from 'pg';
  * - Sanitized logging (zero credential / token leakage)
  */
 
-const DB_HOST = process.env.DB_HOST || '192.168.0.106';
-const DB_PORT = parseInt(process.env.DB_PORT || '5433', 10);
-const DB_NAME = process.env.DB_NAME || 'pocketkirana_db';
-const DB_USER = process.env.DB_USER || 'postgres';
-const DB_PASSWORD = process.env.DB_PASSWORD || 'varbusiness';
+const DB_HOST = process.env.DB_HOST || process.env.PGHOST || '127.0.0.1';
+const DB_PORT = parseInt(process.env.DB_PORT || process.env.PGPORT || '5432', 10);
+const DB_NAME = process.env.DB_NAME || process.env.PGDATABASE || 'pocketkirana_db';
+const DB_USER = process.env.DB_USER || process.env.PGUSER || 'postgres';
+const DB_PASSWORD = process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
 
 const PG_MAX_POOL_SIZE = parseInt(process.env.PG_MAX_POOL_SIZE || '20', 10);
 const PG_IDLE_TIMEOUT_MS = parseInt(process.env.PG_IDLE_TIMEOUT_MS || '30000', 10);
@@ -27,16 +27,17 @@ declare global {
 }
 
 function getConnectionString(): string {
-  const dbHost = process.env.DB_HOST || '192.168.0.106';
-  const dbPort = parseInt(process.env.DB_PORT || '5433', 10);
-  const dbName = process.env.DB_NAME || 'pocketkirana_db';
-  const dbUser = process.env.DB_USER || 'postgres';
-  const dbPassword = process.env.DB_PASSWORD || 'varbusiness';
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+  const dbHost = process.env.DB_HOST || process.env.PGHOST || '127.0.0.1';
+  const dbPort = parseInt(process.env.DB_PORT || process.env.PGPORT || '5432', 10);
+  const dbName = process.env.DB_NAME || process.env.PGDATABASE || 'pocketkirana_db';
+  const dbUser = process.env.DB_USER || process.env.PGUSER || 'postgres';
+  const dbPassword = process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
 
-  return (
-    process.env.DATABASE_URL ||
-    `postgresql://${dbUser}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${dbName}`
-  );
+  const authPart = dbPassword ? `${dbUser}:${encodeURIComponent(dbPassword)}` : dbUser;
+  return `postgresql://${authPart}@${dbHost}:${dbPort}/${dbName}`;
 }
 
 /**

@@ -175,6 +175,10 @@ describe('Phase 16 — Comprehensive Security Verification & Penetration Tests',
 
       const req = new NextRequest('http://localhost:3000/api/delivery/orders/order_999/verify-otp', {
         method: 'POST',
+        headers: {
+          'x-pk-uid': 'partner-1',
+          'x-pk-role': 'delivery_partner',
+        },
         body: JSON.stringify({ otp: '0000', partnerId: 'partner-1' }),
       });
 
@@ -209,6 +213,7 @@ describe('Phase 16 — Comprehensive Security Verification & Penetration Tests',
           orderNumber: 'PK-ORD-999',
           deliveryOtp: '7829',
           paymentStatus: 'paid',
+          partnerId: 'partner-1',
           deliveryOtpAttempts: 5,
           deliveryOtpLocked: true,
         }),
@@ -216,6 +221,10 @@ describe('Phase 16 — Comprehensive Security Verification & Penetration Tests',
 
       const req = new NextRequest('http://localhost:3000/api/delivery/orders/order_999/verify-otp', {
         method: 'POST',
+        headers: {
+          'x-pk-uid': 'partner-1',
+          'x-pk-role': 'delivery_partner',
+        },
         body: JSON.stringify({ otp: '7829' }),
       });
 
@@ -235,6 +244,7 @@ describe('Phase 16 — Comprehensive Security Verification & Penetration Tests',
           deliveryOtp: '7829',
           paymentStatus: 'pending', // Unpaid online order
           paymentMethod: 'online',
+          partnerId: 'partner-1',
           deliveryOtpAttempts: 0,
           deliveryOtpLocked: false,
         }),
@@ -242,6 +252,10 @@ describe('Phase 16 — Comprehensive Security Verification & Penetration Tests',
 
       const req = new NextRequest('http://localhost:3000/api/delivery/orders/order_999/verify-otp', {
         method: 'POST',
+        headers: {
+          'x-pk-uid': 'partner-1',
+          'x-pk-role': 'delivery_partner',
+        },
         body: JSON.stringify({ otp: '7829' }),
       });
 

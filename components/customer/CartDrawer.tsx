@@ -28,7 +28,7 @@ interface CartDrawerProps {
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenAuth }) => {
   const router = useRouter();
-  const { cart, updateQuantity, removeFromCart, appliedCoupon, applyCoupon, removeCoupon, isLoggedIn } = useAppStore();
+  const { cart, updateQuantity, removeFromCart, appliedCoupon, applyCoupon, removeCoupon, isLoggedIn, coupons = [] } = useAppStore();
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [couponMsg, setCouponMsg] = useState<{ success?: boolean; text?: string }>({});
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -244,28 +244,33 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onOpenA
                       </button>
                     </form>
 
-                    {/* Quick Coupon Chips */}
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {[
-                        { code: 'SAVE20', label: 'SAVE20 (₹20 OFF on ₹100)' },
-                        { code: 'WELCOME100', label: 'WELCOME100 (₹100 OFF on ₹499)' },
-                        { code: 'HOLI150', label: 'HOLI150 (₹150 OFF on ₹999)' },
-                      ].map((cp) => (
-                        <button
-                          key={cp.code}
-                          type="button"
-                          onClick={() => {
-                            setCouponCodeInput(cp.code);
-                            const res = applyCoupon(cp.code);
-                            setCouponMsg({ success: res.success, text: res.message });
-                            if (res.success) setCouponCodeInput('');
-                          }}
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-lg border border-dashed border-emerald-400 dark:border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition-colors cursor-pointer"
-                        >
-                          🏷️ {cp.code}
-                        </button>
-                      ))}
-                    </div>
+                    {/* Admin Coupon Chips (if any created) */}
+                    {(() => {
+                      const adminCoupons = (coupons || []).filter((cp) => cp.active !== false);
+                      if (adminCoupons.length === 0) return null;
+                      return (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {adminCoupons.map((cp) => {
+                            const discountText = cp.type === 'fixed' ? `₹${cp.value} OFF` : `${cp.value}% OFF`;
+                            return (
+                              <button
+                                key={cp.id || cp.code}
+                                type="button"
+                                onClick={() => {
+                                  setCouponCodeInput(cp.code);
+                                  const res = applyCoupon(cp.code);
+                                  setCouponMsg({ success: res.success, text: res.message });
+                                  if (res.success) setCouponCodeInput('');
+                                }}
+                                className="text-[10px] font-bold px-2 py-0.5 rounded-lg border border-dashed border-emerald-400 dark:border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition-colors cursor-pointer"
+                              >
+                                🏷️ {cp.code} ({discountText} on ₹{cp.minimumOrder})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
                 {couponMsg.text && (

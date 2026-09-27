@@ -1,24 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-
-const PWARegister = dynamic(
-  () => import('./PWARegister').then((m) => m.PWARegister),
-  { ssr: false }
-);
-const NetworkStatusBanner = dynamic(
-  () => import('@/components/states/NetworkStatusBanner').then((m) => m.NetworkStatusBanner),
-  { ssr: false }
-);
-const RealtimeNotificationToast = dynamic(
-  () => import('@/components/customer/RealtimeNotificationToast').then((m) => m.RealtimeNotificationToast),
-  { ssr: false }
-);
-const NotificationPermissionPrompt = dynamic(
-  () => import('@/components/customer/NotificationPermissionPrompt').then((m) => m.NotificationPermissionPrompt),
-  { ssr: false }
-);
+import { PWARegister } from './PWARegister';
+import { NetworkStatusBanner } from '@/components/states/NetworkStatusBanner';
+import { RealtimeNotificationToast } from '@/components/customer/RealtimeNotificationToast';
+import { NotificationPermissionPrompt } from '@/components/customer/NotificationPermissionPrompt';
 
 /**
  * NotificationWrapper — Client Component shell for browser-only runtime features.

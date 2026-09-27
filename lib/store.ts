@@ -49,7 +49,13 @@ import {
   FestivalAuditLog,
   FestivalSectionConfig,
 } from '@/types/festival';
-import { HomepageLayoutConfig, HomepageSectionConfig } from '@/types/homepageCms';
+import {
+  HomepageLayoutConfig,
+  HomepageSectionConfig,
+  HomepageVersionSnapshot,
+  HomepageAuditLog,
+} from '@/types/homepageCms';
+import { HomepageCmsService } from './homepageCmsService';
 import { DEFAULT_HOMEPAGE_LAYOUT, DEFAULT_HOMEPAGE_SECTIONS } from './defaultHomepageLayout';
 import { INITIAL_FESTIVAL_TEMPLATES } from './festivalTemplates';
 import {
@@ -477,11 +483,14 @@ interface AppState {
   // 🌟 Dynamic Homepage CMS & Personalization Engine
   homepageLayouts: HomepageLayoutConfig[];
   activeHomepageLayout: HomepageLayoutConfig;
+  homepageVersionHistory: HomepageVersionSnapshot[];
+  homepageAuditLogs: HomepageAuditLog[];
   saveHomepageSection: (section: HomepageSectionConfig) => void;
   reorderHomepageSections: (orderedIds: string[]) => void;
   deleteHomepageSection: (sectionId: string) => void;
   duplicateHomepageSection: (sectionId: string) => HomepageSectionConfig | null;
-  publishHomepageLayout: (layoutId?: string) => { success: boolean; message: string; version: number };
+  publishHomepageLayout: (layoutId?: string, customSummary?: string) => { success: boolean; message: string; version: number };
+  rollbackHomepageLayout: (targetVersion: number) => { success: boolean; message: string; version?: number };
   applyFestivalTemplateToHomepage: (templateId: string) => { success: boolean; message: string };
   resetHomepageLayoutToDefault: () => void;
 }
@@ -938,18 +947,15 @@ export const useAppStore = create<AppState>()(
           fetchOrdersFS(existingUser.id)
         ]);
 
-        // Write session cookie immediately so middleware can verify role on next navigation
+        // Write session cookie if token is available
         try {
           if (authResult.user) {
             const token = await authResult.user.getIdToken();
-            writeSessionCookie(token);
-          } else {
-            // Write secure random session token for demo / UAT session
-            writeSessionCookie(`pks_${cleanDigits}_${Date.now()}`);
+            if (token) {
+              writeSessionCookie(token);
+            }
           }
-        } catch (_) {
-          writeSessionCookie(`pks_${cleanDigits}_${Date.now()}`);
-        }
+        } catch (_) {}
 
         set({
           isLoggedIn: true,
@@ -986,6 +992,9 @@ export const useAppStore = create<AppState>()(
               if (data.success && data.user) {
                 user = data.user as User;
                 fetchSucceeded = true;
+                if (data.token || data.sessionId) {
+                  writeSessionCookie(data.token || data.sessionId);
+                }
               } else if (data.error) {
                 return { success: false, error: data.error };
               }
@@ -1034,9 +1043,7 @@ export const useAppStore = create<AppState>()(
             user = existingUser;
           }
 
-          // Mirror the session cookie the server already set
           const cleanDigits = (user.mobile || '').replace(/\D/g, '').slice(-10);
-          writeSessionCookie(`pks_${cleanDigits}_${Date.now()}`);
 
           // Fetch user-specific addresses & orders from Firestore
           const [userAddresses, userOrders] = await Promise.all([
@@ -1592,10 +1599,7 @@ export const useAppStore = create<AppState>()(
         if (!clean) {
           return { success: false, message: 'Please enter a coupon code' };
         }
-        const allCoupons = [
-          ...(get().coupons || []),
-          ...INITIAL_COUPONS,
-        ];
+        const allCoupons = get().coupons || [];
         const coupon = allCoupons.find(
           (c) => c.code.toUpperCase() === clean && (c.active ?? true)
         );
@@ -4961,8 +4965,14 @@ export const useAppStore = create<AppState>()(
       // 🌟 Dynamic Homepage CMS & Personalization Engine Implementation
       homepageLayouts: [DEFAULT_HOMEPAGE_LAYOUT],
       activeHomepageLayout: DEFAULT_HOMEPAGE_LAYOUT,
+      homepageVersionHistory: HomepageCmsService.getVersionHistory(),
+      homepageAuditLogs: HomepageCmsService.getAuditLogs(),
 
       saveHomepageSection: (section) => {
+        const u = get().currentUser;
+        const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+        const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+        HomepageCmsService.saveSection(section, actor);
         set((state) => {
           const currentSections = state.activeHomepageLayout?.sections || [];
           const exists = currentSections.some((s) => s.id === section.id);
@@ -4981,11 +4991,16 @@ export const useAppStore = create<AppState>()(
             homepageLayouts: state.homepageLayouts.map((l) =>
               l.id === updatedLayout.id ? updatedLayout : l
             ),
+            homepageAuditLogs: HomepageCmsService.getAuditLogs(),
           };
         });
       },
 
       reorderHomepageSections: (orderedIds) => {
+        const u = get().currentUser;
+        const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+        const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+        HomepageCmsService.reorderSections(orderedIds, actor);
         set((state) => {
           const sectionMap = new Map(
             (state.activeHomepageLayout?.sections || []).map((s) => [s.id, s])
@@ -5013,11 +5028,16 @@ export const useAppStore = create<AppState>()(
             homepageLayouts: state.homepageLayouts.map((l) =>
               l.id === updatedLayout.id ? updatedLayout : l
             ),
+            homepageAuditLogs: HomepageCmsService.getAuditLogs(),
           };
         });
       },
 
       deleteHomepageSection: (sectionId) => {
+        const u = get().currentUser;
+        const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+        const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+        HomepageCmsService.deleteSection(sectionId, actor);
         set((state) => {
           const updatedSections = (state.activeHomepageLayout?.sections || []).filter(
             (s) => s.id !== sectionId
@@ -5032,6 +5052,7 @@ export const useAppStore = create<AppState>()(
             homepageLayouts: state.homepageLayouts.map((l) =>
               l.id === updatedLayout.id ? updatedLayout : l
             ),
+            homepageAuditLogs: HomepageCmsService.getAuditLogs(),
           };
         });
       },
@@ -5053,33 +5074,55 @@ export const useAppStore = create<AppState>()(
         return duplicated;
       },
 
-      publishHomepageLayout: (layoutId) => {
-        const targetId = layoutId || get().activeHomepageLayout?.id;
-        const layout =
-          get().homepageLayouts.find((l) => l.id === targetId) || get().activeHomepageLayout;
-        const newVersion = (layout?.version || 1) + 1;
-        const now = new Date().toISOString();
-
-        const published: HomepageLayoutConfig = {
-          ...layout,
-          version: newVersion,
-          status: 'PUBLISHED',
-          publishedAt: now,
-          updatedAt: now,
-        };
+      publishHomepageLayout: (layoutId, customSummary) => {
+        const u = get().currentUser;
+        const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+        const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+        const res = HomepageCmsService.publish(actor, customSummary);
 
         set((state) => ({
-          activeHomepageLayout: published,
+          activeHomepageLayout: res.layout,
           homepageLayouts: state.homepageLayouts.map((l) =>
-            l.id === published.id ? published : l
+            l.id === res.layout.id ? res.layout : l
           ),
+          homepageVersionHistory: HomepageCmsService.getVersionHistory(),
+          homepageAuditLogs: HomepageCmsService.getAuditLogs(),
         }));
 
         return {
           success: true,
-          message: `Homepage CMS Layout Version ${newVersion} published successfully!`,
-          version: newVersion,
+          message: res.message,
+          version: res.version,
         };
+      },
+
+      rollbackHomepageLayout: (targetVersion: number) => {
+        try {
+          const u = get().currentUser;
+          const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+          const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+          const res = HomepageCmsService.rollback(targetVersion, actor);
+
+          set((state) => ({
+            activeHomepageLayout: res.layout,
+            homepageLayouts: state.homepageLayouts.map((l) =>
+              l.id === res.layout.id ? res.layout : l
+            ),
+            homepageVersionHistory: HomepageCmsService.getVersionHistory(),
+            homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+          }));
+
+          return {
+            success: true,
+            message: res.message,
+            version: res.version,
+          };
+        } catch (err: any) {
+          return {
+            success: false,
+            message: err?.message || 'Rollback failed',
+          };
+        }
       },
 
       applyFestivalTemplateToHomepage: (templateId) => {
@@ -5127,9 +5170,12 @@ export const useAppStore = create<AppState>()(
           createdBy: 'Admin via Homepage Studio',
         };
 
+        HomepageCmsService.updateLayout(newLayout);
+
         set((state) => ({
           activeHomepageLayout: newLayout,
           homepageLayouts: [newLayout, ...state.homepageLayouts],
+          homepageAuditLogs: HomepageCmsService.getAuditLogs(),
         }));
 
         return {
@@ -5139,8 +5185,11 @@ export const useAppStore = create<AppState>()(
       },
 
       resetHomepageLayoutToDefault: () => {
+        const defaultLayout = HomepageCmsService.resetToDefault();
         set({
-          activeHomepageLayout: DEFAULT_HOMEPAGE_LAYOUT,
+          activeHomepageLayout: defaultLayout,
+          homepageVersionHistory: HomepageCmsService.getVersionHistory(),
+          homepageAuditLogs: HomepageCmsService.getAuditLogs(),
         });
       },
     }),
@@ -5174,6 +5223,8 @@ export const useAppStore = create<AppState>()(
         isFestivalEmergencyDisabled: state.isFestivalEmergencyDisabled,
         homepageLayouts: state.homepageLayouts,
         activeHomepageLayout: state.activeHomepageLayout,
+        homepageVersionHistory: state.homepageVersionHistory,
+        homepageAuditLogs: state.homepageAuditLogs,
       }),
     }
   )

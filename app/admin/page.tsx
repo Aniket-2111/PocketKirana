@@ -66,6 +66,7 @@ import {
   LifeBuoy
 } from 'lucide-react';
 import { BulkCSVUploadModal } from '@/components/admin/BulkCSVUploadModal';
+import { ProductExcelImportModal } from '@/components/admin/ProductExcelImportModal';
 import { uploadProductImageFS } from '@/lib/firebaseStorage';
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
 import { Product360Modal } from '@/components/admin/Product360Modal';
@@ -210,6 +211,7 @@ function AdminDashboardContent() {
   const [selectedMonth, setSelectedMonth] = useState('Jul 2026');
 
   // Modals & search states
+  const [showProductExcelModal, setShowProductExcelModal] = useState(false);
   const [showBulkCSVModal, setShowBulkCSVModal] = useState(false);
   const [showAddBannerModal, setShowAddBannerModal] = useState(false);
   const [bannerTitle, setBannerTitle] = useState('');
@@ -779,11 +781,11 @@ function AdminDashboardContent() {
               <AdminNotificationBell />
 
               <button
-                onClick={() => setShowBulkCSVModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                onClick={() => setShowProductExcelModal(true)}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                <span>Bulk CSV Import</span>
+                <span>Bulk Product Import</span>
               </button>
 
               <button
@@ -967,13 +969,25 @@ function AdminDashboardContent() {
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 </div>
 
-                <button
-                  onClick={() => setShowAddProductModal(true)}
-                  className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Product</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowProductExcelModal(true)}
+                    className="bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Import Excel (.xlsx)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProductModal(true)}
+                    className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add New Product</span>
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
@@ -1838,6 +1852,12 @@ function AdminDashboardContent() {
       <AddProductWithBarcodeModal
         isOpen={showBarcodeAddModal}
         onClose={() => setShowBarcodeAddModal(false)}
+      />
+
+      {/* Bulk Product Excel Import & Specifications Sync Modal */}
+      <ProductExcelImportModal
+        isOpen={showProductExcelModal}
+        onClose={() => setShowProductExcelModal(false)}
       />
 
       {/* Bulk CSV Product Upload & Scanner Modal */}

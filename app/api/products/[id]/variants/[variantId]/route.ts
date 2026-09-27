@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { getRouteAuth } from '@/lib/routeAuth';
 
 interface RouteContext {
   params: Promise<{ id: string; variantId: string }>;
@@ -81,6 +82,20 @@ export async function GET(req: NextRequest, context: RouteContext) {
  */
 export async function PUT(req: NextRequest, context: RouteContext) {
   try {
+    const auth = getRouteAuth(req);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Authentication required.' },
+        { status: 401 }
+      );
+    }
+    if (auth.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden. Admin role required.' },
+        { status: 403 }
+      );
+    }
+
     const { id: productId, variantId } = await context.params;
     const body = await req.json();
     const pool = getPostgresPool();
@@ -217,6 +232,20 @@ export async function PUT(req: NextRequest, context: RouteContext) {
  */
 export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
+    const auth = getRouteAuth(req);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Authentication required.' },
+        { status: 401 }
+      );
+    }
+    if (auth.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden. Admin role required.' },
+        { status: 403 }
+      );
+    }
+
     const { id: productId, variantId } = await context.params;
     const pool = getPostgresPool();
 

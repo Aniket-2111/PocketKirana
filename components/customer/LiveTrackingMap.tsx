@@ -774,3 +774,5 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ orderId }) => 
     </div>
   );
 };
+
+export default LiveTrackingMap;

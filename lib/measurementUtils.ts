@@ -459,3 +459,87 @@ export function calculateLoosePrice(unitPrice: number, quantity: number): number
   const qty = normalizeDecimal(quantity, 3);
   return normalizeDecimal(price * qty, 2);
 }
+
+/**
+ * Returns HTML input step, min, and placeholder dynamically based on measurement type and unit.
+ * WEIGHT:
+ *   KG -> step: "0.01", min: "0.01"
+ *   G  -> step: "1", min: "1"
+ * VOLUME:
+ *   LTR/L -> step: "0.01", min: "0.01"
+ *   ML    -> step: "1", min: "1"
+ * UNIT:
+ *   PCS/PACK/etc -> step: "1", min: "1"
+ */
+export function getMeasurementInputRules(
+  type?: MeasurementType,
+  unit?: string
+): { step: string; min: string; placeholder: string } {
+  const t = type || 'UNIT';
+  const u = (unit || '').toUpperCase();
+
+  if (t === 'WEIGHT') {
+    if (u === 'G' || u === 'GM' || u === 'GRAM' || u === 'GRAMS') {
+      return { step: '1', min: '1', placeholder: 'e.g. 100, 250, 500' };
+    }
+    // Default KG
+    return { step: '0.01', min: '0.01', placeholder: 'e.g. 0.5, 1, 2.5' };
+  }
+
+  if (t === 'VOLUME') {
+    if (u === 'ML' || u === 'MILLILITER' || u === 'MILLILITERS') {
+      return { step: '1', min: '1', placeholder: 'e.g. 200, 500, 750' };
+    }
+    // Default LTR / L
+    return { step: '0.01', min: '0.01', placeholder: 'e.g. 0.5, 1, 2' };
+  }
+
+  // UNIT / COUNT / PIECE
+  return { step: '1', min: '1', placeholder: 'e.g. 1, 2, 6, 12' };
+}
+
+/**
+ * Validates product measurement quantity value based on measurement type and unit.
+ */
+export function validateMeasurementQuantity(
+  type?: MeasurementType,
+  unit?: string,
+  value?: number | string
+): { valid: boolean; error?: string; normalizedValue: number } {
+  const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
+  if (isNaN(num) || num <= 0) {
+    return { valid: false, error: 'Measurement quantity must be greater than 0', normalizedValue: 0 };
+  }
+
+  const t = type || 'UNIT';
+  const u = (unit || '').toUpperCase();
+
+  if (t === 'WEIGHT') {
+    if (u === 'G' || u === 'GM' || u === 'GRAM' || u === 'GRAMS') {
+      if (num < 1) {
+        return { valid: false, error: 'Weight in Grams (G) must be at least 1 g', normalizedValue: num };
+      }
+    } else {
+      if (num < 0.01) {
+        return { valid: false, error: 'Weight in Kilograms (KG) must be at least 0.01 kg (10 g)', normalizedValue: num };
+      }
+    }
+  } else if (t === 'VOLUME') {
+    if (u === 'ML' || u === 'MILLILITER' || u === 'MILLILITERS') {
+      if (num < 1) {
+        return { valid: false, error: 'Volume in Milliliters (ML) must be at least 1 ml', normalizedValue: num };
+      }
+    } else {
+      if (num < 0.01) {
+        return { valid: false, error: 'Volume in Liters (LTR) must be at least 0.01 L (10 ml)', normalizedValue: num };
+      }
+    }
+  } else {
+    // UNIT
+    if (num < 1) {
+      return { valid: false, error: 'Item count must be at least 1', normalizedValue: num };
+    }
+  }
+
+  return { valid: true, normalizedValue: normalizeDecimal(num, 3) };
+}

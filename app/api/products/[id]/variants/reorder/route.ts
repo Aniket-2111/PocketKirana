@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { getRouteAuth } from '@/lib/routeAuth';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -13,6 +14,20 @@ interface RouteContext {
  */
 export async function POST(req: NextRequest, context: RouteContext) {
   try {
+    const auth = getRouteAuth(req);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Authentication required.' },
+        { status: 401 }
+      );
+    }
+    if (auth.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden. Admin role required.' },
+        { status: 403 }
+      );
+    }
+
     const { id: productId } = await context.params;
     const body = await req.json();
     const { items } = body;

@@ -11,6 +11,7 @@ import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.pocketkirana.customer.plugins.PhonePePaymentPlugin;
 
 public class MainActivity extends BridgeActivity {
     private long lastBackPressTime = 0;
@@ -18,6 +19,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(PhonePePaymentPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Configure WebView settings & UPI scheme interceptor

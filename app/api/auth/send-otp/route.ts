@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-const MSG91_WIDGET_ID = process.env.NEXT_PUBLIC_MSG91_WIDGET_ID || '36697062464a373338323931';
-const MSG91_TOKEN_KEY = process.env.NEXT_PUBLIC_MSG91_TOKEN_KEY || '571687TkSXq4wON6aaa00baP1';
-const MSG91_AUTHKEY = process.env.MSG91_AUTHKEY || '571687AOUJJywEgYQu6aaa0733P1';
+const MSG91_WIDGET_ID = process.env.NEXT_PUBLIC_MSG91_WIDGET_ID || process.env.MSG91_WIDGET_ID || '';
+const MSG91_TOKEN_KEY = process.env.NEXT_PUBLIC_MSG91_TOKEN_KEY || process.env.MSG91_TOKEN_KEY || '';
+const MSG91_AUTHKEY = process.env.MSG91_AUTHKEY || '';
 
 export async function POST(request: Request) {
   try {
@@ -54,10 +54,11 @@ export async function POST(request: Request) {
     // 2. Fallback to direct MSG91 AuthKey API if configured
     if (MSG91_AUTHKEY && MSG91_AUTHKEY !== 'your_msg91_authkey_here') {
       try {
-        const otpApiRes = await fetch(`https://control.msg91.com/api/v5/otp?template_id=&mobile=${identifier}&authkey=${MSG91_AUTHKEY}`, {
+        const otpApiRes = await fetch(`https://control.msg91.com/api/v5/otp?template_id=&mobile=${identifier}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            authkey: MSG91_AUTHKEY,
           },
         });
         const otpData = await otpApiRes.json();

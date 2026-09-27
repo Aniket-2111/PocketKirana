@@ -4,7 +4,19 @@
   "webDir": "out",
   "bundledWebRuntime": false,
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "*.msg91.com",
+      "control.msg91.com",
+      "*.pocketkirana.in",
+      "pocketkirana.in",
+      "*.pocketkirana.com",
+      "pocketkirana.com",
+      "*.firebaseapp.com",
+      "*.googleapis.com",
+      "*.firebasestorage.app",
+      "*.phonepe.com"
+    ]
   },
   "android": {
     "allowMixedContent": true,

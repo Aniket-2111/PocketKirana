@@ -100,6 +100,21 @@ export async function requestFCMNotificationPermission(
       });
     }
 
+    // Register device token with backend API (PostgreSQL + Firestore user_devices)
+    try {
+      fetch('/api/notifications/devices/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          platform: 'web',
+          pushToken: token,
+          appType: userRole,
+          appVersion: '1.0.0',
+        }),
+      }).catch((e) => console.warn('[fcmClient] Backend registration notice:', e));
+    } catch {}
+
     return { token, permission: 'granted' };
   } catch (err: any) {
     console.error('Error requesting FCM permission:', err);

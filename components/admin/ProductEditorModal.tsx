@@ -68,6 +68,8 @@ import {
   areVariantsDuplicate,
   normalizeVariantMeasurement,
   normalizeDecimal,
+  getMeasurementInputRules,
+  validateMeasurementQuantity,
 } from '@/lib/measurementUtils';
 
 interface ProductEditorModalProps {
@@ -379,17 +381,18 @@ export function ProductEditorModal({
   };
 
   const handleSaveVariant = () => {
-    const numVal = parseFloat(vMeasurementValue) || 1;
+    const vValResult = validateMeasurementQuantity(vMeasurementType, vMeasurementUnit, vMeasurementValue);
+    if (!vValResult.valid) {
+      showToast(vValResult.error || 'Invalid variant measurement quantity', 'error');
+      return;
+    }
+    const numVal = vValResult.normalizedValue;
     const sPrice = parseFloat(vSellingPrice) || 0;
     const mPrice = parseFloat(vMrp) || sPrice;
     const stockQty = parseInt(vStock, 10) || 0;
 
     if (sPrice <= 0) {
       showToast('Selling price must be greater than 0', 'error');
-      return;
-    }
-    if (numVal <= 0) {
-      showToast('Measurement value must be greater than 0', 'error');
       return;
     }
 
@@ -682,11 +685,12 @@ export function ProductEditorModal({
       return;
     }
 
-    const numVal = parseFloat(measurementValue) || 1;
-    if (numVal <= 0) {
-      showToast('Measurement quantity must be greater than 0', 'error');
+    const valResult = validateMeasurementQuantity(measurementType, measurementUnit, measurementValue);
+    if (!valResult.valid) {
+      showToast(valResult.error || 'Invalid measurement quantity', 'error');
       return;
     }
+    const numVal = valResult.normalizedValue;
 
     let sPrice = parseFloat(sellingPrice) || 0;
     let mPrice = parseFloat(mrp) || sPrice;
@@ -1030,12 +1034,12 @@ export function ProductEditorModal({
                       </label>
                       <input
                         type="number"
-                        step={measurementType === 'WEIGHT' ? '0.05' : '1'}
-                        min="0.01"
+                        step={getMeasurementInputRules(measurementType, measurementUnit).step}
+                        min={getMeasurementInputRules(measurementType, measurementUnit).min}
                         required
                         value={measurementValue}
                         onChange={(e) => setMeasurementValue(e.target.value)}
-                        placeholder="e.g. 1, 500, 2.5"
+                        placeholder={getMeasurementInputRules(measurementType, measurementUnit).placeholder}
                         className="w-full bg-slate-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs font-black text-gray-900 focus:bg-white focus:border-purple-600 outline-none font-mono"
                       />
                     </div>
@@ -1957,11 +1961,11 @@ export function ProductEditorModal({
                   <label className="block text-[11px] font-bold text-gray-700 mb-1">Quantity Value</label>
                   <input
                     type="number"
-                    step={vMeasurementType === 'WEIGHT' ? '0.05' : '1'}
-                    min="0.01"
+                    step={getMeasurementInputRules(vMeasurementType, vMeasurementUnit).step}
+                    min={getMeasurementInputRules(vMeasurementType, vMeasurementUnit).min}
                     value={vMeasurementValue}
                     onChange={(e) => setVMeasurementValue(e.target.value)}
-                    placeholder="e.g. 500, 1, 5"
+                    placeholder={getMeasurementInputRules(vMeasurementType, vMeasurementUnit).placeholder}
                     className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-black text-gray-900 font-mono outline-none"
                   />
                 </div>

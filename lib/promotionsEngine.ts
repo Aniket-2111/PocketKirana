@@ -861,3 +861,26 @@ export function evaluatePromotionsEngine(params: {
     validationMessages,
   };
 }
+
+export function evaluateBannerStatus(banner: {
+  status?: string;
+  active?: boolean;
+  startDate?: string;
+  endDate?: string;
+}): 'LIVE' | 'SCHEDULED' | 'PAUSED' | 'EXPIRED' | 'DRAFT' {
+  if (banner.status === 'DRAFT') return 'DRAFT';
+  if (banner.status === 'PAUSED' || banner.active === false) return 'PAUSED';
+
+  const now = Date.now();
+  if (banner.startDate) {
+    const start = new Date(banner.startDate).getTime();
+    if (!isNaN(start) && now < start) return 'SCHEDULED';
+  }
+  if (banner.endDate) {
+    const end = new Date(banner.endDate).getTime();
+    if (!isNaN(end) && now > end) return 'EXPIRED';
+  }
+
+  return 'LIVE';
+}
+
