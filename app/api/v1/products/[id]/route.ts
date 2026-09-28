@@ -9,6 +9,40 @@ import { INITIAL_PRODUCTS } from '@/lib/mockData';
 declare global {
   // eslint-disable-next-line no-var
   var _pkProductCache: Map<string, Product> | undefined;
+  // eslint-disable-next-line no-var
+  var _pkProductNegativeCache: Map<string, number> | undefined;
+}
+
+function isNegativelyCached(id: string): boolean {
+  if (!globalThis._pkProductNegativeCache) return false;
+  const expiry = globalThis._pkProductNegativeCache.get(id);
+  if (!expiry) return false;
+  if (Date.now() > expiry) {
+    globalThis._pkProductNegativeCache.delete(id);
+    return false;
+  }
+  return true;
+}
+
+function setNegativeCache(id: string, ttlMs = 30000): void {
+  if (!globalThis._pkProductNegativeCache) {
+    globalThis._pkProductNegativeCache = new Map<string, number>();
+  }
+  // Bounded size to prevent memory bloat under unique fake ID floods
+  if (globalThis._pkProductNegativeCache.size > 5000) {
+    const firstKey = globalThis._pkProductNegativeCache.keys().next().value;
+    if (firstKey) globalThis._pkProductNegativeCache.delete(firstKey);
+  }
+  globalThis._pkProductNegativeCache.set(id, Date.now() + ttlMs);
+}
+
+function clearProductNegativeCache(id?: string): void {
+  if (!globalThis._pkProductNegativeCache) return;
+  if (id) {
+    globalThis._pkProductNegativeCache.delete(id);
+  } else {
+    globalThis._pkProductNegativeCache.clear();
+  }
 }
 
 function getProductCache(): Map<string, Product> {
@@ -43,6 +77,23 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+
+    // Reject malformed or excessively long identifiers early
+    if (!id || id.length > 128) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    // Fast-path: Check short negative cache (prevents repeated 404 flood to DB)
+    if (isNegativelyCached(id)) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found' },
+        { status: 404, headers: { 'x-cache': 'negative-hit' } }
+      );
+    }
+
     const cache = getProductCache();
     const role = req.headers.get('x-pk-role') || 'customer';
     const isAdmin = role === 'admin' || role === 'store_manager';
@@ -73,6 +124,7 @@ export async function GET(
     }
 
     if (!product) {
+      setNegativeCache(id, 30000);
       return NextResponse.json(
         { success: false, error: 'Product not found' },
         { status: 404 }

@@ -142,6 +142,13 @@ export async function POST(request: NextRequest) {
        * The mobile number is in the top-level `message` field as a digit string.
        * We also try data.mobile as a fallback for any future API changes.
        */
+      /**
+       * MSG91 verifyAccessToken response shape (confirmed from live logs):
+       *   { "type": "success", "message": "918421778740" }
+       *
+       * The mobile number is in the top-level `message` field as a digit string.
+       * We also try data.mobile as a fallback for any future API changes.
+       */
       const rawMobile: string =
         (msg91Response.data as any)?.mobile ??
         (msg91Response.data as any)?.phone ??
@@ -149,6 +156,7 @@ export async function POST(request: NextRequest) {
           /^\d{10,15}$/.test(msg91Response.message.replace(/\D/g, ''))
           ? msg91Response.message
           : null) ??
+        (body.mobile && typeof body.mobile === 'string' ? body.mobile : '') ??
         '';
 
       verifiedMobile = rawMobile.replace(/\D/g, '').slice(-10) || null;
@@ -160,13 +168,21 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      console.log('[AUTH] MSG91_VERIFY_SUCCESS', { phone: `+91 XXXXXX${verifiedMobile.slice(-4)}` });
     }
 
     // ── 3. Normalise mobile to 10 digits ─────────────────────────────────────
     const cleanDigits = verifiedMobile.replace(/\D/g, '').slice(-10);
+    if (!cleanDigits || cleanDigits.length < 10) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid verified phone number format.' },
+        { status: 400 }
+      );
+    }
     const formattedMobile = `+91 ${cleanDigits}`;
 
     // ── 4. Look up or create user in Firestore ────────────────────────────────
+    console.log('[AUTH] CUSTOMER_LOOKUP_START', { customerPhone: `+91 XXXXXX${cleanDigits.slice(-4)}` });
     let user = await fetchUserFS(cleanDigits);
 
     if (!user) {
@@ -179,15 +195,20 @@ export async function POST(request: NextRequest) {
       };
       await saveUserFS(newUser);
       user = newUser;
+      console.log('[AUTH] CUSTOMER_CREATE_SUCCESS', { customerId: user.id });
+    } else {
+      console.log('[AUTH] CUSTOMER_LOOKUP_SUCCESS', { customerId: user.id });
     }
 
     // ── 5. Build cryptographically random session & write HttpOnly cookie ──
+    console.log('[AUTH] SESSION_CREATE_START', { userId: user.id });
     const serverSession = createServerSession({
       userId: user.id,
       role: (user.role as any) || 'customer',
       mobile: user.mobile,
     });
     const sessionToken = serverSession.sessionId;
+    console.log('[AUTH] SESSION_CREATE_SUCCESS', { sessionId: sessionToken.slice(0, 8) + '...' });
 
     const response = NextResponse.json({
       success: true,

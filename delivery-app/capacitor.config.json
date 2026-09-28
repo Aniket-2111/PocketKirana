@@ -15,7 +15,9 @@
       "*.firebaseapp.com",
       "*.googleapis.com",
       "*.firebasestorage.app",
-      "*.phonepe.com"
+      "*.phonepe.com",
+      "*.posthog.com",
+      "us.i.posthog.com"
     ]
   },
   "android": {

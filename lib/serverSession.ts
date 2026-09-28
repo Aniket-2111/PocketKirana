@@ -152,6 +152,8 @@ export function destroyServerSession(sessionId: string): void {
   }
 }
 
+export const invalidateServerSession = destroyServerSession;
+
 /**
  * Revoke all active sessions for a user (Logout All Devices).
  */

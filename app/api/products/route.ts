@@ -10,6 +10,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('categoryId');
 
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+    const limit = Math.min(200, Math.max(1, isNaN(rawLimit) ? 100 : rawLimit));
+
     // 1. Try fetching from PostgreSQL database with variants
     try {
       const pool = getPostgresPool();
@@ -42,7 +45,8 @@ export async function GET(request: Request) {
         prodQuery += ' WHERE p.category_id = $1 OR p.subcategory_id = $1';
         values.push(categoryId);
       }
-      prodQuery += ' ORDER BY p.created_at DESC';
+      prodQuery += ` ORDER BY p.created_at DESC LIMIT $${values.length + 1}`;
+      values.push(limit);
 
       const prodRes = await pool.query(prodQuery, values);
 

@@ -30,6 +30,7 @@ import {
 import { showToast } from '@/components/ui/Toast';
 import { apiFetch } from '@/lib/apiClient';
 import type { PickingTask, PickingItem } from '@/types';
+import { trackPickerEvent, PostHogEvents } from '@/lib/analytics';
 
 function PickingContent({ taskId: propTaskId }: { taskId?: string }) {
   const router = useRouter();
@@ -130,6 +131,11 @@ function PickingContent({ taskId: propTaskId }: { taskId?: string }) {
       if (firstUnpicked !== -1) {
         setCurrentIndex(firstUnpicked);
       }
+      trackPickerEvent(PostHogEvents.ORDER_PICKING_STARTED, {
+        order_id: task.orderId || task.id,
+        picker_id: picker?.id,
+        item_count: task.items?.length,
+      });
     }
   }, [task]);
 
@@ -285,6 +291,10 @@ function PickingContent({ taskId: propTaskId }: { taskId?: string }) {
       }
 
       // 2. Update local store
+      trackPickerEvent(PostHogEvents.ORDER_PICKING_COMPLETED, {
+        order_id: cleanOrderId,
+        picker_id: picker.id,
+      });
       packOrderTask(task.id, 1, ['Standard Eco-Bag']);
       showToast('🎉 Order Picking & Packing Complete! Moving to Handover.', 'success');
       playCompleteSound();

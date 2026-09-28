@@ -8,6 +8,7 @@ import { getProductBrand } from '@/lib/brandUtils';
 import { Heart, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 import { ProductImage } from './ProductImage';
+import { trackEvent, PostHogEvents } from '@/lib/analytics';
 
 interface ProductCardProps {
   product: Product;
@@ -151,7 +152,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenDetail,
 
       {/* ── CARD ── */}
       <div
-        onClick={() => onOpenDetail ? onOpenDetail(product) : undefined}
+        onClick={() => {
+          trackEvent(PostHogEvents.CATEGORY_PRODUCT_CLICKED, {
+            product_id: product.id,
+            category_id: product.categoryId,
+            brand_id: product.brandId,
+            product_name: product.name,
+            price: product.sellingPrice,
+            source: badge ? `badge_${badge}` : 'product_card',
+          });
+          if (onOpenDetail) onOpenDetail(product);
+        }}
         className="w-full h-[330px] sm:h-[350px] bg-white dark:bg-[#151B23] rounded-2xl sm:rounded-3xl border border-[#E5E7EB] dark:border-[#263241] hover:border-[#075C3C]/50 dark:hover:border-[#008F5A]/70 p-3 sm:p-3.5 flex flex-col justify-between group transition-all duration-200 shadow-2xs hover:shadow-md cursor-pointer relative overflow-hidden"
       >
         {/* ── TOP BADGE & WISHLIST ROW ── */}

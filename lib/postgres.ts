@@ -62,7 +62,12 @@ export function categorizeDbError(err: any): {
     .replace(/postgresql:\/\/[^@]+@/gi, 'postgresql://***:***@')
     .replace(/password=[^\s;]+/gi, 'password=***');
 
-  if (rawMsg.includes('connection timeout') || rawMsg.includes('timeout expired') || code === 'ETIMEDOUT') {
+  if (
+    rawMsg.includes('connection timeout') ||
+    rawMsg.includes('timeout expired') ||
+    rawMsg.includes('timeout exceeded when trying to connect') ||
+    code === 'ETIMEDOUT'
+  ) {
     return { category: 'CONNECTION_TIMEOUT', message: sanitizedMsg };
   }
   if (

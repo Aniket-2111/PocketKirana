@@ -1,28 +1,24 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { 
   Home, 
   Grid, 
   Search, 
-  Package, 
   User, 
   ShoppingCart, 
   MapPin, 
   ChevronDown,
-  Bell,
   ArrowLeft,
-  Sparkles,
-  Phone
 } from 'lucide-react';
-import { showToast } from '@/components/ui/Toast';
 import { Footer } from '@/components/layout/Footer';
 import { CustomerLocationPermissionGuard } from './LocationPermissionGuard';
 import { initThemeListener } from '../lib/themeUtils';
 import FreeDeliveryProgressBar from './customer/FreeDeliveryProgressBar';
+import { locationFlowService, LocationFlowState } from '@/lib/locationFlowService';
+import PostLoginNotificationDialog from './customer/PostLoginNotificationDialog';
 
 interface CustomerShellProps {
   children: React.ReactNode;
@@ -32,6 +28,7 @@ interface CustomerShellProps {
   hideBottomNav?: boolean;
   noPadding?: boolean;
   fixedViewport?: boolean;
+  hideFooter?: boolean;
 }
 
 export default function CustomerShell({
@@ -42,9 +39,14 @@ export default function CustomerShell({
   hideBottomNav = false,
   noPadding = false,
   fixedViewport = false,
+  hideFooter = false,
 }: CustomerShellProps) {
+  // Ref to the single MobileBottomStack container
+  const bottomStackRef = useRef<HTMLDivElement>(null);
   const rawPathname = usePathname();
   const pathname = rawPathname || '/';
+  const cleanPath = pathname.replace(/\/+$/, '') || '/';
+  const isCartOrCheckout = cleanPath === '/cart' || cleanPath === '/checkout' || cleanPath.startsWith('/checkout/');
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const { 
@@ -57,7 +59,33 @@ export default function CustomerShell({
   } = useAppStore();
 
   const [isOnline, setIsOnline] = useState(true);
-  const [addressModalOpen, setAddressModalOpen] = useState(false);
+  const [locFlowState, setLocFlowState] = useState<LocationFlowState>(() => locationFlowService.getState());
+
+  useEffect(() => {
+    const unsub = locationFlowService.subscribe(setLocFlowState);
+    return () => unsub();
+  }, []);
+
+  // ── MobileBottomStack height tracking ──────────────────────────────────────
+  // Whenever the stack resizes (cart appears/disappears, free-delivery bar
+  // transitions) write the real pixel height to a CSS custom property on <html>
+  // so that main content can always reserve exactly the right amount of space.
+  const updateBottomStackHeight = useCallback(() => {
+    if (hideBottomNav || !bottomStackRef.current) {
+      document.documentElement.style.setProperty('--bottom-stack-height', '0px');
+      return;
+    }
+    const h = Math.ceil(bottomStackRef.current.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--bottom-stack-height', `${h}px`);
+  }, [hideBottomNav]);
+
+  useEffect(() => {
+    updateBottomStackHeight();
+    if (!bottomStackRef.current) return;
+    const ro = new ResizeObserver(updateBottomStackHeight);
+    ro.observe(bottomStackRef.current);
+    return () => ro.disconnect();
+  }, [updateBottomStackHeight]);
 
   useEffect(() => {
     setMounted(true);
@@ -135,6 +163,13 @@ export default function CustomerShell({
     postalCode: '410101',
   };
 
+  const selectedAddressLabel = locFlowState.selectedLocation
+    ? `${locFlowState.selectedLocation.addressLine}${locFlowState.selectedLocation.city ? ', ' + locFlowState.selectedLocation.city : ''}`
+    : `${defaultAddress.addressLine1}, ${defaultAddress.city}`;
+
+  const isUnserviceable = locFlowState.status === 'UNSERVICEABLE';
+  const isStoreClosed = locFlowState.status === 'STORE_CLOSED';
+
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -147,7 +182,8 @@ export default function CustomerShell({
 
   return (
     <CustomerLocationPermissionGuard>
-    <div className={`${fixedViewport ? 'h-[100dvh] h-screen overflow-hidden' : 'min-h-screen pb-44 sm:pb-48 overflow-x-hidden'} bg-[#FFFFFF] dark:bg-[#0B0F14] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans selection:bg-emerald-600 selection:text-white transition-colors duration-200 w-full`}>
+    <PostLoginNotificationDialog />
+    <div className={`${fixedViewport ? 'h-[100dvh] overflow-hidden' : 'min-h-screen overflow-x-hidden'} bg-[#FFFFFF] dark:bg-[#0B0F14] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans selection:bg-emerald-600 selection:text-white transition-colors duration-200 w-full`}>
       
       {/* ── TOP HEADER BAR ── */}
       <header className="shrink-0 z-40 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-b border-[#E5E7EB] dark:border-[#263241] px-3 sm:px-4 py-2.5 sm:py-3 shadow-2xs w-full">
@@ -175,17 +211,28 @@ export default function CustomerShell({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-black text-sm text-[#111827] dark:text-[#F9FAFB] tracking-tight">Pocket Kirana</span>
-                  <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-400 text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase border border-emerald-200 dark:border-emerald-800/40">
-                    30 Mins
-                  </span>
+                  {isUnserviceable ? (
+                    <span className="bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-400 text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase border border-red-200 dark:border-red-800/40">
+                      Unserviceable
+                    </span>
+                  ) : isStoreClosed ? (
+                    <span className="bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase border border-amber-200 dark:border-amber-800/40">
+                      Store Closed
+                    </span>
+                  ) : (
+                    <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-400 text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase border border-emerald-200 dark:border-emerald-800/40">
+                      30 Mins
+                    </span>
+                  )}
                 </div>
                 {/* Delivery Location Pill */}
                 <button
-                  onClick={() => router.push('/saved-addresses')}
+                  onClick={() => locationFlowService.openManualPicker()}
                   className="flex items-center gap-1 text-[11px] text-[#374151] dark:text-[#D1D5DB] font-bold truncate text-left hover:text-[#008F5A] dark:hover:text-[#45C483] transition-colors cursor-pointer"
                 >
-                  <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                  <span className="truncate max-w-[170px]">{defaultAddress.addressLine1}, {defaultAddress.city}</span>
+                  <MapPin className={`w-3 h-3 ${isUnserviceable ? 'text-red-500' : 'text-emerald-600'} shrink-0`} />
+                  <span className="truncate max-w-[140px] sm:max-w-[180px]">{selectedAddressLabel}</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 underline font-medium ml-0.5">change</span>
                   <ChevronDown className="w-3 h-3 text-[#6B7280] dark:text-[#9CA3AF] shrink-0" />
                 </button>
               </div>
@@ -234,23 +281,70 @@ export default function CustomerShell({
         </div>
       )}
 
-      {/* ── MAIN CONTENT AREA ── */}
-      <main className={`flex-1 min-h-0 w-full ${fixedViewport || noPadding ? 'p-0 flex flex-col overflow-hidden' : 'px-3 sm:px-4 py-3 sm:py-4 space-y-4'}`}>
-        {children}
-      </main>
+      {/* ── ACTUAL PAGE SCROLL CONTAINER ──────────────────────────────────────
+          Single scroll root holding page content and customer footer.
+          Clearance for MobileBottomStack is applied dynamically at the bottom
+          of the scroll container so that all content (products, recommendations,
+          categories, and all footer links) can scroll 100% clear of the bottom stack.
+      ──────────────────────────────────────────────────────────────────────── */}
+      <div className={`flex-1 flex flex-col w-full min-h-0 ${fixedViewport ? 'overflow-hidden' : ''}`}>
+        <main
+          className={`flex-1 min-h-0 w-full ${
+            fixedViewport || noPadding
+              ? 'p-0 flex flex-col overflow-hidden'
+              : 'px-3 sm:px-4 py-3 sm:py-4 space-y-4'
+          }`}
+        >
+          {children}
+        </main>
 
-      {/* ── CUSTOMER FOOTER ── */}
-      {!fixedViewport && <Footer />}
+        {/* ── CUSTOMER FOOTER ── */}
+        {!fixedViewport && !hideFooter && <Footer />}
 
-      {/* ── COORDINATED FLOATING CART & PERSISTENT FREE DELIVERY WIDGET ── */}
-      {!hideBottomNav && pathname !== '/cart' && pathname !== '/checkout' && !pathname.startsWith('/checkout/') && (
-        <div className="fixed bottom-16 left-3 right-3 z-45 max-w-lg mx-auto pointer-events-none pb-1 space-y-1.5">
-          {/* Floating Cart Pill (Compact, with "Cart" CTA) */}
-          {mounted && totalCartCount > 0 && (
-            <div className="pointer-events-auto animate-in slide-in-from-bottom-2 duration-200">
+        {/* ── DYNAMIC CLEARANCE SPACER ──
+            Reserves exact measured MobileBottomStack height + safe-area bottom inset.
+            Ensures page content & footer scroll 100% clear of all fixed bottom layers. ── */}
+        {!fixedViewport && !hideBottomNav && (
+          <div
+            style={{
+              height: 'calc(var(--bottom-stack-height, 64px) + env(safe-area-inset-bottom, 0px))',
+            }}
+            aria-hidden="true"
+            className="shrink-0 w-full pointer-events-none"
+          />
+        )}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          MOBILE BOTTOM STACK — single layout owner for all three fixed layers.
+
+          Stacking order from bottom of screen upward:
+            1. Bottom Navigation Bar   (always visible when !hideBottomNav)
+            2. Floating Cart Pill      (visible when cart has items & not on cart/checkout page)
+            3. Free Delivery Progress  (visible same condition as cart pill)
+
+          Z-Index: z-30 (keeps it below Top Header z-40 and all Modals z-50/z-[60]).
+          ResizeObserver on this container measures the real rendered height and
+          publishes it as --bottom-stack-height so main content pads correctly.
+      ════════════════════════════════════════════════════════════════════════ */}
+      {!hideBottomNav && (
+        <div
+          ref={bottomStackRef}
+          className="fixed bottom-0 left-0 right-0 z-30 flex flex-col pointer-events-auto"
+        >
+          {/* ── Layer 3 (topmost): Floating Cart Pill + Free Delivery Bar ── */}
+          {!isCartOrCheckout && mounted && totalCartCount > 0 && (
+            <div className="px-3 pb-1.5 pt-1 space-y-1.5 max-w-lg w-full mx-auto">
+
+              {/* Free Delivery Progress Widget */}
+              <div className="animate-in slide-in-from-bottom-2 duration-200">
+                <FreeDeliveryProgressBar variant="floating" />
+              </div>
+
+              {/* Cart Pill */}
               <div
                 onClick={() => router.push('/cart')}
-                className="bg-[#006E2F] hover:bg-[#005a26] text-white px-3 py-1.5 rounded-xl shadow-md flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all border border-emerald-400/30"
+                className="animate-in slide-in-from-bottom-2 duration-200 bg-[#006E2F] hover:bg-[#005a26] text-white px-3 py-1.5 rounded-xl shadow-md flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all border border-emerald-400/30"
               >
                 <div className="flex items-center gap-2.5">
                   <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center font-black text-[10px]">
@@ -273,37 +367,35 @@ export default function CustomerShell({
             </div>
           )}
 
-          {/* Persistent Free Delivery Progress Widget above Bottom Nav */}
-          <div className="pointer-events-auto animate-in slide-in-from-bottom-2 duration-200">
-            <FreeDeliveryProgressBar variant="floating" />
-          </div>
+          {/* ── Layer 1 (bottom): Navigation Bar ── */}
+          <nav className="bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-t border-[#E5E7EB] dark:border-[#263241] shadow-xl w-full shrink-0">
+            <div className="w-full grid grid-cols-4 h-16">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  pathname === item.href ||
+                  (item.href === '/home' && pathname === '/') ||
+                  (item.href !== '/home' && item.href !== '/' && pathname.startsWith(item.href));
+                return (
+                  <button
+                    key={item.href}
+                    onClick={() => router.push(item.href)}
+                    className={`flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                      isActive
+                        ? 'text-[#008F5A] dark:text-[#22C55E] font-black scale-105'
+                        : 'text-[#6B7280] dark:text-[#D1D5DB] hover:text-[#111827] dark:hover:text-[#F9FAFB] font-bold'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className={`text-[10px] ${isActive ? 'text-[#008F5A] dark:text-[#22C55E]' : 'text-[#6B7280] dark:text-[#9CA3AF]'}`}>
+                      {item.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
         </div>
-      )}
-
-      {/* ── STICKY BOTTOM NAVIGATION BAR ── */}
-      {!hideBottomNav && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-t border-[#E5E7EB] dark:border-[#263241] shadow-xl w-full">
-          <div className="w-full grid grid-cols-4 h-16">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href || (item.href === '/home' && pathname === '/') || (item.href !== '/home' && item.href !== '/' && pathname.startsWith(item.href));
-              return (
-                <button
-                  key={item.href}
-                  onClick={() => router.push(item.href)}
-                  className={`flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
-                    isActive
-                      ? 'text-[#008F5A] dark:text-[#22C55E] font-black scale-105'
-                      : 'text-[#6B7280] dark:text-[#D1D5DB] hover:text-[#111827] dark:hover:text-[#F9FAFB] font-bold'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className={`text-[10px] ${isActive ? 'text-[#008F5A] dark:text-[#22C55E]' : 'text-[#6B7280] dark:text-[#9CA3AF]'}`}>{item.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </nav>
       )}
 
     </div>

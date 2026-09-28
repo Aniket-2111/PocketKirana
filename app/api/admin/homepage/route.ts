@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { HomepageCmsService } from '@/lib/homepageCmsService';
 
 export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
   try {
     const layout = HomepageCmsService.getLayout();
     const diff = HomepageCmsService.getPublishDiff();
@@ -21,6 +24,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
   try {
     const body = await req.json();
     const { section, layout, admin } = body;
@@ -45,6 +50,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
   try {
     const { searchParams } = new URL(req.url);
     const sectionId = searchParams.get('sectionId');

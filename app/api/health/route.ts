@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import { isR2Configured } from '@/lib/r2';
 import { extractCorrelationId, logger, metrics } from '@/lib/observability';
 
 export async function GET(req: NextRequest) {
@@ -119,6 +120,9 @@ export async function GET(req: NextRequest) {
       },
       firebase: {
         status: firebaseStatus,
+      },
+      r2: {
+        status: isR2Configured() ? 'ok' : 'unconfigured',
       },
     },
   };

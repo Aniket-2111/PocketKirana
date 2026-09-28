@@ -4,6 +4,8 @@
  * into human-friendly, localized, and actionable UI error objects.
  */
 
+import { trackErrorEvent, PostHogEvents } from './analytics';
+
 export type ApiErrorCode =
   | 'BAD_REQUEST'
   | 'UNAUTHORIZED' // 401: Session expired
@@ -215,6 +217,16 @@ export function mapApiError(error: unknown, context?: string): NormalizedApiErro
       error,
     });
   }
+
+  // Non-blocking PostHog error telemetry
+  try {
+    trackErrorEvent(PostHogEvents.API_ERROR, {
+      error_code: code,
+      http_status: status,
+      context,
+      message: title,
+    });
+  } catch (_) {}
 
   return {
     code,

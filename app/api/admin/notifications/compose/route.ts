@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { requireRole } from '@/lib/routeAuth';
 import { queryPostgres } from '@/lib/postgres';
 import { dispatchNotification, OrderNotificationEvent } from '@/lib/notificationDispatcher';
 
 export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+  }
+
   try {
     const body = await req.json();
     const {
@@ -182,7 +188,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+  }
   try {
     const res = await queryPostgres(
       `SELECT id, title, message, image_url, cta_text, target_audience, deep_link, total_recipients, sent_count, status, created_at, sent_at

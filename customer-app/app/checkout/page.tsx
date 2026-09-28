@@ -283,7 +283,7 @@ export default function CheckoutPage() {
                         {addr.addressLine1} {addr.houseNumber ? `, House: ${addr.houseNumber}` : ''}, {addr.city} - {addr.postalCode}
                       </p>
                       <span className="text-[10px] text-slate-400 dark:text-[#9CA3AF] font-mono block mt-0.5">
-                        Phone: {addr.phone || '+91 8698893348'}
+                        Phone: {addr.phone || currentUser?.mobile || ''}
                       </span>
                     </div>
                   </label>

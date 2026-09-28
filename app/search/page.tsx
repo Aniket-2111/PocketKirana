@@ -16,6 +16,7 @@ import { Product, Brand } from '@/types';
 import { getProductBrand } from '@/lib/brandUtils';
 import { INITIAL_BRANDS } from '@/lib/mockData';
 import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { trackEvent, PostHogEvents } from '@/lib/analytics';
 
 type SortKey = 'relevance' | 'price_asc' | 'price_desc' | 'rating' | 'discount';
 
@@ -63,6 +64,22 @@ function SearchContent() {
     const inCat = !selectedCatId || p.categoryId === selectedCatId;
     return inQuery && inCat;
   });
+
+  useEffect(() => {
+    if (!loading && query.trim()) {
+      if (filtered.length === 0) {
+        trackEvent(PostHogEvents.SEARCH_NO_RESULTS, {
+          query: query.trim(),
+          result_count: 0,
+        }, { dedupKey: `search_no_results:${query.trim()}`, dedupWindowMs: 5000 });
+      } else {
+        trackEvent(PostHogEvents.SEARCH_SUBMITTED, {
+          query: query.trim(),
+          result_count: filtered.length,
+        }, { dedupKey: `search_submitted:${query.trim()}`, dedupWindowMs: 5000 });
+      }
+    }
+  }, [loading, query, filtered.length]);
 
   // Calculate brand counts dynamically for products in search results
   const brandCountMap = new Map<string, { brand: Brand; count: number }>();

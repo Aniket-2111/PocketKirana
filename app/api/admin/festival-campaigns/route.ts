@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { FestivalCampaign } from '@/types/festival';
 import { validateFestivalCampaign } from '@/lib/festivalValidator';
 import { INITIAL_FESTIVAL_TEMPLATES } from '@/lib/festivalTemplates';
@@ -28,7 +29,11 @@ const fallbackCampaign: FestivalCampaign = {
   updatedAt: '2026-08-15T00:00:00.000Z',
 };
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+  }
   try {
     let campaigns = await fetchFestivalCampaignsFS().catch(() => []);
     if (!campaigns || campaigns.length === 0) {
@@ -40,7 +45,11 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+  }
   try {
     const body = await req.json();
     const validation = validateFestivalCampaign(body);

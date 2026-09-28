@@ -5,6 +5,7 @@ import { useAppStore } from '@/lib/store';
 import { Bike, Navigation, CheckCircle2, Volume2, VolumeX, MapPin, Clock, ArrowRight } from 'lucide-react';
 import { soundAlerts } from '@/lib/audioAlerts';
 import { apiFetch } from '@/lib/apiClient';
+import { trackDeliveryEvent, PostHogEvents } from '@/lib/analytics';
 
 export const NewDeliveryTaskAlertModal: React.FC = () => {
   const { orders, activePartnerId, authenticatedPartnerId, updateOrderStatus } = useAppStore();
@@ -28,6 +29,11 @@ export const NewDeliveryTaskAlertModal: React.FC = () => {
     if (unaccepted && (!incomingTask || incomingTask.id !== unaccepted.id)) {
       setIncomingTask(unaccepted);
       setIsSilenced(false);
+
+      trackDeliveryEvent(PostHogEvents.DELIVERY_ORDER_RECEIVED, {
+        order_id: unaccepted.id,
+        partner_id: currentPartnerId,
+      });
 
       // Play energetic delivery dispatch chime
       soundAlerts.playPartnerDispatch();
@@ -69,6 +75,10 @@ export const NewDeliveryTaskAlertModal: React.FC = () => {
   const handleAccept = async () => {
     handleAcknowledge();
     if (incomingTask?.id) {
+      trackDeliveryEvent(PostHogEvents.DELIVERY_ORDER_ACCEPTED, {
+        order_id: incomingTask.id,
+        partner_id: currentPartnerId,
+      });
       try {
         await apiFetch(`/api/delivery/orders/${incomingTask.id}/accept`, {
           method: 'POST',

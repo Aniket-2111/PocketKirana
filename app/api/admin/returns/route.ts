@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { fetchOrderReturnsFS, updateReturnStatusFS } from '@/lib/returnService';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const auth = requireRole(request, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as any;
@@ -17,14 +20,20 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = requireRole(request, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
   try {
     const body = await request.json().catch(() => ({}));
-    const { returnId, status, actorId, actorName, actorRole = 'admin', assignedPartnerId, assignedPartnerName } = body;
+    const { returnId, status, actorName, assignedPartnerId, assignedPartnerName } = body;
+
+    // Use verified auth context — never trust client-supplied actorId/actorRole
+    const actorId = auth.uid;
+    const actorRole = auth.role;
 
     if (!returnId || !status || !actorId) {
       return NextResponse.json(
-        { success: false, error: 'Return ID, Status, and Actor ID are required' },
+        { success: false, error: 'Return ID and Status are required' },
         { status: 400 }
       );
     }
@@ -33,8 +42,8 @@ export async function POST(request: Request) {
       returnId,
       status,
       actorId,
-      actorName: actorName || 'Admin',
-      actorRole,
+      actorName: actorName || auth.name || 'Admin',
+      actorRole: actorRole as 'picker' | 'delivery_partner' | 'admin',
       assignedPartnerId,
       assignedPartnerName,
     });

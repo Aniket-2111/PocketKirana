@@ -5,6 +5,7 @@ import './globals.css';
 
 import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
 import { NotificationWrapper } from '@/components/common/NotificationWrapper';
+import { PostHogProvider } from '@/lib/analytics';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -106,9 +107,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background flex flex-col font-sans antialiased text-foreground" suppressHydrationWarning>
         <GlobalErrorSuppressor />
-        <NotificationWrapper />
         <GlobalErrorBoundary>
-          {children}
+          <NotificationWrapper />
+          <PostHogProvider>
+            {children}
+          </PostHogProvider>
         </GlobalErrorBoundary>
       </body>
     </html>

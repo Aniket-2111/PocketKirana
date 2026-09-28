@@ -5,6 +5,7 @@ import { Product } from '@/types';
 import { ProductCard } from '@/components/customer/ProductCard';
 import { useAppStore } from '@/lib/store';
 import { filterPurchasableProducts } from '@/lib/recommendationsEngine';
+import { apiFetch } from '@/lib/apiClient';
 import { Sparkles, CheckCircle2, RotateCcw, Loader2, Compass } from 'lucide-react';
 
 interface ExploreMoreProductsProps {
@@ -86,12 +87,12 @@ export const ExploreMoreProducts: React.FC<ExploreMoreProductsProps> = ({
 
       try {
         const excludeQuery = Array.from(loadedIdsRef.current).slice(0, 50).join(',');
-        const res = await fetch(
+        const res = await apiFetch(
           `/api/products/discover?page=${pageToFetch}&limit=12&exclude=${encodeURIComponent(excludeQuery)}`
         );
-        const data = await res.json();
+        const data = await res.json().catch(() => null);
 
-        if (data.success && Array.isArray(data.products)) {
+        if (res.ok && data?.success && Array.isArray(data.products) && data.products.length > 0) {
           const newItems: Product[] = [];
           for (const item of data.products) {
             if (!loadedIdsRef.current.has(item.id)) {
@@ -108,16 +109,46 @@ export const ExploreMoreProducts: React.FC<ExploreMoreProductsProps> = ({
 
           setHasMore(Boolean(data.hasMore && newItems.length > 0));
         } else {
-          setHasMore(false);
+          // If server returned no more items, check if local store has unshown products
+          const validStore = filterPurchasableProducts(storeProducts || []).filter(
+            (p) => !loadedIdsRef.current.has(p.id) && (!p.slug || !loadedIdsRef.current.has(p.slug))
+          );
+          if (validStore.length > 0) {
+            const slice = validStore.slice(0, 12);
+            slice.forEach((p) => {
+              loadedIdsRef.current.add(p.id);
+              if (p.slug) loadedIdsRef.current.add(p.slug);
+            });
+            setProducts((prev) => [...prev, ...slice]);
+            setPage(pageToFetch + 1);
+            setHasMore(validStore.length > slice.length);
+          } else {
+            setHasMore(false);
+          }
         }
       } catch (err) {
-        console.warn('Discovery fetch error:', err);
-        setIsError(true);
+        console.warn('Discovery fetch error, falling back to local store catalog:', err);
+        // Resilient fallback: pull unshown items from client store before declaring error
+        const validStore = filterPurchasableProducts(storeProducts || []).filter(
+          (p) => !loadedIdsRef.current.has(p.id) && (!p.slug || !loadedIdsRef.current.has(p.slug))
+        );
+        if (validStore.length > 0) {
+          const slice = validStore.slice(0, 12);
+          slice.forEach((p) => {
+            loadedIdsRef.current.add(p.id);
+            if (p.slug) loadedIdsRef.current.add(p.slug);
+          });
+          setProducts((prev) => [...prev, ...slice]);
+          setPage(pageToFetch + 1);
+          setHasMore(validStore.length > slice.length);
+        } else {
+          setIsError(true);
+        }
       } finally {
         setIsFetchingNextPage(false);
       }
     },
-    [isFetchingNextPage, hasMore]
+    [isFetchingNextPage, hasMore, storeProducts]
   );
 
   // Setup IntersectionObserver on sentinel

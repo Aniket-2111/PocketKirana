@@ -27,6 +27,7 @@ import { showToast } from '@/components/ui/Toast';
 import type { Product, ProductVariant } from '@/types';
 import { normalizeProductSections, sanitizeVisibleSectionsForCustomer } from '@/lib/productSectionUtils';
 import { apiFetch } from '@/lib/apiClient';
+import { trackProductView } from '@/lib/analytics';
 
 export default function ProductDetailClient() {
   const router = useRouter();
@@ -85,6 +86,19 @@ export default function ProductDetailClient() {
       setSelectedVariant(variants[0]);
     }
   }, [variants, selectedVariant]);
+
+  useEffect(() => {
+    if (product) {
+      trackProductView({
+        product_id: product.id,
+        category_id: product.categoryId,
+        brand_id: product.brandId,
+        product_name: product.name,
+        price: product.sellingPrice,
+        source: 'customer_app_product_detail',
+      });
+    }
+  }, [product?.id]);
 
   // Similar Products in the same category
   const similarProducts = useMemo(() => {
@@ -605,7 +619,7 @@ export default function ProductDetailClient() {
 
         {/* ── 7. HALF-SCREEN PRODUCT DETAILS BOTTOM SHEET MODAL ── */}
         {showDetailsModal && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
             {/* Click outside backdrop to close */}
             <div className="flex-1" onClick={() => setShowDetailsModal(false)} />
 

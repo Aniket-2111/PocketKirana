@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRouteAuth } from '@/lib/routeAuth';
+import { requireRole } from '@/lib/routeAuth';
 import {
   DEFAULT_INVOICE_TEMPLATE,
   generateInvoicePDF,
@@ -8,12 +8,9 @@ import {
 } from '@/lib/invoiceEngine';
 
 export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
   try {
-    const auth = getRouteAuth(req);
-    if (auth && auth.role !== 'admin' && auth.uid !== 'dev-user') {
-      return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
-    }
-
     const body = await req.json().catch(() => ({}));
     const template: InvoiceTemplateSettings = {
       ...DEFAULT_INVOICE_TEMPLATE,

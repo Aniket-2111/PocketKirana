@@ -98,6 +98,13 @@ import {
 import { apiFetch } from './apiClient';
 import { isFirebaseConfigured } from './firebase';
 import {
+  identifyUser,
+  resetUser,
+  trackCartEvent,
+  trackCheckoutEvent,
+  PostHogEvents,
+} from './analytics';
+import {
   fetchProductsFS,
   addProductFS,
   batchAddProductsFS,
@@ -233,7 +240,7 @@ interface AppState {
    * Calls POST /api/auth/verify-otp-token (server-side AuthKey never reaches browser).
    * On success: sets isLoggedIn, currentUser, and re-initialises Firebase sync.
    */
-  verifyMsg91Token: (accessToken: string) => Promise<{ success: boolean; error?: string }>;
+  verifyMsg91Token: (accessToken: string, providedPhone?: string) => Promise<{ success: boolean; error?: string }>;
   updateUserProfile: (updates: Partial<User>) => Promise<void>;
   logout: () => void;
 
@@ -921,9 +928,13 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        const inputPhone = get().phoneInput || '8698893348';
-        const cleanDigits = inputPhone.replace(/\D/g, '') || '8698893348';
-        const formattedMobile = inputPhone.startsWith('+') ? inputPhone : `+91 ${cleanDigits}`;
+        const inputPhone = get().phoneInput;
+        const cleanDigits = (inputPhone || '').replace(/\D/g, '').slice(-10);
+        if (!cleanDigits || cleanDigits.length < 10) {
+          console.error('[verifyOtp] No valid 10-digit mobile number found in state');
+          return false;
+        }
+        const formattedMobile = `+91 ${cleanDigits}`;
 
         // Lookup or restore user profile directly from Firebase Firestore Database
         let existingUser = await fetchUserFS(cleanDigits);
@@ -964,16 +975,25 @@ export const useAppStore = create<AppState>()(
           addresses: userAddresses || [],
           orders: userOrders || [],
         });
+        if (existingUser) {
+          identifyUser(existingUser.id, {
+            user_role: existingUser.role || 'customer',
+            account_created_at: existingUser.createdAt,
+          });
+        }
         return true;
       },
 
       // ── MSG91 OTP Widget token verification ─────────────────────────────────
       // Called after the MSG91 Widget fires its successCallback with an access_token.
       // The actual AuthKey verification happens server-side in /api/auth/verify-otp-token.
-      verifyMsg91Token: async (accessToken: string) => {
+      verifyMsg91Token: async (accessToken: string, providedPhone?: string) => {
         if (!accessToken || typeof accessToken !== 'string') {
           return { success: false, error: 'Invalid access token received from OTP widget.' };
         }
+
+        // Clean candidate phone
+        const candidatePhone = (providedPhone || get().phoneInput || '').replace(/\D/g, '').slice(-10);
 
         try {
           let user: User | null = null;
@@ -981,10 +1001,15 @@ export const useAppStore = create<AppState>()(
 
           // Attempt server verification via Next.js backend endpoint
           try {
+            console.log('[AUTH] CUSTOMER_LOOKUP_START', { candidatePhone: candidatePhone ? `+91 XXXXXX${candidatePhone.slice(-4)}` : 'none' });
             const res = await apiFetch('/api/auth/verify-otp-token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ access_token: accessToken, accessToken }),
+              body: JSON.stringify({ 
+                access_token: accessToken, 
+                accessToken,
+                mobile: candidatePhone || undefined 
+              }),
             });
 
             if (res.ok) {
@@ -1011,7 +1036,7 @@ export const useAppStore = create<AppState>()(
 
           // Fallback: If running inside static APK or direct client mode without Next.js server running
           if (!fetchSucceeded || !user) {
-            let phoneDigits = get().phoneInput.replace(/\D/g, '').slice(-10);
+            let phoneDigits = candidatePhone;
             try {
               const payloadB64 = accessToken.split('.')[1];
               if (payloadB64) {
@@ -1024,7 +1049,10 @@ export const useAppStore = create<AppState>()(
             } catch (_) {}
 
             if (!phoneDigits || phoneDigits.length < 10) {
-              phoneDigits = '8698893348';
+              return {
+                success: false,
+                error: 'Could not determine authenticated phone number. Please re-enter mobile number and try again.'
+              };
             }
 
             const formattedMobile = `+91 ${phoneDigits}`;
@@ -1043,7 +1071,7 @@ export const useAppStore = create<AppState>()(
             user = existingUser;
           }
 
-          const cleanDigits = (user.mobile || '').replace(/\D/g, '').slice(-10);
+          const cleanDigits = (user.mobile || candidatePhone || '').replace(/\D/g, '').slice(-10);
 
           // Fetch user-specific addresses & orders from Firestore
           const [userAddresses, userOrders] = await Promise.all([
@@ -1059,6 +1087,12 @@ export const useAppStore = create<AppState>()(
             addresses: userAddresses || [],
             orders: userOrders || [],
           });
+          if (user) {
+            identifyUser(user.id, {
+              user_role: user.role || 'customer',
+              account_created_at: user.createdAt,
+            });
+          }
 
           // Re-initialise Firebase sync so real-time subscriptions run under this user
           get().initializeFirebaseSync(true).catch(() => {});
@@ -1089,6 +1123,7 @@ export const useAppStore = create<AppState>()(
         } catch (_) {}
         logoutFirebaseUser();
         clearSessionCookie(); // Remove pk_session so middleware blocks portal access immediately
+        resetUser();
         set({
           isLoggedIn: false,
           currentUser: null,
@@ -1569,10 +1604,28 @@ export const useAppStore = create<AppState>()(
               selectedVariant: variant,
             }),
           };
+
+          trackCartEvent(PostHogEvents.PRODUCT_ADDED_TO_CART, {
+            product_id: product.id,
+            quantity: qty,
+            cart_item_count: (state.cart.length || 0) + 1,
+            cart_value: effectivePrice * qty,
+            variant_id: variant?.id,
+          });
+
           return { cart: [...state.cart, newItem] };
         });
       },
       removeFromCart: (cartItemId) => {
+        const itemToRemove = get().cart.find((item) => item.id === cartItemId || item.productId === cartItemId);
+        if (itemToRemove) {
+          trackCartEvent(PostHogEvents.PRODUCT_REMOVED_FROM_CART, {
+            product_id: itemToRemove.productId,
+            quantity: itemToRemove.quantity,
+            cart_item_count: Math.max(0, get().cart.length - 1),
+            variant_id: itemToRemove.variantId,
+          });
+        }
         set((state) => ({
           cart: state.cart.filter((item) => item.id !== cartItemId && item.productId !== cartItemId),
         }));
@@ -1582,6 +1635,10 @@ export const useAppStore = create<AppState>()(
           get().removeFromCart(cartItemId);
           return;
         }
+        trackCartEvent(PostHogEvents.CART_QUANTITY_CHANGED, {
+          product_id: cartItemId,
+          quantity,
+        });
         set((state) => ({
           cart: state.cart.map((item) =>
             item.id === cartItemId || item.productId === cartItemId
@@ -1593,7 +1650,13 @@ export const useAppStore = create<AppState>()(
       updateCartQuantity: (cartItemId: string, quantity: number) => {
         get().updateQuantity(cartItemId, quantity);
       },
-      clearCart: () => set({ cart: [], appliedCoupon: null }),
+      clearCart: () => {
+        trackCartEvent(PostHogEvents.CART_CLEARED, {
+          cart_item_count: 0,
+          cart_value: 0,
+        });
+        set({ cart: [], appliedCoupon: null });
+      },
       applyCoupon: (code) => {
         const clean = (code || '').trim().toUpperCase();
         if (!clean) {
@@ -1614,11 +1677,23 @@ export const useAppStore = create<AppState>()(
             message: `Minimum order of ₹${coupon.minimumOrder} required for ${coupon.code} (Add ₹${needed} more to apply)`,
           };
         }
+        trackCheckoutEvent(PostHogEvents.COUPON_APPLIED, {
+          coupon_code: coupon.code,
+          discount_amount: coupon.value,
+        });
         set({ appliedCoupon: coupon });
         const discountText = coupon.type === 'fixed' ? `₹${coupon.value}` : `${coupon.value}%`;
         return { success: true, message: `Coupon ${coupon.code} applied! (${discountText} OFF)` };
       },
-      removeCoupon: () => set({ appliedCoupon: null }),
+      removeCoupon: () => {
+        const prev = get().appliedCoupon;
+        if (prev) {
+          trackCheckoutEvent(PostHogEvents.COUPON_REMOVED, {
+            coupon_code: prev.code,
+          });
+        }
+        set({ appliedCoupon: null });
+      },
 
       // Wishlist
       wishlist: ['p-milk-1', 'p-bread-1'],
@@ -1640,7 +1715,7 @@ export const useAppStore = create<AppState>()(
           ...addrData,
           id: `addr-${Date.now()}`,
           userId: currentUser?.id || 'usr-cust-1',
-          phone: addrData.phone || currentUser?.mobile || '+91 8698893348',
+          phone: addrData.phone || currentUser?.mobile || '',
         };
         set((state) => {
           let updated = state.addresses;
@@ -1714,7 +1789,7 @@ export const useAppStore = create<AppState>()(
             (address?.fullName || (address as any)?.name || '').trim() ||
             (currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : '') ||
             'Customer',
-          customerPhone: currentUser?.mobile || '+91 8698893348',
+          customerPhone: address?.phone || currentUser?.mobile || '',
           storeId: 'store-1',
           storeName: 'PocketKirana Express DarkStore',
           addressId,
@@ -2938,6 +3013,11 @@ export const useAppStore = create<AppState>()(
           } as any,
         });
 
+        identifyUser(partner.userId || partner.id, {
+          user_role: 'delivery_partner',
+          platform: 'delivery_apk',
+        });
+
         if (typeof window !== 'undefined') {
           localStorage.setItem('pk_delivery_authenticated_partner', partner.id);
         }
@@ -2982,6 +3062,11 @@ export const useAppStore = create<AppState>()(
             status: 'active',
             createdAt: new Date().toISOString(),
           } as any,
+        });
+
+        identifyUser(picker.id, {
+          user_role: 'picker',
+          platform: 'picker_apk',
         });
 
         if (typeof window !== 'undefined') {
@@ -5195,6 +5280,21 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'pocketkirana-store-v4',
+      version: 5,
+      migrate: (persistedState: any, version: number) => {
+        if (!version || version < 5) {
+          if (persistedState && Array.isArray(persistedState.products)) {
+            persistedState.products = persistedState.products.map((p: any) => {
+              const fresh = INITIAL_PRODUCTS.find((m) => m.id === p.id);
+              if (fresh && fresh.thumbnail) {
+                return { ...p, thumbnail: fresh.thumbnail };
+              }
+              return p;
+            });
+          }
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         products: state.products,
         categories: state.categories,

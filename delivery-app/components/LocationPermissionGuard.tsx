@@ -15,6 +15,7 @@ import {
   locationManager,
   LocationManagerState,
 } from '@/lib/locationManager';
+import { trackEvent, PostHogEvents } from '@/lib/analytics';
 
 interface LocationPermissionGuardProps {
   children?: React.ReactNode;
@@ -58,9 +59,11 @@ export function LocationPermissionGuard({ children }: LocationPermissionGuardPro
     try {
       const granted = await locationManager.requestPermission();
       if (granted) {
+        trackEvent(PostHogEvents.LOCATION_PERMISSION_GRANTED, { platform: 'delivery_apk' });
         await locationManager.getCurrentCoordinates();
         showToast('📍 Location access enabled for delivery tracking!', 'success');
       } else {
+        trackEvent(PostHogEvents.LOCATION_PERMISSION_DENIED, { platform: 'delivery_apk' });
         await locationManager.checkState({ forceFresh: true, silent: true });
       }
     } catch (err) {

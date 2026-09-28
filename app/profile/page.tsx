@@ -249,7 +249,7 @@ export default function UserProfilePage() {
     { id: 'faq', label: 'FAQ & Help', icon: HelpCircle },
   ];
 
-  const userMobile = currentUser?.mobile || '+91 8698893348';
+  const userMobile = currentUser?.mobile || (isLoggedIn ? 'Verified Customer' : 'Not signed in');
 
   return (
     <>

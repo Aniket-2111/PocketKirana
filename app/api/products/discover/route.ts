@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
     const cursorParam = searchParams.get('cursor') || '';
     const categoryId = searchParams.get('category') || searchParams.get('categoryId') || '';
     const brandId = searchParams.get('brand') || searchParams.get('brandId') || '';
-    const search = searchParams.get('search') || searchParams.get('q') || '';
+    const rawSearch = searchParams.get('search') || searchParams.get('q') || '';
+    const search = rawSearch.trim().slice(0, 100);
 
     // Decode cursor if present
     let cursorData: { createdAt: string; id: string } | null = null;

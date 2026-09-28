@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Minus, Star, Clock } from 'lucide-react';
+import { Plus, Minus, Star, Clock, ShoppingBag } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { showToast } from '@/components/ui/Toast';
 import type { Product } from '@/types';
@@ -15,6 +15,7 @@ interface ProductCardProps {
 export function ProductCard({ product, onOpenDetail }: ProductCardProps) {
   const router = useRouter();
   const { cart, addToCart, updateCartQuantity } = useAppStore();
+  const [imgError, setImgError] = useState(false);
 
   const cartItem = cart.find(
     (i) => i.productId === product.id || i.id === product.id
@@ -82,12 +83,30 @@ export function ProductCard({ product, onOpenDetail }: ProductCardProps) {
     >
       {/* Product Image */}
       <div className="relative bg-slate-50 dark:bg-[#111827] w-full aspect-square flex items-center justify-center p-3 overflow-hidden">
-        <img
-          src={thumbnail}
-          alt={product.name}
-          className="max-h-full max-w-full object-contain drop-shadow-sm"
-          loading="lazy"
-        />
+        {!imgError && thumbnail ? (
+          <img
+            src={thumbnail}
+            alt={product.name}
+            onError={(e) => {
+              const target = e.currentTarget as HTMLImageElement;
+              const fallbackUrl = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80';
+              if (target.src !== fallbackUrl) {
+                target.src = fallbackUrl;
+              } else {
+                setImgError(true);
+              }
+            }}
+            className="max-h-full max-w-full object-contain drop-shadow-sm transition-opacity duration-300"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-emerald-700/60 dark:text-emerald-400/60 p-2 text-center select-none">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100/70 dark:bg-emerald-950/60 flex items-center justify-center mb-1">
+              <ShoppingBag className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 line-clamp-1">{product.name}</span>
+          </div>
+        )}
         {/* Veg indicator */}
         <div className="absolute bottom-2 right-2 bg-white dark:bg-[#151B23] p-0.5 rounded border border-emerald-600 flex items-center justify-center">
           <div className="w-2 h-2 rounded-full bg-emerald-600" />

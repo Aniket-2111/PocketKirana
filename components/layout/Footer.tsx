@@ -16,7 +16,7 @@ export const Footer: React.FC = () => {
   );
 
   return (
-    <footer className="bg-white dark:bg-[#111827] border-t border-slate-200 dark:border-[#263241] text-slate-600 dark:text-slate-300 pt-12 pb-28 md:pb-12 mt-12 font-sans transition-colors duration-200">
+    <footer className="bg-white dark:bg-[#111827] border-t border-slate-200 dark:border-[#263241] text-slate-600 dark:text-slate-300 pt-12 pb-8 md:pb-8 mt-12 font-sans transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* ── MAIN FOOTER GRID (Brand, 2-Column Categories, About & Help) ── */}

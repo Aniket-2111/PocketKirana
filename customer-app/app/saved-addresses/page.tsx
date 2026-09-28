@@ -15,8 +15,8 @@ export default function SavedAddressesPage() {
   const [locating, setLocating] = useState(false);
   const [formData, setFormData] = useState({
     userId: currentUser?.id || 'cust-1',
-    fullName: 'Customer',
-    phone: '+91 8698893348',
+    fullName: currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : 'Customer',
+    phone: currentUser?.mobile || '',
     addressType: 'Home',
     addressLine1: '',
     houseNumber: '',

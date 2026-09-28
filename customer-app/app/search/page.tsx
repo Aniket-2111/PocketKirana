@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import CustomerShell from '../../components/CustomerShell';
 import { ProductCard } from '@/components/customer/ProductCard';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { Product } from '@/types';
+import { trackEvent, PostHogEvents } from '@/lib/analytics';
 
 export default function SearchPage() {
   const router = useRouter();
@@ -30,6 +31,26 @@ export default function SearchPage() {
       );
     });
   }, [allProducts, query]);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length >= 2) {
+      const timer = setTimeout(() => {
+        if (searchResults.length === 0) {
+          trackEvent(PostHogEvents.SEARCH_NO_RESULTS, {
+            query: trimmed,
+            result_count: 0,
+          }, { dedupKey: `search_no_results:${trimmed}`, dedupWindowMs: 5000 });
+        } else {
+          trackEvent(PostHogEvents.SEARCH_SUBMITTED, {
+            query: trimmed,
+            result_count: searchResults.length,
+          }, { dedupKey: `search_submitted:${trimmed}`, dedupWindowMs: 5000 });
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [query, searchResults.length]);
 
   const handleOpenDetail = (product: Product) => {
     router.push(`/product/${product.id || product.slug}`);

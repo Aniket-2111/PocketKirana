@@ -1098,7 +1098,7 @@ export default function OrderTrackingClient() {
 
       {/* ── 8. RATING MODAL ── */}
       {showRatingModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#1B2430] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-[#111827] dark:text-[#F9FAFB]">Rate your items</h3>
@@ -1164,7 +1164,7 @@ export default function OrderTrackingClient() {
 
       {/* ── 9. SUPPORT MODAL ── */}
       {showSupportModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#1B2430] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-[#111827] dark:text-[#F9FAFB]">Pocket Kirana Support</h3>

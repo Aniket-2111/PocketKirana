@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     }
 
     const customerId = auth?.uid || 'usr-guest-' + Date.now();
-    const customerPhone = address?.phone || address?.mobile || '+91 8698893348';
+    const customerPhone = address?.phone || address?.mobile || '';
     const customerName = address?.fullName || address?.name || 'Customer';
 
     // 2. IDEMPOTENCY CHECK
@@ -102,26 +102,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. START POSTGRESQL TRANSACTION
-    client = await pool.connect();
-    await client.query('BEGIN');
-
-    // 4. GENERATE SEQUENTIAL ORDER NUMBER
-    let orderNumber: string;
-    try {
-      const seqRes = await client.query("SELECT NEXTVAL('pk_order_seq') AS nextval");
-      const seqNum = Number(seqRes.rows[0].nextval);
-      orderNumber = seqNum < 10 ? `PK-0${seqNum}` : `PK-${seqNum}`;
-    } catch {
-      // Fallback if sequence is not yet initialized
-      const randomSeq = Math.floor(1000 + Math.random() * 9000);
-      orderNumber = `PK-${new Date().getFullYear()}-${randomSeq}`;
-    }
-
-    const orderId = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const deliveryOtp = String(1000 + Math.floor(Math.random() * 9000));
-
-    // 4.1 AUTHORITATIVE CATALOG & PRICING VALIDATION
+    // 2.5 AUTHORITATIVE CATALOG & PRICING VALIDATION (Pre-flight check before acquiring DB transaction connection)
     const catalogValidation = await validateServerPricing(
       cartItems.map((item) => ({
         productId: item.productId,
@@ -150,6 +131,25 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 3. START POSTGRESQL TRANSACTION
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // 4. GENERATE SEQUENTIAL ORDER NUMBER
+    let orderNumber: string;
+    try {
+      const seqRes = await client.query("SELECT NEXTVAL('pk_order_seq') AS nextval");
+      const seqNum = Number(seqRes.rows[0].nextval);
+      orderNumber = seqNum < 10 ? `PK-0${seqNum}` : `PK-${seqNum}`;
+    } catch {
+      // Fallback if sequence is not yet initialized
+      const randomSeq = Math.floor(1000 + Math.random() * 9000);
+      orderNumber = `PK-${new Date().getFullYear()}-${randomSeq}`;
+    }
+
+    const orderId = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const deliveryOtp = String(1000 + Math.floor(Math.random() * 9000));
 
     // 5. CALCULATE TOTALS & STOCK RESERVATION (with FOR UPDATE lock)
     let subtotal = 0;

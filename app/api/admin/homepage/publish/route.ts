@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { HomepageCmsService } from '@/lib/homepageCmsService';
 
 export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const body = await req.json().catch(() => ({}));
-    const { admin, customSummary } = body;
+    const { customSummary } = body;
 
-    const actor = admin || { id: 'admin_session', name: 'Authorized Admin', role: 'Admin' };
+    // Use verified auth context — never trust client-supplied admin object
+    const actor = { id: auth.uid, name: auth.name || 'Admin', role: auth.role };
     const result = HomepageCmsService.publish(actor, customSummary);
 
     return NextResponse.json({ ...result });

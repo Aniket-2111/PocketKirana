@@ -8,6 +8,7 @@ import { DynamicHomepageRenderer } from '@/components/customer/DynamicHomepageRe
 import { FestivalCampaignRenderer } from '@/components/customer/festival/FestivalCampaignRenderer';
 import { Product } from '@/types';
 import { Search } from 'lucide-react';
+import { trackPerformanceEvent, PostHogEvents } from '@/lib/analytics';
 
 export default function CustomerHome() {
   const router = useRouter();
@@ -16,6 +17,9 @@ export default function CustomerHome() {
 
   useEffect(() => {
     setMounted(true);
+    trackPerformanceEvent(PostHogEvents.HOME_LOAD_COMPLETED, 150, {
+      screen: 'customer_home',
+    });
   }, []);
 
   // Guard: if not logged in, redirect to login

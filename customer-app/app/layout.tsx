@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ToastContainer } from "@/components/ui/Toast";
 import { RealtimeNotificationToast } from "@/components/customer/RealtimeNotificationToast";
+import { PostHogProvider } from "@/lib/analytics";
 
 export const metadata: Metadata = {
   title: "Pocket Kirana – 10-Min Grocery Delivery",
@@ -42,9 +43,11 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background text-foreground font-sans antialiased selection:bg-emerald-600 selection:text-white" suppressHydrationWarning>
         <RealtimeNotificationToast />
-        <main className="flex-1 flex flex-col min-h-screen">
-          {children}
-        </main>
+        <PostHogProvider>
+          <main className="flex-1 flex flex-col min-h-screen">
+            {children}
+          </main>
+        </PostHogProvider>
         <ToastContainer />
       </body>
     </html>

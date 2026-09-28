@@ -192,7 +192,10 @@ export default function CategorySplitCatalog({ initialCategorySlug }: CategorySp
 
   return (
     <CustomerShell title={pageTitle} showBack backUrl="/home" hideBottomNav={false} noPadding fixedViewport>
-      <div className="flex-1 min-h-0 w-full bg-white dark:bg-[#0B0F14] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans select-none overflow-hidden pb-16">
+      <div
+        className="flex-1 min-h-0 w-full bg-white dark:bg-[#0B0F14] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans select-none overflow-hidden"
+        style={{ paddingBottom: 'calc(var(--bottom-stack-height, 64px) + env(safe-area-inset-bottom, 0px))' }}
+      >
         
         {/* ── 1. TOP SUB-HEADER & FILTER/SORT TOOLBAR ── */}
         <div className="shrink-0 bg-white dark:bg-[#111827] border-b border-[#E5E7EB] dark:border-[#263241] shadow-xs">
@@ -326,7 +329,7 @@ export default function CategorySplitCatalog({ initialCategorySlug }: CategorySp
         <div className="flex-1 min-h-0 flex w-full overflow-hidden">
           
           {/* ── LEFT SIDEBAR (INDEPENDENT VERTICAL CATEGORY SELECTOR) ── */}
-          <aside className="w-20 sm:w-24 shrink-0 bg-[#F9FAFB] dark:bg-[#0e121a] border-r border-[#E5E7EB] dark:border-[#263241] flex flex-col h-full overflow-y-auto no-scrollbar pb-8">
+          <aside className="w-20 sm:w-24 shrink-0 bg-[#F9FAFB] dark:bg-[#0e121a] border-r border-[#E5E7EB] dark:border-[#263241] flex flex-col h-full overflow-y-auto no-scrollbar pb-3">
             
             {/* 1. "ALL" BUTTON */}
             <button
@@ -409,7 +412,7 @@ export default function CategorySplitCatalog({ initialCategorySlug }: CategorySp
           </aside>
 
           {/* ── RIGHT MAIN CONTENT: 2-COLUMN PRODUCT GRID ── */}
-          <main className="flex-1 h-full overflow-y-auto p-2 sm:p-3 pb-12 space-y-3 bg-white dark:bg-[#0B0F14]">
+          <main className="flex-1 h-full overflow-y-auto p-2 sm:p-3 pb-3 space-y-3 bg-white dark:bg-[#0B0F14]">
             
             {/* Header / Product Count Row */}
             <div className="flex items-center justify-between px-1 pt-1">
@@ -471,6 +474,13 @@ export default function CategorySplitCatalog({ initialCategorySlug }: CategorySp
                           src={p.thumbnail || (p as any).image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80'}
                           alt={p.name}
                           loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget as HTMLImageElement;
+                            if (!target.dataset.fallbackTried) {
+                              target.dataset.fallbackTried = 'true';
+                              target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80';
+                            }
+                          }}
                           className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-200"
                         />
 

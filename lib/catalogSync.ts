@@ -499,6 +499,13 @@ export async function publishProductChange(
   if (fullProduct.slug) {
     cache.set(fullProduct.slug, fullProduct);
   }
+  const g = globalThis as any;
+  if (g._pkProductNegativeCache) {
+    g._pkProductNegativeCache.delete(productId);
+    if (fullProduct.slug) {
+      g._pkProductNegativeCache.delete(fullProduct.slug);
+    }
+  }
 
   // Sync to Firestore read collection
   if (fullProduct.publishStatus === 'PUBLISHED') {

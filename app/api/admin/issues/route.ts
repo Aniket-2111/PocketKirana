@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { fetchCustomerIssuesFS, resolveCustomerIssueFS } from '@/lib/customerComplaintService';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const auth = requireRole(request, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as any;
@@ -12,18 +16,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, data: issues });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || 'Server error fetching issues' },
+      { success: false, error: 'Server error fetching issues' },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = requireRole(request, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const body = await request.json().catch(() => ({}));
     const {
       issueId,
-      adminId,
       adminName,
       action,
       refundAmount,
@@ -31,9 +37,12 @@ export async function POST(request: Request) {
       rejectionReason,
     } = body;
 
-    if (!issueId || !adminId || !action) {
+    // Use verified auth context — never trust client-supplied adminId
+    const adminId = auth.uid;
+
+    if (!issueId || !action) {
       return NextResponse.json(
-        { success: false, error: 'Issue ID, Admin ID, and Action are required' },
+        { success: false, error: 'Issue ID and Action are required' },
         { status: 400 }
       );
     }
@@ -41,7 +50,7 @@ export async function POST(request: Request) {
     const result = await resolveCustomerIssueFS({
       issueId,
       adminId,
-      adminName: adminName || 'Admin',
+      adminName: adminName || auth.name || 'Admin',
       action,
       refundAmount,
       adminNotes,
@@ -55,7 +64,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data: result });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || 'Server error resolving issue' },
+      { success: false, error: 'Server error resolving issue' },
       { status: 500 }
     );
   }

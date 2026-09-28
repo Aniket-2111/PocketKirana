@@ -28,6 +28,7 @@ import {
 import { normalizeProductSections, sanitizeVisibleSectionsForCustomer } from '@/lib/productSectionUtils';
 import { ProductCarouselSection } from '@/components/customer/ProductCarouselSection';
 import { getProductDetailRecommendations } from '@/lib/recommendationsEngine';
+import { trackProductView } from '@/lib/analytics';
 
 // ── Helper to retrieve configured product variants or empty array if single product ──
 function getInitialProductVariants(product: Product): ProductVariant[] {
@@ -78,6 +79,19 @@ export default function ProductDetailPage() {
         .catch(() => {});
     }
   }, [storeProduct, slug]);
+
+  useEffect(() => {
+    if (product) {
+      trackProductView({
+        product_id: product.id,
+        category_id: product.categoryId,
+        brand_id: product.brandId,
+        product_name: product.name,
+        price: product.sellingPrice,
+        source: 'product_detail_page',
+      });
+    }
+  }, [product?.id]);
 
   const category = categories.find((c) => c.id === product?.categoryId) || categories[0];
   const brandObj = product ? brands.find((b) => b.id === product.brandId) : null;
