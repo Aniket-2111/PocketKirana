@@ -13,6 +13,8 @@
  * 7. Commit & Async Outbox trigger
  */
 
+import crypto from 'crypto';
+import { generateSecureOtp } from '@/lib/cryptoUtils';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { getRouteAuth } from '@/lib/routeAuth';
@@ -147,12 +149,12 @@ export async function POST(req: NextRequest) {
       orderNumber = seqNum < 10 ? `PK-0${seqNum}` : `PK-${seqNum}`;
     } catch {
       // Fallback if sequence is not yet initialized
-      const randomSeq = Math.floor(1000 + Math.random() * 9000);
+      const randomSeq = crypto.randomInt(1000, 10000);
       orderNumber = `PK-${new Date().getFullYear()}-${randomSeq}`;
     }
 
-    const orderId = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const deliveryOtp = String(1000 + Math.floor(Math.random() * 9000));
+    const orderId = `ord-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+    const deliveryOtp = generateSecureOtp(4);
 
     // 5. CALCULATE TOTALS & STOCK RESERVATION (with FOR UPDATE lock)
     let subtotal = 0;

@@ -117,7 +117,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  const authHeader = sanitized.headers.get('authorization') || '';
+  const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
+
   const sessionToken =
+    bearerToken ||
     sanitized.cookies.get('pk_session')?.value ||
     sanitized.cookies.get('__pk_session')?.value ||
     sanitized.cookies.get('__session')?.value;

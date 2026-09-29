@@ -33,7 +33,7 @@ console.log('='.repeat(70));
 
 const connectionString =
   process.env.DATABASE_URL ||
-  `postgresql://${process.env.DB_USER || 'postgres'}:${encodeURIComponent(process.env.DB_PASSWORD || '')}@${process.env.DB_HOST || '127.0.0.1'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'pocketkirana_db'}`;
+  `postgresql://${process.env.POSTGRES_USER || process.env.DB_USER || process.env.PGUSER || 'postgres'}:${encodeURIComponent(process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || process.env.PGPASSWORD || '')}@${process.env.POSTGRES_HOST || process.env.DB_HOST || process.env.PGHOST || '127.0.0.1'}:${process.env.POSTGRES_PORT || process.env.DB_PORT || process.env.PGPORT || 5432}/${process.env.POSTGRES_DB || process.env.DB_NAME || process.env.PGDATABASE || 'pocketkirana'}`;
 
 const pool = new Pool({
   connectionString,

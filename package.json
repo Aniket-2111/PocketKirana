@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "migrate": "node scripts/init_client_postgres_tables.js",
+    "worker": "node scripts/run_outbox_worker.js"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",

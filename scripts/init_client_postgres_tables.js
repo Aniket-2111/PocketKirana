@@ -679,9 +679,37 @@ CREATE TABLE IF NOT EXISTS sales_summaries (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 40. invoice_records & sequence
+CREATE SEQUENCE IF NOT EXISTS invoice_number_seq START WITH 1001;
+
+CREATE TABLE IF NOT EXISTS invoice_records (
+  id VARCHAR(64) PRIMARY KEY,
+  invoice_number VARCHAR(64) UNIQUE NOT NULL,
+  order_id VARCHAR(64) UNIQUE REFERENCES orders(id) ON DELETE RESTRICT,
+  order_number VARCHAR(64) NOT NULL,
+  seller_name VARCHAR(128) NOT NULL,
+  seller_gstin VARCHAR(64),
+  seller_fssai VARCHAR(64),
+  customer_name VARCHAR(128),
+  customer_phone VARCHAR(32),
+  customer_address JSONB,
+  items_snapshot JSONB NOT NULL,
+  subtotal NUMERIC(12, 2) NOT NULL,
+  discount_amount NUMERIC(12, 2) DEFAULT 0.00,
+  delivery_fee NUMERIC(12, 2) DEFAULT 0.00,
+  tax_amount NUMERIC(12, 2) DEFAULT 0.00,
+  total_amount NUMERIC(12, 2) NOT NULL,
+  payment_method VARCHAR(32),
+  payment_status VARCHAR(32),
+  pdf_storage_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 --------------------------------------------------------------------------------
 -- PERFORMANCE INDEXES
 --------------------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invoice_records_order ON invoice_records(order_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_records_number ON invoice_records(invoice_number);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_subcategory ON products(subcategory_id);
 CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand_id);

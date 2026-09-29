@@ -70,6 +70,7 @@ vi.mock('../app/api/payments/phonepe/shared', () => ({
 describe('Security Remediation Regression Suite (13 Confirmed Findings)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPgQuery.mockResolvedValue({ rowCount: 0, rows: [] });
   });
 
   // ══════════════════════════════════════════════════════════════

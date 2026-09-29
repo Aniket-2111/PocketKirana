@@ -38,6 +38,7 @@ local.properties
 .env.local
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
 # Sub-app production env files (contain real Firebase project IDs & MSG91 IDs)
 customer-app/.env.production

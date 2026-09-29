@@ -114,11 +114,13 @@ function getFirestoreDb(): any {
 const memoryOrderStore = new Map<string, any>();
 const memoryEventStore = new Map<string, any>();
 
+import { generateSecureOtp } from './cryptoUtils';
+
 /**
- * Generate 4-digit numeric OTP for delivery verification
+ * Generate 4-digit numeric OTP for delivery verification using crypto.randomInt
  */
 export function generateDeliveryOtp(): string {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return generateSecureOtp(4);
 }
 
 /**

@@ -9,15 +9,18 @@ import { Pool, QueryResult, PoolClient } from 'pg';
  * - Sanitized logging (zero credential / token leakage)
  */
 
-const DB_HOST = process.env.DB_HOST || process.env.PGHOST || '127.0.0.1';
-const DB_PORT = parseInt(process.env.DB_PORT || process.env.PGPORT || '5432', 10);
-const DB_NAME = process.env.DB_NAME || process.env.PGDATABASE || 'pocketkirana_db';
-const DB_USER = process.env.DB_USER || process.env.PGUSER || 'postgres';
-const DB_PASSWORD = process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
+const DB_HOST = process.env.POSTGRES_HOST || process.env.DB_HOST || process.env.PGHOST || '127.0.0.1';
+const DB_PORT = parseInt(process.env.POSTGRES_PORT || process.env.DB_PORT || process.env.PGPORT || '5432', 10);
+const DB_NAME = process.env.POSTGRES_DB || process.env.DB_NAME || process.env.PGDATABASE || 'pocketkirana';
+const DB_USER = process.env.POSTGRES_USER || process.env.DB_USER || process.env.PGUSER || 'postgres';
+const DB_PASSWORD = process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
 
 const PG_MAX_POOL_SIZE = parseInt(process.env.PG_MAX_POOL_SIZE || '20', 10);
 const PG_IDLE_TIMEOUT_MS = parseInt(process.env.PG_IDLE_TIMEOUT_MS || '30000', 10);
-const PG_CONNECTION_TIMEOUT_MS = parseInt(process.env.PG_CONNECTION_TIMEOUT_MS || '5000', 10);
+const PG_CONNECTION_TIMEOUT_MS = parseInt(
+  process.env.PG_CONNECTION_TIMEOUT_MS || (process.env.NODE_ENV === 'test' ? '1500' : '5000'),
+  10
+);
 const PG_STATEMENT_TIMEOUT_MS = parseInt(process.env.PG_STATEMENT_TIMEOUT_MS || '4000', 10);
 const PG_QUERY_TIMEOUT_MS = parseInt(process.env.PG_QUERY_TIMEOUT_MS || '4500', 10);
 
@@ -30,11 +33,11 @@ function getConnectionString(): string {
   if (process.env.DATABASE_URL) {
     return process.env.DATABASE_URL;
   }
-  const dbHost = process.env.DB_HOST || process.env.PGHOST || '127.0.0.1';
-  const dbPort = parseInt(process.env.DB_PORT || process.env.PGPORT || '5432', 10);
-  const dbName = process.env.DB_NAME || process.env.PGDATABASE || 'pocketkirana_db';
-  const dbUser = process.env.DB_USER || process.env.PGUSER || 'postgres';
-  const dbPassword = process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
+  const dbHost = process.env.POSTGRES_HOST || process.env.DB_HOST || process.env.PGHOST || '127.0.0.1';
+  const dbPort = parseInt(process.env.POSTGRES_PORT || process.env.DB_PORT || process.env.PGPORT || '5432', 10);
+  const dbName = process.env.POSTGRES_DB || process.env.DB_NAME || process.env.PGDATABASE || 'pocketkirana';
+  const dbUser = process.env.POSTGRES_USER || process.env.DB_USER || process.env.PGUSER || 'postgres';
+  const dbPassword = process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
 
   const authPart = dbPassword ? `${dbUser}:${encodeURIComponent(dbPassword)}` : dbUser;
   return `postgresql://${authPart}@${dbHost}:${dbPort}/${dbName}`;

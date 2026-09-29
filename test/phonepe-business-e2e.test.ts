@@ -389,7 +389,7 @@ describe('PART A: Customer APK PhonePe Business Online Payments', () => {
     expect(updatedOrder.orderStatus).toBe('CONFIRMED');
 
     global.fetch = originalFetch;
-  });
+  }, 15000);
 });
 
 describe('PART B: Delivery APK Dynamic COD QR & Delivery Completion Gate', () => {

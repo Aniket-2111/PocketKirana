@@ -59,6 +59,26 @@ export async function POST(request: Request) {
           const orderData = orderSnap.data();
           const txnId = `txn_sim_ph_${Date.now()}`;
 
+          // Authoritative PostgreSQL transition
+          try {
+            const { OrderService } = await import('@/lib/services/orderService');
+            await OrderService.transitionOrder({
+              orderId,
+              targetStatus: 'CONFIRMED',
+              actorId: 'sim-phonepe-verify',
+              actorRole: 'system',
+              reason: `Simulation payment verified: ${txnId}`,
+              metadata: {
+                paymentMethod: 'phonepe',
+                merchantTransactionId,
+                gatewayPaymentId: txnId,
+                amount: orderData.total,
+              },
+            });
+          } catch (pgErr: any) {
+            console.warn('[PhonePe Verify Sim] PG transition fallback:', pgErr.message);
+          }
+
           await updateDoc(orderRef, {
             paymentStatus: 'paid',
             orderStatus: 'CONFIRMED',
@@ -187,6 +207,47 @@ export async function POST(request: Request) {
       // ── 3. IDEMPOTENT DB UPDATE ──────────────────────────────────
       if (isPaid) {
         if (orderData.paymentStatus !== 'paid') {
+          // Authoritative PostgreSQL transition & payments update
+          try {
+            const { OrderService } = await import('@/lib/services/orderService');
+            await OrderService.transitionOrder({
+              orderId: resolvedOrderId,
+              targetStatus: 'CONFIRMED',
+              actorId: 'phonepe-verify-system',
+              actorRole: 'system',
+              reason: `PhonePe verified payment: ${apiJson.data.transactionId || merchantTransactionId}`,
+              metadata: {
+                paymentMethod: 'phonepe',
+                merchantTransactionId,
+                gatewayPaymentId: apiJson.data.transactionId || '',
+                amount: orderData.total,
+              },
+            });
+
+            const { queryPostgres } = await import('@/lib/postgres');
+            await queryPostgres(
+              `INSERT INTO payments (
+                 id, order_id, firebase_uid, payment_method, amount, currency,
+                 status, gateway, gateway_order_id, gateway_payment_id, paid_at
+               ) VALUES ($1, $2, $3, 'phonepe', $4, 'INR', 'completed', 'phonepe', $5, $6, NOW())
+               ON CONFLICT (id) DO UPDATE SET
+                 status = 'completed',
+                 gateway_payment_id = $6,
+                 paid_at = NOW(),
+                 updated_at = NOW()`,
+              [
+                `pay_pk_${merchantTransactionId}`,
+                resolvedOrderId,
+                orderData.customerId || '',
+                orderData.total,
+                merchantTransactionId,
+                apiJson.data.transactionId || '',
+              ]
+            );
+          } catch (pgErr: any) {
+            console.warn('[PhonePe Verify] PG transition warning:', pgErr.message);
+          }
+
           await updateDoc(orderRef, {
             paymentStatus: 'paid',
             orderStatus: 'CONFIRMED',
