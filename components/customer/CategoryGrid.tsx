@@ -38,7 +38,7 @@ export const CategoryGrid: React.FC = () => {
       {/* Categories Horizontal Row (Matching Reference Circle Icon Layout) */}
       <div
         ref={scrollRef}
-        className="flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-3 px-2 scroll-smooth snap-x"
+        className="flex items-center gap-3 sm:gap-6 overflow-x-auto scrollbar-none no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-3 px-3 scroll-smooth snap-x scroll-pl-3 scroll-pr-6"
       >
         {mainCategories.map((cat) => {
           const itemCount = (products || []).filter(
@@ -49,7 +49,7 @@ export const CategoryGrid: React.FC = () => {
             <Link
               key={cat.id}
               href={`/category/${cat.slug}`}
-              className="group flex flex-col items-center gap-1.5 shrink-0 text-center w-24 sm:w-28 transition-transform hover:-translate-y-1 snap-start"
+              className="group flex flex-col items-center gap-1.5 shrink-0 text-center w-[84px] sm:w-28 transition-transform hover:-translate-y-1 snap-start px-0.5"
             >
               {/* Rounded Squircle Image Container (Unified with Brand cards) */}
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white dark:bg-[#151B23] border border-slate-200/80 dark:border-slate-700 group-hover:border-[#075C3C] dark:group-hover:border-emerald-400 p-2 flex items-center justify-center shadow-2xs group-hover:shadow-md transition-all">
@@ -62,8 +62,8 @@ export const CategoryGrid: React.FC = () => {
                 />
               </div>
 
-              {/* Category Name */}
-              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#075C3C] dark:group-hover:text-emerald-400 leading-snug line-clamp-2 min-h-[30px] flex items-center justify-center">
+              {/* Category Name (Allow 2 clean lines without clipping) */}
+              <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#075C3C] dark:group-hover:text-emerald-400 leading-tight line-clamp-2 min-h-[28px] sm:min-h-[32px] flex items-center justify-center break-words px-0.5">
                 {cat.name}
               </span>
 

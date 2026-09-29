@@ -204,24 +204,26 @@ export default function FreeDeliveryProgressBar({
 
           {/* Texts */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap leading-tight">
+            <div className="flex items-center justify-between gap-1.5 leading-tight">
               <strong
-                className={`text-[11px] font-black tracking-tight ${
+                className={`text-xs font-black tracking-tight ${
                   isUnlocked
                     ? 'text-[#008F5A] dark:text-emerald-400'
                     : 'text-[#111827] dark:text-[#F9FAFB]'
                 }`}
               >
-                {title}
+                {isUnlocked ? '🎉 FREE DELIVERY UNLOCKED' : `₹${subtotal} / ₹${FREE_DELIVERY_THRESHOLD}`}
               </strong>
-              {isUnlocked && (
-                <span className="text-[8px] font-black uppercase px-1 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300/40 dark:border-emerald-700/40">
-                  ₹0 Delivery
+              {!isUnlocked && (
+                <span className="font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded-md">
+                  {progressPercent}%
                 </span>
               )}
             </div>
-            <p className="text-[9.5px] text-[#4B5563] dark:text-[#9CA3AF] font-semibold truncate leading-tight mt-0.5">
-              {subtitle}
+            <p className="text-[10px] text-[#4B5563] dark:text-[#9CA3AF] font-semibold truncate leading-tight mt-0.5">
+              {isUnlocked
+                ? 'Your order qualifies for ₹0 delivery fee!'
+                : `Add ₹${remainingAmount} more for FREE delivery 🎉`}
             </p>
           </div>
         </div>
@@ -235,26 +237,26 @@ export default function FreeDeliveryProgressBar({
             </div>
           ) : (
             <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-black">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             </div>
           )}
         </div>
       </div>
 
-      {/* Slim Animated Progress Bar */}
+      {/* Animated Progress Bar */}
       <div className="mt-1.5 space-y-0.5">
         <div
           role="progressbar"
           aria-valuenow={progressPercent}
           aria-valuemin={0}
           aria-valuemax={100}
-          className="w-full h-1 bg-slate-200/80 dark:bg-slate-700/60 rounded-full overflow-hidden relative"
+          className="w-full h-1.5 bg-slate-200/80 dark:bg-slate-700/60 rounded-full overflow-hidden relative shadow-inner"
         >
           <div
             style={{ width: `${progressPercent}%` }}
             className={`h-full rounded-full transition-all duration-500 ease-out ${
               isUnlocked
-                ? 'bg-gradient-to-r from-[#008F5A] via-emerald-400 to-teal-400'
+                ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400'
                 : 'bg-gradient-to-r from-emerald-600 to-[#008F5A]'
             }`}
           />

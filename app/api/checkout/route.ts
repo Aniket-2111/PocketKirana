@@ -19,6 +19,9 @@ import { getRouteAuth } from '@/lib/routeAuth';
 import { appendOutboxEvent } from '@/lib/db/outbox';
 import { getFefoRecommendation, recordInventoryEvent } from '@/lib/fefo';
 import { validateServerPricing } from '@/lib/catalogSync';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { ensurePickingTaskForOrder } from '@/lib/firebaseServices';
 
 interface CartItemInput {
   productId: string;
@@ -278,8 +281,8 @@ export async function POST(req: NextRequest) {
         `INSERT INTO orders (
           id, order_number, firebase_uid, store_id, subtotal, discount_amount,
           delivery_fee, tax_amount, total_amount, payment_method, payment_status,
-          order_status, delivery_status, notes, placed_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13, CURRENT_TIMESTAMP)`,
+          order_status, delivery_status, notes, delivery_otp, placed_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13, $14, CURRENT_TIMESTAMP)`,
         [
           orderId,
           orderNumber,
@@ -294,6 +297,7 @@ export async function POST(req: NextRequest) {
           initialPaymentStatus,
           initialOrderStatus,
           couponCode ? `Coupon: ${couponCode}` : null,
+          deliveryOtp,
         ]
       );
 
@@ -395,6 +399,7 @@ export async function POST(req: NextRequest) {
       data: {
         orderId,
         orderNumber,
+        deliveryOtp,
         total,
         paymentMethod,
         requiresPayment: paymentMethod !== 'cod',
@@ -418,6 +423,67 @@ export async function POST(req: NextRequest) {
 
     // 12. COMMIT TRANSACTION
     await client.query('COMMIT');
+
+    // 13. MIRROR ORDER TO FIRESTORE (non-blocking)
+    // Required so that POST /api/payments/phonepe/create can find the order
+    // via doc(db, 'orders', orderId). The outbox worker also projects this
+    // eventually, but this direct write ensures immediate availability.
+    const firestoreOrderDoc = {
+      id: orderId,
+      orderNumber,
+      customerId,
+      customerName,
+      customerPhone,
+      storeId,
+      subtotal,
+      discount,
+      deliveryFee,
+      tax,
+      total,
+      paymentMethod,
+      paymentStatus: initialPaymentStatus,
+      orderStatus: initialOrderStatus,
+      deliveryOtp,
+      placedAt: outboxPayload.placedAt,
+      items: validatedItems.map((it) => ({
+        productId: it.productId,
+        productName: it.productName,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        totalPrice: it.totalPrice,
+        sku: it.sku,
+        imageUrl: it.imageUrl,
+      })),
+      address: address || null,
+    };
+
+    if (isFirebaseConfigured() && db) {
+      setDoc(doc(db, 'orders', orderId), firestoreOrderDoc)
+        .then(() => {
+          // 14. TRIGGER PICKER QUEUE FOR COD ORDERS
+          // PhonePe/Razorpay orders are triggered after payment confirmation
+          // (webhook/verify routes). COD orders are CONFIRMED immediately so
+          // we must trigger the picker queue here.
+          if (paymentMethod === 'cod') {
+            const orderForPicker = {
+              ...firestoreOrderDoc,
+              items: validatedItems.map((it) => ({
+                productId: it.productId,
+                productName: it.productName,
+                quantity: it.quantity,
+                unitPrice: it.unitPrice,
+                totalPrice: it.totalPrice,
+                sku: it.sku,
+                imageUrl: it.imageUrl,
+              })),
+            };
+            return ensurePickingTaskForOrder(orderId, orderForPicker as any);
+          }
+        })
+        .catch((fsErr: Error) => {
+          console.warn('[Checkout Firestore Mirror Warning]', fsErr.message);
+        });
+    }
 
     return NextResponse.json(responsePayload, { status: 200 });
   } catch (error: any) {

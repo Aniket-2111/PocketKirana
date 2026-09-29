@@ -63,8 +63,8 @@ export default function CustomerProfile() {
 
   const handleShareApp = async () => {
     const shareData = {
-      title: 'Pocket Kirana - 10-Min Grocery Delivery',
-      text: 'Order groceries and daily essentials in 10 minutes with Pocket Kirana!',
+      title: 'Pocket Kirana - 30-Min Grocery Delivery',
+      text: 'Order groceries and daily essentials in 30 minutes with Pocket Kirana!',
       url: window.location.origin || 'https://pocketkirana.in'
     };
 
@@ -534,7 +534,7 @@ export default function CustomerProfile() {
                   <h3 className="text-base font-black text-[#111827] dark:text-[#F9FAFB]">
                     Need Help?
                   </h3>
-                  <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">10-Min Fast Support</span>
+                  <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">Express Fast Support</span>
                 </div>
               </div>
               <button

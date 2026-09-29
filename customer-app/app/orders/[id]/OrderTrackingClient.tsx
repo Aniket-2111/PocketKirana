@@ -137,9 +137,21 @@ export default function OrderTrackingClient() {
 
   const showLiveTracking = !isDelivered || activeTab === 'track';
 
-  // Partner info
-  const partnerName = order?.partnerName || (order as any)?.assignedPartnerName || 'Sunil Kumar (Express Agent)';
-  const partnerPhone = order?.partnerPhone || '+918698893348';
+  // Partner info & assignment verification
+  const explicitPartnerName = order?.partnerName || (order as any)?.assignedPartnerName || (order as any)?.deliveryPartnerName || (order as any)?.driverName;
+  const isExplicitlyAssigned = Boolean(
+    (order as any)?.deliveryPartnerId ||
+    (order as any)?.assignedPartnerId ||
+    (order as any)?.partnerId ||
+    explicitPartnerName
+  );
+  // Show rider card ONLY if explicitly assigned or in out_for_delivery/delivered states with partner details
+  const shouldShowRiderCard = Boolean(
+    (isOutForDelivery || isPartnerAssigned || isDelivered) &&
+    (isExplicitlyAssigned || explicitPartnerName)
+  );
+  const partnerName = explicitPartnerName || 'Express Partner';
+  const partnerPhone = order?.partnerPhone || (order as any)?.driverPhone || '+918698893348';
 
   // Format delivery time for header
   const deliveryHeadline = useMemo(() => {
@@ -332,366 +344,229 @@ export default function OrderTrackingClient() {
     <div className="min-h-screen bg-white dark:bg-[#0B0F14] text-[#111827] dark:text-[#F9FAFB] flex flex-col font-sans transition-colors duration-200">
       
       {/* ── TOP APP BAR ── */}
-      <div className="sticky top-0 z-30 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-b border-[#E5E7EB] dark:border-[#263241] px-4 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-b border-[#E5E7EB] dark:border-[#263241] px-4 py-2.5 flex items-center justify-between min-h-[56px] box-border">
         <button
           type="button"
           onClick={() => router.push('/orders')}
-          className="w-9 h-9 rounded-full bg-slate-100 dark:bg-[#1B2430] hover:bg-slate-200 dark:hover:bg-[#263241] text-slate-700 dark:text-[#D1D5DB] flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Back"
+          className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-slate-100 dark:bg-[#1B2430] hover:bg-slate-200 dark:hover:bg-[#263241] text-slate-700 dark:text-[#D1D5DB] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+          aria-label="Back to Orders"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        <span className="text-xs font-bold text-slate-500 dark:text-[#9CA3AF] uppercase tracking-wider">
-          Order #{order.orderNumber || order.id}
-        </span>
+        <div className="flex-1 min-w-0 px-2 text-center">
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 tracking-tight truncate block">
+            Order #{order.orderNumber || order.id}
+          </span>
+        </div>
 
         <button
           type="button"
           onClick={() => setShowSupportModal(true)}
-          className="w-9 h-9 rounded-full bg-slate-100 dark:bg-[#1B2430] hover:bg-slate-200 dark:hover:bg-[#263241] text-slate-700 dark:text-[#D1D5DB] flex items-center justify-center transition-colors cursor-pointer"
+          className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-slate-100 dark:bg-[#1B2430] hover:bg-slate-200 dark:hover:bg-[#263241] text-slate-700 dark:text-[#D1D5DB] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+          aria-label="Customer Support"
           title="Support"
         >
-          <MessageSquare className="w-4 h-4" />
+          <MessageSquare className="w-4.5 h-4.5" />
         </button>
-      </div>
+      </header>
 
       {/* ════════════════════════════════════════════════════════════════
           CASE A: LIVE TRACKING EXPERIENCE (TRACK ORDER VIEW)
          ════════════════════════════════════════════════════════════════ */}
       {showLiveTracking ? (
-        <div className="flex-1 max-w-lg w-full mx-auto px-4 pt-4 pb-20 space-y-4">
+        <div className="flex-1 max-w-lg w-full mx-auto px-4 pt-3.5 pb-20 space-y-3.5 box-border overflow-x-hidden">
           
-          {/* 1. TOP PROMINENT DELIVERY OTP CARD (Centered / Large Size) */}
+          {/* 1. REFINED DELIVERY VERIFICATION PIN CARD (Compact, Premium, Explicit) */}
           {!isDelivered && (
-            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 border border-emerald-500/40 rounded-3xl p-4.5 shadow-lg space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-amber-300" />
-                  <span className="text-xs font-black text-white uppercase tracking-wider">
-                    Delivery Verification PIN
+            <div className="bg-emerald-50/70 dark:bg-[#13221B] border border-emerald-200/80 dark:border-emerald-800/50 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+                    Your Delivery PIN
                   </span>
                 </div>
-                <span className="text-[10px] font-black uppercase text-amber-300 bg-black/40 px-2 py-0.5 rounded-full border border-amber-300/30">
-                  Share at Doorstep
+                <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100/90 dark:bg-emerald-950/90 px-2 py-0.5 rounded-full border border-emerald-300/60 dark:border-emerald-700/50">
+                  Doorstep Verification
                 </span>
               </div>
 
-              {/* Large Centered 4-Digit OTP PIN */}
-              <div className="flex items-center justify-center gap-2.5 py-1">
+              {/* 4-Digit OTP PIN Boxes */}
+              <div className="flex items-center justify-center gap-2.5 py-0.5">
                 {deliveryOtp.split('').map((digit, i) => (
                   <span
                     key={i}
-                    className="w-12 h-14 rounded-2xl bg-black/50 border border-white/30 flex items-center justify-center text-3xl font-black font-mono text-white shadow-md"
+                    className="w-11 h-12 rounded-xl bg-white dark:bg-[#1A2821] border border-emerald-300/80 dark:border-emerald-700/70 flex items-center justify-center text-2xl font-black font-mono text-emerald-800 dark:text-emerald-300 shadow-xs"
                   >
                     {digit}
                   </span>
                 ))}
               </div>
 
-              <p className="text-[11px] text-center text-emerald-100 font-medium">
-                Give this 4-digit code to the delivery rider upon arrival
+              <p className="text-[11px] text-center text-slate-600 dark:text-slate-300 font-medium">
+                Share this PIN only when your order arrives.
               </p>
             </div>
           )}
 
-          {/* 2. Live Tracking Status Banner */}
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/90 dark:to-[#111827] border border-emerald-200 dark:border-[#263241] rounded-3xl p-4.5 space-y-1.5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
-                isOutForDelivery 
-                  ? 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/60 dark:text-purple-300 dark:border-purple-500/40' 
-                  : isPacked
-                  ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-500/40'
-                  : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-300 dark:border-emerald-500/40'
-              }`}>
-                {isOutForDelivery ? '● Live Rider GPS Active' : isPacked ? '● Packed & Ready for Pickup' : '● Store Hub Fulfilling'}
-              </span>
-              <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 font-bold">
-                30 Min Express
-              </span>
-            </div>
-            <h1 className="text-lg font-black text-[#111827] dark:text-[#F9FAFB] flex items-center gap-2 pt-0.5">
-              <Truck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-              {isDelivered
-                ? 'Order Delivered!'
-                : isOutForDelivery
-                ? 'Out for Delivery!'
-                : isPartnerAssigned
-                ? `Assigned to ${partnerName}`
-                : isPacked
-                ? 'Order Packed • Ready for Express Delivery'
-                : 'Order Confirmed • Packing'}
-            </h1>
-            <p className="text-xs text-slate-600 dark:text-[#D1D5DB] font-medium">
-              {isDelivered
-                ? 'Your express grocery order has been delivered.'
-                : isOutForDelivery
-                ? 'Your express delivery partner is on the way.'
-                : isPartnerAssigned
-                ? `${partnerName} is arriving at Store Hub for parcel pickup.`
-                : isPacked
-                ? 'Your items have been safely packed and are ready for rider handover.'
-                : 'PocketKirana store hub is gathering and packing your items.'}
-            </p>
-
-            {isDelivered && (
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('summary')}
-                  className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/40 px-3 py-1 rounded-xl cursor-pointer"
-                >
-                  View Order Summary &rarr;
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* 3. CONDITIONAL: IF OUT FOR DELIVERY OR DELIVERED, SHOW LIVE GPS MAP; OTHERWISE SHOW ORDER FULFILLMENT PROCESS */}
-          {isOutForDelivery || isDelivered ? (
-            /* Interactive Live Tracking Map */
-            <div className="rounded-3xl overflow-hidden border border-[#E5E7EB] dark:border-[#263241] bg-white dark:bg-[#151B23] p-1 shadow-xs">
-              <div className="w-full h-64 rounded-2xl overflow-hidden">
-                <LiveTrackingMap orderId={order.id} />
-              </div>
-            </div>
-          ) : (
-            /* Store Hub Order Fulfillment Process (In Place of Map) */
-            <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl p-5 space-y-4 shadow-xs">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#263241] pb-3">
-                <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-                  <h3 className="text-xs font-black text-[#111827] dark:text-[#F9FAFB] uppercase tracking-wider">
-                    Store Hub Fulfillment
-                  </h3>
-                </div>
-                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-500/20 animate-pulse">
-                  In Progress
+          {/* 2. PRIMARY STATUS SURFACE & UNIFIED PROGRESSION TIMELINE */}
+          <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl p-4.5 space-y-4 shadow-xs">
+            {/* Status Header & Delivery Promise */}
+            <div className="space-y-1.5 border-b border-slate-100 dark:border-[#263241] pb-3.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
+                  isOutForDelivery 
+                    ? 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/60 dark:text-purple-300 dark:border-purple-500/40' 
+                    : isPacked
+                    ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-500/40'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-300 dark:border-emerald-500/40'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-ping" />
+                  {isDelivered 
+                    ? 'Delivered' 
+                    : isOutForDelivery 
+                    ? 'Out for Delivery' 
+                    : isPacked 
+                    ? 'Ready for Delivery' 
+                    : 'Preparing Your Order'}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                  ⚡ Delivery in 30 mins
                 </span>
               </div>
 
-              <div className="space-y-3">
-                <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                    ✓
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-[#111827] dark:text-[#F9FAFB]">1. Order Verified & Items Reserved</h4>
-                    <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF] mt-0.5">Stock reserved from fresh inventory at Store Hub.</p>
-                  </div>
-                </div>
+              <h1 className="text-lg font-black text-[#111827] dark:text-[#F9FAFB] flex items-center gap-2 pt-0.5 tracking-tight">
+                <Truck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                {isDelivered
+                  ? 'Order Delivered!'
+                  : isOutForDelivery
+                  ? 'Out for Delivery!'
+                  : (isPartnerAssigned && shouldShowRiderCard)
+                  ? `Assigned to ${partnerName}`
+                  : isPacked
+                  ? 'Order Packed & Ready'
+                  : 'Preparing your order'}
+              </h1>
 
-                {/* Step 2 */}
-                <div className={`p-3 rounded-2xl border flex items-start gap-3 transition-all ${
-                  isPacked || isDelivered
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30'
-                    : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-500/40'
-                }`}>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    isPacked || isDelivered
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-amber-500 text-white animate-spin'
-                  }`}>
-                    {isPacked || isDelivered ? '✓' : <Loader2 className="w-3.5 h-3.5" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <h4 className={`text-xs font-bold ${isPacked || isDelivered ? 'text-[#111827] dark:text-[#F9FAFB]' : 'text-amber-900 dark:text-amber-300'}`}>
-                        2. Picking & Fresh Packaging
-                      </h4>
-                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
-                        isPacked || isDelivered
-                          ? 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/60 dark:text-emerald-300'
-                          : 'text-amber-800 bg-amber-200/80 dark:bg-amber-900/60 dark:text-amber-300 animate-pulse'
-                      }`}>
-                        {isPacked || isDelivered ? 'Completed' : 'Packing Now'}
-                      </span>
-                    </div>
-                    <p className={`text-[10px] mt-0.5 ${isPacked || isDelivered ? 'text-slate-500 dark:text-[#9CA3AF]' : 'text-amber-800/80 dark:text-amber-200/80'}`}>
-                      {isPacked || isDelivered
-                        ? 'All fresh items picked, expiry dates verified, and packed in sealed tamper-evident bag.'
-                        : 'Hand-picking fresh items and sealing into tamper-evident bags.'}
-                    </p>
-                  </div>
-                </div>
+              <p className="text-xs text-slate-600 dark:text-[#D1D5DB] font-medium leading-relaxed">
+                {isDelivered
+                  ? 'Your express grocery order has been delivered.'
+                  : isOutForDelivery
+                  ? `${partnerName} is heading to your doorstep with your groceries.`
+                  : (isPartnerAssigned && shouldShowRiderCard)
+                  ? `${partnerName} is heading to pick up your order.`
+                  : isPacked
+                  ? 'Your items have been safely packed and are ready for rider handover.'
+                  : 'PocketKirana is picking and packing your groceries.'}
+              </p>
 
-                {/* Step 3 */}
-                <div className={`p-3 rounded-2xl border flex items-start gap-3 transition-all ${
-                  isPickedUp || isOutForDelivery || isDelivered
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-500/30'
-                    : isPartnerAssigned || isPacked
-                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-500/40'
-                    : 'bg-slate-50 dark:bg-[#111827] border-[#E5E7EB] dark:border-[#263241]'
-                }`}>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    isPickedUp || isOutForDelivery || isDelivered
-                      ? 'bg-emerald-500 text-white'
-                      : isPartnerAssigned || isPacked
-                      ? 'bg-amber-500 text-white animate-spin'
-                      : 'bg-slate-200 dark:bg-[#1B2430] text-slate-600 dark:text-[#9CA3AF]'
-                  }`}>
-                    {isPickedUp || isOutForDelivery || isDelivered ? (
-                      '✓'
-                    ) : isPartnerAssigned || isPacked ? (
-                      <Loader2 className="w-3.5 h-3.5" />
-                    ) : (
-                      '3'
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <h4 className={`text-xs font-bold ${
-                        isPickedUp || isOutForDelivery || isDelivered
-                          ? 'text-[#111827] dark:text-[#F9FAFB]'
-                          : isPartnerAssigned || isPacked
-                          ? 'text-amber-900 dark:text-amber-300'
-                          : 'text-slate-700 dark:text-[#D1D5DB]'
-                      }`}>
-                        3. Express Rider Handover
-                      </h4>
-                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
-                        isPickedUp || isOutForDelivery || isDelivered
-                          ? 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/60 dark:text-emerald-300'
-                          : isPartnerAssigned
-                          ? 'text-amber-800 bg-amber-200/80 dark:bg-amber-900/60 dark:text-amber-300 animate-pulse'
-                          : isPacked
-                          ? 'text-amber-800 bg-amber-200/80 dark:bg-amber-900/60 dark:text-amber-300 animate-pulse'
-                          : 'text-slate-500 bg-slate-200 dark:bg-[#1F2937]'
-                      }`}>
-                        {isPickedUp || isOutForDelivery || isDelivered
-                          ? 'Completed'
-                          : isPartnerAssigned
-                          ? 'Rider Assigned'
-                          : isPacked
-                          ? 'Ready for Pickup'
-                          : 'Upcoming'}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF] mt-0.5">
-                      {isPickedUp || isOutForDelivery || isDelivered
-                        ? `Assigned partner (${partnerName}) collected package at hub counter.`
-                        : isPartnerAssigned
-                        ? `Assigned partner (${partnerName}) is heading to Store Hub for package pickup.`
-                        : isPacked
-                        ? 'Order is packed and waiting at pickup counter for express rider handover.'
-                        : `Assigned partner (${partnerName}) collects package at hub counter.`}
-                    </p>
-                  </div>
+              {isDelivered && (
+                <div className="pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('summary')}
+                    className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/40 px-3 py-1 rounded-xl cursor-pointer"
+                  >
+                    View Order Summary &rarr;
+                  </button>
                 </div>
-
-                {/* Step 4 */}
-                <div className={`p-3 rounded-2xl border flex items-start gap-3 transition-all ${
-                  isOutForDelivery || isDelivered
-                    ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-500/30'
-                    : 'bg-slate-50 dark:bg-[#111827] border-[#E5E7EB] dark:border-[#263241]'
-                }`}>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    isOutForDelivery || isDelivered
-                      ? 'bg-purple-600 text-white animate-pulse'
-                      : 'bg-slate-200 dark:bg-[#1B2430] text-slate-600 dark:text-[#9CA3AF]'
-                  }`}>
-                    {isDelivered ? '✓' : isOutForDelivery ? '●' : '4'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <h4 className={`text-xs font-bold ${isOutForDelivery || isDelivered ? 'text-purple-950 dark:text-purple-300' : 'text-slate-700 dark:text-[#D1D5DB]'}`}>
-                        4. Live GPS Map Tracking
-                      </h4>
-                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
-                        isDelivered
-                          ? 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/60 dark:text-emerald-300'
-                          : isOutForDelivery
-                          ? 'text-purple-800 bg-purple-200/80 dark:bg-purple-900/60 dark:text-purple-300 animate-pulse'
-                          : 'text-slate-500 bg-slate-200 dark:bg-[#1F2937]'
-                      }`}>
-                        {isDelivered ? 'Delivered' : isOutForDelivery ? 'Active Now' : 'Auto-activates'}
-                      </span>
-                    </div>
-                    <p className={`text-[10px] mt-0.5 ${isOutForDelivery || isDelivered ? 'text-purple-900 dark:text-purple-200' : 'text-slate-500 dark:text-[#9CA3AF]'}`}>
-                      {isDelivered
-                        ? 'Order successfully delivered to your doorstep.'
-                        : isOutForDelivery
-                        ? 'Live GPS navigation is active! Rider is currently en route to your address.'
-                        : 'Live Map navigation will automatically activate once rider departs!'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Stepper Timeline */}
-          <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl p-5 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#263241] pb-2.5">
-              <h3 className="text-xs font-black text-[#111827] dark:text-[#F9FAFB] uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Order Status
-              </h3>
-              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-500/20 animate-pulse">
-                Live Sync
-              </span>
+              )}
             </div>
 
-            <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-emerald-500/40">
+            {/* Visual Order Progression */}
+            <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-[#263241]">
               
-              {/* Step 1: Placed */}
+              {/* Step 1: Confirmed */}
               <div className="relative flex items-start gap-3">
-                <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold ring-4 ring-emerald-500/20">
+                <div className="absolute -left-6 top-0.5 w-4.5 h-4.5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold ring-4 ring-emerald-500/20">
                   ✓
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-[#111827] dark:text-[#F9FAFB]">Order Confirmed</h4>
-                  <span className="text-[10px] text-slate-500 dark:text-[#9CA3AF] block mt-0.5">{placedDateFormatted}</span>
+                  <h4 className="text-xs font-bold text-[#111827] dark:text-[#F9FAFB]">
+                    Order confirmed
+                  </h4>
+                  <span className="text-[10px] text-slate-500 dark:text-[#9CA3AF] block mt-0.5">
+                    {placedDateFormatted}
+                  </span>
                 </div>
               </div>
 
-              {/* Step 2: Packed */}
+              {/* Step 2: Packing */}
               <div className="relative flex items-start gap-3">
-                <div className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ring-4 transition-colors ${
-                  isPacked || isDelivered ? 'bg-emerald-500 text-white ring-emerald-500/20' : 'bg-emerald-600 text-white animate-pulse'
+                <div className={`absolute -left-6 top-0.5 w-4.5 h-4.5 rounded-full flex items-center justify-center text-[10px] font-bold ring-4 transition-colors ${
+                  isPacked || isDelivered 
+                    ? 'bg-emerald-500 text-white ring-emerald-500/20' 
+                    : 'bg-emerald-600 text-white ring-emerald-500/30 animate-pulse'
                 }`}>
-                  {isPacked || isDelivered ? '✓' : '2'}
+                  {isPacked || isDelivered ? '✓' : '●'}
                 </div>
                 <div>
-                  <h4 className={`text-xs font-bold ${isPacked || isDelivered ? 'text-[#111827] dark:text-[#F9FAFB]' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                    Prepared & Packed
+                  <h4 className={`text-xs font-bold ${
+                    !isPacked && !isDelivered
+                      ? 'text-emerald-700 dark:text-emerald-400 font-extrabold'
+                      : 'text-[#111827] dark:text-[#F9FAFB]'
+                  }`}>
+                    Packing your groceries
                   </h4>
-                  <span className={`text-[10px] block mt-0.5 ${isPacked || isDelivered ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-[#9CA3AF]'}`}>
-                    {isPacked || isDelivered ? 'Packed at Store Hub' : 'Preparing and verifying items'}
-                  </span>
+                  <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF] mt-0.5 leading-tight">
+                    {isPacked || isDelivered 
+                      ? 'Freshly picked, verified & packed' 
+                      : 'PocketKirana is picking and packing your items.'}
+                  </p>
                 </div>
               </div>
 
               {/* Step 3: Out for Delivery */}
               <div className="relative flex items-start gap-3">
-                <div className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ring-4 transition-colors ${
-                  isOutForDelivery || isDelivered ? 'bg-emerald-500 text-white ring-emerald-500/20' : 'bg-slate-200 dark:bg-[#1B2430] text-slate-500 dark:text-[#9CA3AF] ring-slate-100 dark:ring-[#111827]'
+                <div className={`absolute -left-6 top-0.5 w-4.5 h-4.5 rounded-full flex items-center justify-center text-[10px] font-bold ring-4 transition-colors ${
+                  isDelivered 
+                    ? 'bg-emerald-500 text-white ring-emerald-500/20' 
+                    : isOutForDelivery 
+                    ? 'bg-purple-600 text-white ring-purple-500/30 animate-pulse' 
+                    : 'bg-slate-200 dark:bg-[#1B2430] text-slate-400 dark:text-[#6B7280] ring-slate-100 dark:ring-[#111827]'
                 }`}>
-                  {isOutForDelivery || isDelivered ? '✓' : '3'}
+                  {isDelivered ? '✓' : isOutForDelivery ? '●' : '○'}
                 </div>
                 <div>
-                  <h4 className={`text-xs font-bold ${isOutForDelivery || isDelivered ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-[#6B7280]'}`}>
-                    Out for Delivery
+                  <h4 className={`text-xs font-bold ${
+                    isOutForDelivery 
+                      ? 'text-purple-700 dark:text-purple-400 font-extrabold' 
+                      : isDelivered 
+                      ? 'text-[#111827] dark:text-[#F9FAFB]' 
+                      : 'text-slate-400 dark:text-[#6B7280]'
+                  }`}>
+                    Out for delivery
                   </h4>
-                  <p className={`text-[10px] block mt-0.5 ${isOutForDelivery || isDelivered ? 'text-slate-600 dark:text-[#D1D5DB]' : 'text-slate-400 dark:text-[#6B7280]'}`}>
-                    {isDelivered ? 'Rider reached destination' : isOutForDelivery ? `${partnerName} is en route` : 'Awaiting rider pickup'}
+                  <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF] mt-0.5 leading-tight">
+                    {isDelivered 
+                      ? 'Arrived at your doorstep' 
+                      : isOutForDelivery 
+                      ? `${partnerName} is on the way` 
+                      : 'Express rider assigns once packed'}
                   </p>
                 </div>
               </div>
 
               {/* Step 4: Delivered */}
               <div className="relative flex items-start gap-3">
-                <div className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                  isDelivered ? 'bg-emerald-500 text-white ring-4 ring-emerald-500/20' : 'bg-slate-200 dark:bg-[#1B2430] text-slate-500 dark:text-[#9CA3AF] ring-4 ring-slate-100 dark:ring-[#111827]'
+                <div className={`absolute -left-6 top-0.5 w-4.5 h-4.5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  isDelivered 
+                    ? 'bg-emerald-500 text-white ring-4 ring-emerald-500/20' 
+                    : 'bg-slate-200 dark:bg-[#1B2430] text-slate-400 dark:text-[#6B7280] ring-4 ring-slate-100 dark:ring-[#111827]'
                 }`}>
-                  {isDelivered ? '✓' : '4'}
+                  {isDelivered ? '✓' : '○'}
                 </div>
                 <div>
-                  <h4 className={`text-xs font-bold ${isDelivered ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-[#6B7280]'}`}>
-                    Doorstep Delivery
+                  <h4 className={`text-xs font-bold ${
+                    isDelivered 
+                      ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' 
+                      : 'text-slate-400 dark:text-[#6B7280]'
+                  }`}>
+                    Delivered
                   </h4>
                   <span className="text-[10px] text-slate-500 dark:text-[#9CA3AF] block mt-0.5">
-                    {isDelivered ? 'Delivered successfully' : 'Within 30 mins Express'}
+                    {isDelivered ? 'Order completed successfully' : 'Within 30 mins Express'}
                   </span>
                 </div>
               </div>
@@ -699,31 +574,42 @@ export default function OrderTrackingClient() {
             </div>
           </div>
 
-          {/* Delivery Partner Driver Card */}
-          <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl p-4 flex items-center justify-between gap-3 shadow-xs">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <Bike className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <h4 className="font-bold text-xs text-[#111827] dark:text-[#F9FAFB] truncate">
-                  {partnerName}
-                </h4>
-                <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF] flex items-center gap-1 mt-0.5">
-                  <span>Express Partner</span>
-                  <span className="text-amber-500 font-bold">⭐ 4.9</span>
-                </p>
+          {/* 3. CONDITIONAL LIVE GPS MAP (Shown when out for delivery or delivered) */}
+          {(isOutForDelivery || isDelivered) && (
+            <div className="rounded-3xl overflow-hidden border border-[#E5E7EB] dark:border-[#263241] bg-white dark:bg-[#151B23] p-1 shadow-xs">
+              <div className="w-full h-64 rounded-2xl overflow-hidden">
+                <LiveTrackingMap orderId={order.id} />
               </div>
             </div>
+          )}
 
-            <a
-              href={`tel:${partnerPhone}`}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shrink-0 cursor-pointer"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>Call</span>
-            </a>
-          </div>
+          {/* Delivery Partner Driver Card (Shown only when rider is actively assigned) */}
+          {shouldShowRiderCard && (
+            <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl p-4 flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Bike className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-xs text-[#111827] dark:text-[#F9FAFB] truncate">
+                    {partnerName}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF] flex items-center gap-1 mt-0.5">
+                    <span>Express Partner</span>
+                    <span className="text-amber-500 font-bold">⭐ 4.9</span>
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href={`tel:${partnerPhone}`}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shrink-0 cursor-pointer"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call</span>
+              </a>
+            </div>
+          )}
 
           {/* Deliver To */}
           <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl p-4 space-y-1.5 shadow-xs">

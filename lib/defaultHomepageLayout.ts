@@ -4,7 +4,7 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionConfig[] = [
   {
     id: 'sec-hero-main',
     type: 'Hero',
-    title: 'Groceries delivered in 10 minutes',
+    title: 'Groceries delivered in 30 minutes',
     subtitle: 'Fresh farm produce, pantry essentials, dairy & festive treats at everyday low prices',
     badge: '⚡ LIGHTNING FAST',
     ctaText: 'SHOP NOW',

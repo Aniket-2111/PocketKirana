@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { ArrowLeft, ChevronDown, ShieldCheck, Loader2, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
@@ -32,8 +32,10 @@ const COLLAGE_ITEMS = [
   ],
 ];
 
-export default function CustomerLoginPage() {
+function CustomerLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirect') || '/home';
   const { verifyMsg91Token, sendOtp, verifyOtp, setPhoneInput, logout } = useAppStore();
 
   const [phone, setPhone] = useState('');
@@ -116,7 +118,7 @@ export default function CustomerLoginPage() {
 
       console.log('[AUTH] LOGIN_COMPLETE');
       showToast('Login successful! Welcome to Pocket Kirana 🎉', 'success');
-      router.replace('/home');
+      router.replace(redirectTo);
     } catch (err: any) {
       console.warn('[AUTH] Verification error:', err);
       if (err?.message === 'TIMEOUT') {
@@ -560,6 +562,20 @@ export default function CustomerLoginPage() {
       </div>
 
     </div>
+  );
+}
+
+export default function CustomerLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0e1217] flex items-center justify-center p-4">
+          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+        </div>
+      }
+    >
+      <CustomerLoginForm />
+    </Suspense>
   );
 }
 

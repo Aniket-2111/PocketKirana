@@ -71,3 +71,5 @@ Desktop.ini
 # Ad-hoc test screenshots
 exec_screen.png
 physical_device_screen.png
+screen_*.png
+physical_*.png

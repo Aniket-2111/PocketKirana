@@ -38,6 +38,7 @@ export default function CartPage() {
     coupons = [],
     addresses,
     setDefaultAddress,
+    isLoggedIn,
   } = useAppStore();
 
   const [couponCode, setCouponCode] = useState('');
@@ -134,7 +135,7 @@ export default function CartPage() {
             </h3>
             <button
               onClick={() => clearCart()}
-              className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+              className="inline-flex min-h-11 items-center gap-1 rounded-xl px-3 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20 dark:text-rose-400 dark:hover:bg-rose-950/30"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Clear</span>
@@ -166,23 +167,25 @@ export default function CartPage() {
                 </div>
 
                 {/* Quantity Controls */}
-                <div className="flex items-center gap-2 bg-slate-100 dark:bg-[#1B2430] border border-[#E5E7EB] dark:border-[#263241] rounded-xl px-2 py-1 shrink-0">
+                <div className="flex min-h-12 items-center gap-1 rounded-xl border border-[#E5E7EB] bg-slate-100 px-1 dark:border-[#263241] dark:bg-[#1B2430] shrink-0">
                   <button
+                    type="button"
                     onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
-                    className="w-5 h-5 flex items-center justify-center text-[#374151] dark:text-[#D1D5DB] hover:text-rose-600 cursor-pointer active:scale-90"
-                    aria-label="Decrease quantity"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg text-[#374151] transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/25 dark:text-[#D1D5DB] dark:hover:bg-rose-950/30"
+                    aria-label={`Remove one ${item.product?.name || 'item'} from cart`}
                   >
-                    <Minus className="w-3 h-3" />
+                    <Minus className="h-4 w-4" aria-hidden="true" />
                   </button>
-                  <span className="font-mono font-black text-xs min-w-[14px] text-center text-[#111827] dark:text-[#F9FAFB]">
+                  <span role="status" aria-label={`${item.quantity} ${item.product?.name || 'items'} in cart`} className="min-w-7 text-center font-mono text-xs font-black text-[#111827] dark:text-[#F9FAFB]">
                     {item.quantity}
                   </span>
                   <button
+                    type="button"
                     onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
-                    className="w-5 h-5 flex items-center justify-center text-[#374151] dark:text-[#D1D5DB] hover:text-[#008F5A] cursor-pointer active:scale-90"
-                    aria-label="Increase quantity"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-600 text-white transition-colors hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
+                    aria-label={`Add one ${item.product?.name || 'item'} to cart`}
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -192,69 +195,61 @@ export default function CartPage() {
 
         {/* ── 3. COUPON SECTION (COLLAPSIBLE DROPDOWN & ADMIN-ONLY COUPONS) ── */}
         <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl p-4 sm:p-5 space-y-3 shadow-xs transition-all">
-          <div 
-            onClick={() => setIsCouponDropdownOpen((prev) => !prev)}
-            className="flex items-center justify-between cursor-pointer select-none"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#008F5A] dark:text-emerald-400 shrink-0">
-                <Tag className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <h4 className="text-xs font-black uppercase tracking-wider text-[#111827] dark:text-[#F9FAFB] flex items-center gap-1.5 flex-wrap">
-                  <span>Apply Coupon</span>
-                  {(coupons || []).filter((c) => c.active !== false).length > 0 && (
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                      ({(coupons || []).filter((c) => c.active !== false).length} available)
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCouponDropdownOpen((prev) => !prev)}
+              aria-expanded={isCouponDropdownOpen}
+              aria-controls="cart-coupon-content"
+              className="flex min-h-12 min-w-0 flex-1 items-center justify-between gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/25"
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#008F5A] dark:bg-emerald-950/50 dark:text-emerald-400">
+                  <Tag className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#111827] dark:text-[#F9FAFB]">
+                    <span>Apply Coupon</span>
+                    {(coupons || []).filter((c) => c.active !== false).length > 0 && (
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                        ({(coupons || []).filter((c) => c.active !== false).length} available)
+                      </span>
+                    )}
+                  </span>
+                  {appliedCoupon ? (
+                    <span className="flex items-center gap-1 truncate text-[11px] font-bold text-[#008F5A] dark:text-emerald-400">
+                      <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{appliedCoupon.code} active (Saved ₹{discount})</span>
+                    </span>
+                  ) : (
+                    <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                      {(coupons || []).filter((c) => c.active !== false).length > 0
+                        ? 'Tap to select or enter promo code'
+                        : 'Tap to enter promo code'}
                     </span>
                   )}
-                </h4>
-                {appliedCoupon ? (
-                  <p className="text-[11px] font-bold text-[#008F5A] dark:text-emerald-400 flex items-center gap-1 truncate">
-                    <Check className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{appliedCoupon.code} active (Saved ₹{discount})</span>
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                    {(coupons || []).filter((c) => c.active !== false).length > 0
-                      ? 'Tap to select or enter promo code'
-                      : 'Tap to enter promo code'}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {appliedCoupon ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeCoupon();
-                    showToast('Coupon removed', 'info');
-                  }}
-                  className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                >
-                  Remove
-                </button>
-              ) : (
-                <span className="text-[11px] font-black text-[#008F5A] dark:text-emerald-400">
-                  {isCouponDropdownOpen ? 'Hide' : 'Select'}
                 </span>
-              )}
-              <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-[#1E2633] flex items-center justify-center text-slate-500">
-                {isCouponDropdownOpen ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
+              </span>
+
+              <span className="flex shrink-0 items-center gap-2">
+                {!appliedCoupon && (
+                  <span className="text-[11px] font-black text-[#008F5A] dark:text-emerald-400">
+                    {isCouponDropdownOpen ? 'Hide' : 'Select'}
+                  </span>
                 )}
-              </div>
-            </div>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-[#1E2633]">
+                  {isCouponDropdownOpen ? (
+                    <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                </span>
+              </span>
+            </button>
           </div>
 
           {/* ── EXPANDED DROPDOWN BODY ── */}
-          {isCouponDropdownOpen && (
-            <div className="pt-3 border-t border-slate-100 dark:border-[#263241] space-y-3 animate-in fade-in duration-200">
+            <div id="cart-coupon-content" hidden={!isCouponDropdownOpen} className="pt-3 border-t border-slate-100 dark:border-[#263241] space-y-3 animate-in fade-in duration-200">
               {/* Applied Active Coupon Card */}
               {appliedCoupon && (
                 <div className="flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 p-3 rounded-2xl text-xs">
@@ -408,7 +403,6 @@ export default function CartPage() {
                 );
               })()}
             </div>
-          )}
         </div>
 
         {/* ── 4. DELIVERY ADDRESS SECTION ── */}
@@ -506,6 +500,11 @@ export default function CartPage() {
         {/* ── 6. PROCEED TO CHECKOUT ACTION ── */}
         <button
           onClick={() => {
+            if (!isLoggedIn) {
+              showToast('Please verify your mobile number to checkout', 'info');
+              router.push('/login?redirect=/checkout');
+              return;
+            }
             if (!selectedAddress) {
               showToast('Please add or select a delivery address', 'error');
               router.push('/saved-addresses?redirect=/cart');

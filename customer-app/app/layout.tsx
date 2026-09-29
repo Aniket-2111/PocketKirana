@@ -5,8 +5,8 @@ import { RealtimeNotificationToast } from "@/components/customer/RealtimeNotific
 import { PostHogProvider } from "@/lib/analytics";
 
 export const metadata: Metadata = {
-  title: "Pocket Kirana – 10-Min Grocery Delivery",
-  description: "Order fresh groceries and get them delivered in under 10 minutes to your doorstep.",
+  title: "Pocket Kirana – 30-Min Grocery Delivery",
+  description: "Order fresh groceries and get them delivered in 30 minutes to your doorstep.",
 };
 
 export default function RootLayout({

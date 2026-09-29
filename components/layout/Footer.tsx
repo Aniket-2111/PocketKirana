@@ -63,18 +63,18 @@ export const Footer: React.FC = () => {
             <h3 className="text-xs font-black uppercase text-[#075C3C] dark:text-emerald-400 tracking-wider mb-4">
               Categories
             </h3>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+            <ul className="grid grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
               {availableCategories.map((cat) => (
                 <li key={cat.id}>
                   <Link
                     href={`/category/${cat.slug}`}
-                    className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors"
+                    className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors line-clamp-1"
                   >
                     {cat.name}
                   </Link>
                 </li>
               ))}
-              <li className="sm:col-span-2 pt-1">
+              <li className="col-span-2 pt-1">
                 <Link href="/categories" className="text-[#075C3C] dark:text-emerald-400 font-bold hover:underline inline-flex items-center gap-1">
                   View All Categories &rarr;
                 </Link>
@@ -87,9 +87,9 @@ export const Footer: React.FC = () => {
             <h3 className="text-xs font-black uppercase text-[#075C3C] dark:text-emerald-400 tracking-wider mb-4">
               About &amp; Help
             </h3>
-            <ul className="space-y-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+            <ul className="grid grid-cols-2 sm:grid-cols-1 gap-x-4 gap-y-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
               <li><Link href="/about" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">About Us</Link></li>
-              <li><Link href="/faq" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Frequently Asked Questions</Link></li>
+              <li><Link href="/faq" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">FAQ</Link></li>
               <li><Link href="/terms" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Terms of Service</Link></li>
               <li><Link href="/privacy" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Privacy Policy</Link></li>
               <li><Link href="/refund-policy" className="hover:text-[#075C3C] dark:hover:text-emerald-400 transition-colors">Shipping &amp; Returns</Link></li>

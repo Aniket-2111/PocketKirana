@@ -172,7 +172,7 @@ export const DynamicHomepageRenderer: React.FC<DynamicHomepageRendererProps> = (
             </span>
           )}
           <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
-            {section.title}
+            {section.title ? section.title.replace(/\b10\s*minutes\b/gi, '30 minutes').replace(/\b10-min\b/gi, '30-min') : section.title}
           </h1>
           {section.subtitle && (
             <p className="text-sm sm:text-base text-slate-300 font-medium leading-relaxed">
