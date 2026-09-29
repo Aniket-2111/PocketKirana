@@ -1,0 +1,24 @@
+# .coderabbit.yaml
+# PocketKirana — CodeRabbit Configuration
+# Filters noise (APKs, test files, lockfiles, images, docs) to prevent hitting the 150-file review limit.
+
+version: "2"
+reviews:
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    ignore_title_keywords: ["wip", "draft"]
+  path_filters:
+    - "!**/*.apk"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.webp"
+    - "!**/*.svg"
+    - "!**/package-lock.json"
+    - "!**/.next/**"
+    - "!**/build/**"
+    - "!**/dist/**"
+    - "!docs/**"
+    - "!test/**"
+    - "!tests/**"
