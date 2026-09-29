@@ -27,7 +27,6 @@ import {
 
 import { useAppStore } from '@/lib/store';
 import CustomerShell from '../../../components/CustomerShell';
-import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { showToast } from '@/components/ui/Toast';
 import type { Product, ProductVariant } from '@/types';
 import {
@@ -74,21 +73,7 @@ export default function ProductDetailClient() {
   }, [idOrSlug]);
 
   const allProducts = useMemo(() => {
-    const map = new Map<string, Product>();
-
-    INITIAL_PRODUCTS.forEach((product) => {
-      map.set(product.id, product);
-    });
-
-    (products || []).forEach((product) => {
-      const existing = map.get(product.id);
-      map.set(product.id, {
-        ...existing,
-        ...product,
-      });
-    });
-
-    return Array.from(map.values()).filter(
+    return (products || []).filter(
       (product) => product.status !== 'discontinued'
     );
   }, [products]);
@@ -104,7 +89,7 @@ export default function ProductDetailClient() {
     return (
       allProducts.find(
         (item) => item.id === idOrSlug || item.slug === idOrSlug
-      ) || allProducts[0]
+      ) || null
     );
   }, [allProducts, apiProduct, idOrSlug]);
 
