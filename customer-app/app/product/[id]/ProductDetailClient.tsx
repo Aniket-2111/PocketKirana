@@ -203,7 +203,7 @@ export default function ProductDetailClient() {
     setImageError(false);
   }, [product?.id]);
 
-  if (!mounted || !product) {
+  if (!mounted) {
     return (
       <CustomerShell title="Product Details" noPadding>
         <div className="min-h-screen bg-white p-4 dark:bg-[#080C10]">
@@ -212,6 +212,30 @@ export default function ProductDetailClient() {
             <div className="h-56 animate-pulse rounded-[28px] bg-slate-100 dark:bg-[#121820]" />
             <div className="h-32 animate-pulse rounded-[28px] bg-slate-100 dark:bg-[#121820]" />
           </div>
+        </div>
+      </CustomerShell>
+    );
+  }
+
+  if (!product) {
+    return (
+      <CustomerShell title="Product Not Found" hideBottomNav>
+        <div className="min-h-[70vh] bg-white dark:bg-[#0B0F14] flex flex-col items-center justify-center p-6 text-center space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+            <Package className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Product Not Found</h2>
+            <p className="text-xs text-slate-500 max-w-xs">
+              The item you are looking for is currently unavailable or may have been removed.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/categories')}
+            className="bg-[#008F5A] hover:bg-[#007044] text-white text-xs font-black px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
+          >
+            Browse Products
+          </button>
         </div>
       </CustomerShell>
     );

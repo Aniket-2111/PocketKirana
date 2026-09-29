@@ -26,7 +26,7 @@ vi.mock('../lib/postgres', () => ({
 
 const mockGetDoc = vi.fn();
 const mockUpdateDoc = vi.fn();
-const mockSetDoc = vi.fn();
+const mockSetDoc = vi.fn().mockResolvedValue(true);
 
 vi.mock('../lib/firebase', () => ({
   db: {},

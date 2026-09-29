@@ -458,8 +458,8 @@ export async function POST(req: NextRequest) {
     };
 
     if (isFirebaseConfigured() && db) {
-      setDoc(doc(db, 'orders', orderId), firestoreOrderDoc)
-        .then(() => {
+      Promise.resolve(setDoc(doc(db, 'orders', orderId), firestoreOrderDoc))
+        ?.then(() => {
           // 14. TRIGGER PICKER QUEUE FOR COD ORDERS
           // PhonePe/Razorpay orders are triggered after payment confirmation
           // (webhook/verify routes). COD orders are CONFIRMED immediately so
@@ -480,8 +480,8 @@ export async function POST(req: NextRequest) {
             return ensurePickingTaskForOrder(orderId, orderForPicker as any);
           }
         })
-        .catch((fsErr: Error) => {
-          console.warn('[Checkout Firestore Mirror Warning]', fsErr.message);
+        ?.catch((fsErr: any) => {
+          console.warn('[Checkout Firestore Mirror Warning]', fsErr?.message || fsErr);
         });
     }
 
