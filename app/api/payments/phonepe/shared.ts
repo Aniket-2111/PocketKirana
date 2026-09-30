@@ -68,6 +68,11 @@ export async function authenticateRequest(): Promise<
   if (sessionToken) {
     const user = decodeJwtPayload(sessionToken);
     if (user?.uid) return { uid: user.uid };
+    try {
+      const { getServerSession } = await import('@/lib/serverSession');
+      const session = getServerSession(sessionToken);
+      if (session?.userId) return { uid: session.userId };
+    } catch (_) {}
     if (isAuthMiddlewareEnabled()) return { error: 'Unauthorized session', status: 401 };
   } else if (isAuthMiddlewareEnabled()) {
     return { error: 'Authentication required', status: 401 };

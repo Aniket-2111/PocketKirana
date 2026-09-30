@@ -1,7 +1,7 @@
 {
-  "name": "PocketKirana – Fast 30-Min Local Grocery Delivery",
-  "short_name": "PocketKirana",
-  "description": "Get fresh groceries, dairy, snacks, and daily essentials delivered to your door in 30 minutes.",
+  "name": "PocketKirana Picker Partner",
+  "short_name": "PK Picker",
+  "description": "PocketKirana Picker Partner warehouse fulfillment, batch picking, and stock putaway portal.",
   "start_url": "/",
   "scope": "/",
   "id": "/",

@@ -45,22 +45,17 @@ Production secrets must **never** be committed to GitHub or stored in repo `.env
 
 ## 2. Idempotent PostgreSQL Provisioning & Schema Verification
 
-### Idempotent Database & Role Creation:
+### Idempotent Database & Dual-User Role Creation:
 ```bash
-# Check if role exists before creating
-sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='pocketkirana_app'" | grep -q 1 || \
-  sudo -u postgres psql -c "CREATE USER pocketkirana_app WITH ENCRYPTED PASSWORD '<STRONG_SECURE_PASSWORD>';"
-
 # Check if database exists before creating
-sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='pocketkirana'" | grep -q 1 || \
-  sudo -u postgres psql -c "CREATE DATABASE pocketkirana OWNER pocketkirana_app;"
+sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='pocketkirana_db'" | grep -q 1 || \
+  sudo -u postgres psql -c "CREATE DATABASE pocketkirana_db;"
 
-# Grant permissions idempotently
-sudo -u postgres psql -d pocketkirana <<EOF
-GRANT ALL PRIVILEGES ON DATABASE pocketkirana TO pocketkirana_app;
-ALTER DATABASE pocketkirana OWNER TO pocketkirana_app;
-GRANT ALL ON SCHEMA public TO pocketkirana_app;
-EOF
+# Provision Dual-User Security Model (pk_app_user + pk_migrator)
+# Using the parameterized provisioning script (passwords supplied securely):
+PK_APP_USER_PASSWORD="<STRONG_APP_PASSWORD>" \
+PK_MIGRATOR_PASSWORD="<STRONG_MIGRATOR_PASSWORD>" \
+node scripts/provision_db_users.js
 ```
 
 ### Migration Execution:

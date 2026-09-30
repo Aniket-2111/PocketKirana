@@ -110,7 +110,8 @@ export async function POST(request: Request) {
       return corsResponse({ success: false, error: 'Order not found' }, { status: 404 });
     }
 
-    if (orderData.customerId && orderData.customerId !== uid && uid !== 'dev-user') {
+    const isGuestOrder = Boolean(orderData.customerId && orderData.customerId.startsWith('usr-guest-'));
+    if (orderData.customerId && orderData.customerId !== uid && uid !== 'dev-user' && !isGuestOrder) {
       return corsResponse(
         { success: false, error: 'Access denied: Order ownership mismatch' },
         { status: 403 }

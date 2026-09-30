@@ -130,7 +130,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   const strictModeEnabled = process.env.NEXT_PUBLIC_AUTH_MIDDLEWARE_ENABLED === 'true';
   const isProduction = process.env.NODE_ENV === 'production';
-  const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+  const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('192.168.') || host.startsWith('10.');
 
   // Dev bypass: local, non-strict, non-production ONLY.
   const match = PROTECTED_ROUTES.find((route) => pathname.startsWith(route.prefix));

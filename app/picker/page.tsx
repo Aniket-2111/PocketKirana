@@ -15,8 +15,8 @@ export default function PickerRedirectPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center font-sans">
-      <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-4 shadow-xl">
-        <Package className="w-8 h-8" />
+      <div className="w-20 h-20 rounded-3xl overflow-hidden mb-4 shadow-xl border border-emerald-500/30 bg-white">
+        <img src="/picker-icon.png" alt="PocketKirana Picker" className="w-full h-full object-cover" />
       </div>
 
       <h1 className="text-2xl font-black tracking-tight uppercase mb-2">

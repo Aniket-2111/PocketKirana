@@ -60,8 +60,8 @@ export default function PickerLoginPage() {
 
       {/* Top Brand Hero */}
       <div className="pt-8 text-center space-y-3 max-w-sm mx-auto relative z-10">
-        <div className="w-18 h-18 rounded-3xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-xl shadow-emerald-600/20 ring-4 ring-emerald-100">
-          <Package className="w-9 h-9" />
+        <div className="w-20 h-20 rounded-3xl overflow-hidden mx-auto shadow-xl shadow-emerald-600/20 ring-4 ring-emerald-100 bg-white">
+          <img src="/logo-icon.png" alt="PocketKirana Picker" className="w-full h-full object-cover" />
         </div>
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">PocketKirana</h1>

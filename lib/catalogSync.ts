@@ -245,7 +245,54 @@ export async function validateServerPricing(
   let recalculatedSubtotal = 0;
 
   for (const item of items) {
-    const product = cache.get(item.productId);
+    let product = cache.get(item.productId);
+    if (!product) {
+      try {
+        const dbRes = await queryPostgres(
+          `SELECT id, name, slug, selling_price, mrp, stock, status, sku, barcode, description, unit
+           FROM products WHERE id = $1 OR slug = $1 LIMIT 1`,
+          [item.productId]
+        );
+        if (dbRes.rows.length > 0) {
+          const r = dbRes.rows[0];
+          const varRes = await queryPostgres(
+            `SELECT id, variant_name, selling_price, mrp, stock_quantity, sku, is_active, is_default
+             FROM product_variants WHERE product_id = $1`,
+            [r.id]
+          );
+          product = {
+            id: r.id,
+            name: r.name,
+            slug: r.slug,
+            sellingPrice: Number(r.selling_price),
+            mrp: Number(r.mrp || r.selling_price),
+            stock: Number(r.stock ?? 999),
+            status: (r.status || 'active').toLowerCase() as any,
+            publishStatus: 'PUBLISHED',
+            sku: r.sku,
+            barcode: r.barcode,
+            unit: r.unit,
+            description: r.description,
+            categoryId: 'cat-general',
+            variants: varRes.rows.map((v) => ({
+              id: v.id,
+              productId: r.id,
+              variantName: v.variant_name,
+              sellingPrice: Number(v.selling_price),
+              price: Number(v.selling_price),
+              mrp: Number(v.mrp || v.selling_price),
+              stock: Number(v.stock_quantity ?? 999),
+              stockQuantity: Number(v.stock_quantity ?? 999),
+              sku: v.sku,
+              isActive: v.is_active ?? true,
+              isDefault: v.is_default ?? false,
+            })),
+          } as Product;
+          cache.set(product.id, product);
+          if (product.slug) cache.set(product.slug, product);
+        }
+      } catch (_) {}
+    }
     const qty = Math.max(1, Number(item.quantity) || 1);
 
     if (!product) {

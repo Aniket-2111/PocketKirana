@@ -307,12 +307,13 @@ export async function POST(req: NextRequest) {
       for (const item of validatedItems) {
         await client.query(
           `INSERT INTO order_items (
-            id, order_id, product_id, product_name, sku, quantity, selling_price, total_amount
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            id, order_id, product_id, variant_id, product_name, sku, quantity, unit_price, total_price, selling_price, total_amount
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $8, $9)`,
           [
             item.id,
             orderId,
             item.productId,
+            item.variantId || null,
             item.productName,
             item.sku,
             item.quantity,

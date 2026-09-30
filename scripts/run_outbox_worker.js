@@ -15,6 +15,17 @@
 
 const { Pool } = require('pg');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+// Auto-load local environment if present
+const envLocalPath = path.resolve(__dirname, '../.env.local');
+const envPath = path.resolve(__dirname, '../.env');
+if (fs.existsSync(envLocalPath) && typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile(envLocalPath); } catch {}
+} else if (fs.existsSync(envPath) && typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile(envPath); } catch {}
+}
 
 const WORKER_ID = `worker_${process.pid}_${crypto.randomBytes(4).toString('hex')}`;
 const POLL_INTERVAL_MS = parseInt(process.env.OUTBOX_POLL_INTERVAL_MS || '2000', 10);

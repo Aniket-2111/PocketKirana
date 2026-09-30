@@ -59,6 +59,9 @@ export const PartnerAppShell: React.FC<PartnerAppShellProps> = ({
             <span className="material-symbols-outlined text-2xl">menu</span>
           </button>
 
+          <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 border border-emerald-500/30 bg-white shadow-xs">
+            <img src="/delivery-icon.png" alt="Delivery" className="w-full h-full object-cover" />
+          </div>
           <h1 className="text-lg font-bold text-[#006e2f] tracking-tight flex items-center gap-1.5">
             PocketKirana <span className="text-xs bg-[#22c55e]/15 text-[#006e2f] px-2 py-0.5 rounded-full font-semibold">Delivery</span>
           </h1>
@@ -160,9 +163,9 @@ export const PartnerAppShell: React.FC<PartnerAppShellProps> = ({
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-3">
                   <img
-                    src="/logo-icon.png"
+                    src="/delivery-icon.png"
                     alt="Pocket Kirana"
-                    className="w-12 h-12 object-contain rounded-2xl bg-white p-1.5 shadow-lg border border-slate-700"
+                    className="w-12 h-12 object-cover rounded-2xl bg-white shadow-lg border border-slate-700"
                   />
                   <div>
                     <h3 className="font-black text-sm">PocketKirana</h3>

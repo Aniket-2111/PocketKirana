@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
         1 as ping,
         (SELECT COUNT(*) FROM outbox_events WHERE status = 'pending') as pending_outbox,
         COALESCE(
-          EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) FILTER (WHERE status = 'pending'),
+          (SELECT EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) FROM outbox_events WHERE status = 'pending'),
           0
         ) as oldest_pending_age_sec
     `);
