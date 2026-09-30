@@ -62,114 +62,75 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── 2. Read server-side AuthKey ───────────────────────────────────────────
+    // ── 2. Read server-side AuthKey & Fail Closed ────────────────────────────
     const authKey = process.env.MSG91_AUTHKEY;
-
-    // Development bypass: only if AuthKey is literally not configured yet.
-    // NODE_ENV is intentionally NOT checked — always use the real key if present.
-    const isDemoMode =
-      !authKey ||
-      authKey === 'your_msg91_authkey_here';
+    if (!authKey || authKey === 'your_msg91_authkey_here') {
+      return NextResponse.json(
+        { success: false, error: 'OTP verification service unavailable' },
+        { status: 503 }
+      );
+    }
 
     let verifiedMobile: string | null = null;
+    let msg91Response: Msg91VerifyResponse;
 
-    if (isDemoMode) {
-      // ── DEV MODE: Skip MSG91 API call, extract phone from access_token claim ─
-      // MSG91 access_token is a JWT; decode the payload (no signature verification
-      // here — server-to-server verification would normally do that).
-      // This is ONLY acceptable in development/test mode.
-      try {
-        const payloadB64 = access_token.split('.')[1];
-        if (payloadB64) {
-          const decoded = JSON.parse(
-            Buffer.from(payloadB64, 'base64url').toString('utf-8')
-          );
-          verifiedMobile =
-            decoded.mobile ?? decoded.phone ?? decoded.sub ?? null;
-        }
-      } catch {
-        // If JWT decode fails, continue — we'll use a placeholder below
-      }
+    try {
+      const res = await fetch(MSG91_VERIFY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          authkey: authKey,
+        },
+        // MSG91 API requires "access-token" with a hyphen (not underscore)
+        body: JSON.stringify({ 'access-token': access_token }),
+      });
 
-      if (!verifiedMobile) {
-        // Last-resort fallback for dev testing with dummy tokens
-        verifiedMobile = `dev-${Date.now()}`;
-      }
-
-      console.warn(
-        '[verify-otp-token] Running in DEV mode — MSG91 AuthKey not configured. ' +
-        'Set MSG91_AUTHKEY in .env.local before going to production.'
+      msg91Response = (await res.json()) as Msg91VerifyResponse;
+    } catch (fetchError: any) {
+      console.error('[verify-otp-token] MSG91 API request failed:', fetchError);
+      return NextResponse.json(
+        { success: false, error: 'OTP verification service unavailable. Please try again.' },
+        { status: 503 }
       );
-    } else {
-      // ── PRODUCTION MODE: Verify token with MSG91 server-to-server API ───────
-      let msg91Response: Msg91VerifyResponse;
-
-      try {
-        const res = await fetch(MSG91_VERIFY_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            authkey: authKey,
-          },
-          // MSG91 API requires "access-token" with a hyphen (not underscore)
-          body: JSON.stringify({ 'access-token': access_token }),
-        });
-
-        msg91Response = (await res.json()) as Msg91VerifyResponse;
-      } catch (fetchError: any) {
-        console.error('[verify-otp-token] MSG91 API request failed:', fetchError);
-        return NextResponse.json(
-          { success: false, error: 'OTP verification service unavailable. Please try again.' },
-          { status: 503 }
-        );
-      }
-
-      if (msg91Response.type !== 'success') {
-        console.warn('[verify-otp-token] MSG91 rejected token:', msg91Response);
-        return NextResponse.json(
-          {
-            success: false,
-            error: msg91Response.message || 'OTP verification failed. The code may have expired.',
-          },
-          { status: 401 }
-        );
-      }
-
-      /**
-       * MSG91 verifyAccessToken response shape (confirmed from live logs):
-       *   { "type": "success", "message": "918421778740" }
-       *
-       * The mobile number is in the top-level `message` field as a digit string.
-       * We also try data.mobile as a fallback for any future API changes.
-       */
-      /**
-       * MSG91 verifyAccessToken response shape (confirmed from live logs):
-       *   { "type": "success", "message": "918421778740" }
-       *
-       * The mobile number is in the top-level `message` field as a digit string.
-       * We also try data.mobile as a fallback for any future API changes.
-       */
-      const rawMobile: string =
-        (msg91Response.data as any)?.mobile ??
-        (msg91Response.data as any)?.phone ??
-        (typeof msg91Response.message === 'string' &&
-          /^\d{10,15}$/.test(msg91Response.message.replace(/\D/g, ''))
-          ? msg91Response.message
-          : null) ??
-        (body.mobile && typeof body.mobile === 'string' ? body.mobile : '') ??
-        '';
-
-      verifiedMobile = rawMobile.replace(/\D/g, '').slice(-10) || null;
-
-      if (!verifiedMobile) {
-        console.error('[verify-otp-token] Could not extract mobile. MSG91 response:', JSON.stringify(msg91Response));
-        return NextResponse.json(
-          { success: false, error: 'Could not determine mobile number from OTP verification.' },
-          { status: 500 }
-        );
-      }
-      console.log('[AUTH] MSG91_VERIFY_SUCCESS', { phone: `+91 XXXXXX${verifiedMobile.slice(-4)}` });
     }
+
+    if (msg91Response.type !== 'success') {
+      console.warn('[verify-otp-token] MSG91 rejected token:', msg91Response);
+      return NextResponse.json(
+        {
+          success: false,
+          error: msg91Response.message || 'OTP verification failed. The code may have expired.',
+        },
+        { status: 401 }
+      );
+    }
+
+    /**
+     * MSG91 verifyAccessToken response shape (confirmed from live logs):
+     *   { "type": "success", "message": "918421778740" }
+     *
+     * The mobile number is in the top-level `message` field as a digit string.
+     * We also try data.mobile as a fallback for any future API changes.
+     */
+    const rawMobile: string =
+      (msg91Response.data as any)?.mobile ??
+      (msg91Response.data as any)?.phone ??
+      (typeof msg91Response.message === 'string' &&
+        /^\d{10,15}$/.test(msg91Response.message.replace(/\D/g, ''))
+        ? msg91Response.message
+        : null) ??
+      '';
+
+    verifiedMobile = rawMobile.replace(/\D/g, '').slice(-10) || null;
+
+    if (!verifiedMobile) {
+      console.error('[verify-otp-token] Could not extract mobile. MSG91 response:', JSON.stringify(msg91Response));
+      return NextResponse.json(
+        { success: false, error: 'Could not determine mobile number from OTP verification.' },
+        { status: 500 }
+      );
+    }
+    console.log('[AUTH] MSG91_VERIFY_SUCCESS', { phone: `+91 XXXXXX${verifiedMobile.slice(-4)}` });
 
     // ── 3. Normalise mobile to 10 digits ─────────────────────────────────────
     const cleanDigits = verifiedMobile.replace(/\D/g, '').slice(-10);
@@ -221,7 +182,6 @@ export async function POST(request: NextRequest) {
       },
       token: sessionToken,
       sessionId: sessionToken,
-      isDemoMode,
     });
 
     // Write pk_session cookie — HttpOnly, Secure in production or HTTPS, Lax SameSite

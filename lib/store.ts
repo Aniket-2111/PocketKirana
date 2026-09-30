@@ -895,23 +895,11 @@ export const useAppStore = create<AppState>()(
           showToast('SMS verification code sent to your phone!', 'success');
           return result;
         } else {
-          // Fall back to Demo UAT OTP mode ONLY in non-production local development
-          const isProd = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'production';
-          if (isProd) {
-            console.error('[Phone Auth Failure in Production]:', result.error);
-            showToast(result.error || 'Failed to send OTP. Please check your phone number.', 'error');
-            return {
-              success: false,
-              error: result.error || 'Failed to send verification SMS.'
-            };
-          }
-          console.warn('[Phone Auth Fallback] Real SMS OTP notice (Dev mode):', result.error);
-          set({ otpSent: true });
-          showToast('Dev OTP Mode Active — Enter 1234 to sign in', 'info');
-          return { 
-            success: true, 
-            isDemoFallback: true, 
-            warning: result.error 
+          console.error('[Phone Auth Failure]:', result.error);
+          showToast(result.error || 'Failed to send OTP. Please check your phone number.', 'error');
+          return {
+            success: false,
+            error: result.error || 'Failed to send verification SMS.'
           };
         }
       },
@@ -921,11 +909,7 @@ export const useAppStore = create<AppState>()(
 
         const authResult = await verifyFirebasePhoneOtp(otp);
         if (!authResult.success) {
-          const isProd = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'production';
-          // In production, NEVER allow demo OTP code bypass
-          if (isProd || (otp !== '1234' && otp !== '123456')) {
-            return false;
-          }
+          return false;
         }
 
         const inputPhone = get().phoneInput;

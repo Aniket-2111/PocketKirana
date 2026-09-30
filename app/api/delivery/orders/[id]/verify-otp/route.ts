@@ -3,13 +3,10 @@ import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { INITIAL_ORDERS } from '@/lib/mockData';
 import { getRouteAuth } from '@/lib/routeAuth';
+import { handleCorsPreflight, setCorsHeaders } from '@/lib/cors';
 
-export async function OPTIONS() {
-  const res = NextResponse.json({ status: 'ok' });
-  res.headers.set('Access-Control-Allow-Origin', '*');
-  res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-pk-role, x-pk-uid');
-  return res;
+export async function OPTIONS(request: NextRequest) {
+  return handleCorsPreflight(request);
 }
 
 // In-memory rate limiting and attempt tracker for fallback/development
@@ -19,18 +16,21 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const jsonResponse = (data: any, init?: any) =>
+    setCorsHeaders(NextResponse.json(data, init), request);
+
   try {
     // 1. Authentication Check
     const auth = getRouteAuth(request);
     if (!auth) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Unauthorized. Authentication required.' },
         { status: 401 }
       );
     }
 
     if (auth.role !== 'delivery_partner' && auth.role !== 'admin') {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Forbidden. Only delivery partners or admins can verify delivery OTP.' },
         { status: 403 }
       );
@@ -56,7 +56,7 @@ export async function POST(
       const orderRef = doc(db, 'orders', orderId);
       const orderSnap = await getDoc(orderRef);
       if (!orderSnap.exists()) {
-        return NextResponse.json(
+        return jsonResponse(
           { success: false, error: 'Order not found.' },
           { status: 404 }
         );
@@ -76,7 +76,7 @@ export async function POST(
     } else {
       const mockOrder = INITIAL_ORDERS.find((o) => o.id === orderId || o.orderNumber === orderId);
       if (!mockOrder) {
-        return NextResponse.json({ success: false, error: 'Order not found.' }, { status: 404 });
+        return jsonResponse({ success: false, error: 'Order not found.' }, { status: 404 });
       }
 
       expectedOtp = (mockOrder as any).deliveryOtp ? String((mockOrder as any).deliveryOtp).trim() : ((mockOrder as any).otp ? String((mockOrder as any).otp).trim() : null);
@@ -96,31 +96,25 @@ export async function POST(
 
     // 3. Partner Assignment Check
     if (auth.role !== 'admin' && assignedPartnerId && assignedPartnerId !== auth.uid) {
-      const response = NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Forbidden. You are not assigned to deliver this order.' },
         { status: 403 }
       );
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
     }
 
     // 4. Order Status Check
     const upperStatus = orderStatus.toUpperCase();
     if (upperStatus === 'DELIVERED' || upperStatus === 'COMPLETED') {
-      const response = NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Order has already been delivered.' },
         { status: 400 }
       );
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
     }
     if (upperStatus === 'CANCELLED') {
-      const response = NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Order has been cancelled.' },
         { status: 400 }
       );
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
     }
 
     // 5. Strict Payment & Collection Gate
@@ -130,7 +124,7 @@ export async function POST(
 
     if (isOnlinePrepaid) {
       if (paymentStatus !== 'paid' && paymentStatus !== 'completed') {
-        const response = NextResponse.json(
+        return jsonResponse(
           {
             success: false,
             error: 'Cannot verify OTP: Online payment is not confirmed.',
@@ -138,12 +132,10 @@ export async function POST(
           },
           { status: 400 }
         );
-        response.headers.set('Access-Control-Allow-Origin', '*');
-        return response;
       }
     } else if (isCodCash) {
       if (collectionStatus !== 'COLLECTED' && paymentStatus !== 'paid') {
-        const response = NextResponse.json(
+        return jsonResponse(
           {
             success: false,
             error: 'Cannot verify OTP: Cash collection must be recorded first.',
@@ -151,12 +143,10 @@ export async function POST(
           },
           { status: 400 }
         );
-        response.headers.set('Access-Control-Allow-Origin', '*');
-        return response;
       }
     } else if (isCodUpi) {
       if (paymentStatus !== 'paid' && paymentStatus !== 'completed') {
-        const response = NextResponse.json(
+        return jsonResponse(
           {
             success: false,
             error: 'Cannot verify OTP: PhonePe UPI payment is not verified by gateway.',
@@ -164,11 +154,9 @@ export async function POST(
           },
           { status: 400 }
         );
-        response.headers.set('Access-Control-Allow-Origin', '*');
-        return response;
       }
     } else if (paymentStatus !== 'paid' && collectionStatus !== 'COLLECTED') {
-      const response = NextResponse.json(
+      return jsonResponse(
         {
           success: false,
           error: 'Cannot verify OTP: Payment or COD collection is required before delivery.',
@@ -176,13 +164,11 @@ export async function POST(
         },
         { status: 400 }
       );
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
     }
 
     // 6. Check if OTP is Locked due to brute force
     if (isOtpLocked || otpAttempts >= 5) {
-      const response = NextResponse.json(
+      return jsonResponse(
         {
           success: false,
           error: 'OTP verification is locked due to 5 failed attempts. Please request an admin delivery exception.',
@@ -191,21 +177,19 @@ export async function POST(
         },
         { status: 429 }
       );
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
     }
 
     // 7. Authoritative OTP Validation
     const cleanOtp = (otp || '').toString().trim();
     if (!cleanOtp) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'Delivery OTP is required.' },
         { status: 400 }
       );
     }
 
     if (!expectedOtp) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: 'No delivery OTP configured for this order.' },
         { status: 400 }
       );
@@ -243,7 +227,7 @@ export async function POST(
         otpAttemptStore.set(orderId, { attempts: newAttempts, isLocked: willLock, lockedAt: willLock ? Date.now() : undefined });
       }
 
-      const response = NextResponse.json(
+      return jsonResponse(
         {
           success: false,
           error: willLock
@@ -254,8 +238,6 @@ export async function POST(
         },
         { status: 400 }
       );
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
     }
 
     // 8. Update order on success
@@ -271,7 +253,7 @@ export async function POST(
     }
 
     // 9. Success Response
-    const response = NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Delivery OTP verified successfully!',
       data: {
@@ -282,16 +264,11 @@ export async function POST(
         verifiedAt: new Date().toISOString(),
       },
     });
-
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   } catch (error: any) {
     console.error('[Delivery OTP Verify Error]', error);
-    const response = NextResponse.json(
+    return jsonResponse(
       { success: false, error: error.message || 'OTP verification failed' },
       { status: 500 }
     );
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   }
 }

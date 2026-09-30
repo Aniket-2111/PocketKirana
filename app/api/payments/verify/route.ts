@@ -42,7 +42,9 @@ export async function POST(request: Request) {
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest('hex');
 
-    const isVerified = generatedSignature === razorpaySignature;
+    const a = Buffer.from(generatedSignature);
+    const b = Buffer.from(razorpaySignature);
+    const isVerified = a.length === b.length && crypto.timingSafeEqual(a, b);
 
     return NextResponse.json({
       success: true,

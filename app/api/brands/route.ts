@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { requireRole } from '@/lib/routeAuth';
 import { Brand } from '@/types';
 
 export const revalidate = 30; // 30s cache
@@ -131,6 +132,13 @@ export async function GET(request: NextRequest) {
  * Create a new brand with category/subcategory associations.
  */
 export async function POST(request: NextRequest) {
+  const auth = requireRole(request, ['admin']);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to create brands' },
+      { status: 403 }
+    );
+  }
   try {
     const body = await request.json();
     const {

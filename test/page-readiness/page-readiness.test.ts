@@ -139,11 +139,11 @@ describe('PocketKirana — Production Page Readiness Suite', () => {
       expect(content).not.toContain("id: 'usr-cust-1'");
     });
 
-    it('verifies demo OTP bypass (1234/123456) is rejected when NODE_ENV is production', () => {
+    it('verifies demo OTP bypass (1234/123456) is completely removed from authentication logic', () => {
       const storePath = path.join(process.cwd(), 'lib', 'store.ts');
       const content = fs.readFileSync(storePath, 'utf8');
-      expect(content).toContain("process.env.NODE_ENV === 'production'");
-      expect(content).toContain('if (isProd || (otp !== \'1234\' && otp !== \'123456\'))');
+      expect(content).not.toContain("otp !== '1234'");
+      expect(content).not.toContain("otp !== '123456'");
     });
   });
 

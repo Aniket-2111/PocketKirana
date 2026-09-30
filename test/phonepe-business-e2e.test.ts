@@ -454,9 +454,13 @@ describe('PART B: Delivery APK Dynamic COD QR & Delivery Completion Gate', () =>
       deliveryOtp: '4341',
     });
 
-    const req = new Request('http://localhost:3000/api/delivery/orders/ord_cod_test_202/deliver', {
+    const req = new NextRequest('http://localhost:3000/api/delivery/orders/ord_cod_test_202/deliver', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-pk-uid': 'partner-alpha',
+        'x-pk-role': 'delivery_partner',
+      },
       body: JSON.stringify({
         partnerId: 'partner-alpha',
         otp: '4341',

@@ -3,13 +3,10 @@ import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { INITIAL_ORDERS } from '@/lib/mockData';
 import { getRouteAuth } from '@/lib/routeAuth';
+import { handleCorsPreflight, setCorsHeaders } from '@/lib/cors';
 
-export async function OPTIONS() {
-  const res = NextResponse.json({ status: 'ok' });
-  res.headers.set('Access-Control-Allow-Origin', '*');
-  res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-pk-role, x-pk-uid');
-  return res;
+export async function OPTIONS(req: NextRequest) {
+  return handleCorsPreflight(req);
 }
 
 export async function POST(
@@ -181,15 +178,13 @@ export async function POST(
       collectedAt: new Date().toISOString(),
     });
 
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
+    return setCorsHeaders(response, req);
   } catch (error: any) {
     console.error('[Delivery Collect Cash Error]', error);
     const response = NextResponse.json(
       { success: false, error: error.message || 'Failed to record cash payment' },
       { status: 500 }
     );
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
+    return setCorsHeaders(response, req);
   }
 }

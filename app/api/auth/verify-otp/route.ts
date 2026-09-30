@@ -21,36 +21,67 @@ export async function POST(request: Request) {
     }
 
     const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
-    let verifiedMobile = cleanPhone || '9876543210';
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return NextResponse.json(
+        { success: false, error: 'Valid 10-digit mobile number required' },
+        { status: 400 }
+      );
+    }
+    const verifiedMobile = cleanPhone;
+
+    // 1. Verify OTP with MSG91 Widget API
+    if (!MSG91_WIDGET_ID || !MSG91_TOKEN_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'OTP verification gateway is not configured.' },
+        { status: 503 }
+      );
+    }
+
     let accessToken: string | undefined = undefined;
+    let isVerified = false;
 
-    // 1. Verify OTP with MSG91 Widget API if configured
-    if (MSG91_WIDGET_ID && MSG91_TOKEN_KEY) {
-      try {
-        const widgetPayload: any = {
-          widgetId: MSG91_WIDGET_ID,
-          tokenAuth: MSG91_TOKEN_KEY,
-          otp: cleanOtp,
-        };
-        if (reqId) {
-          widgetPayload.reqId = reqId;
-        }
-
-        const widgetRes = await fetch('https://control.msg91.com/api/v5/widget/verifyOtp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(widgetPayload),
-        });
-
-        const data = await widgetRes.json();
-        console.log('[verify-otp] MSG91 verify response:', data);
-
-        if (data) {
-          accessToken = data.access_token || data.accessToken || data.jwt || data.data?.access_token || (typeof data.message === 'string' && data.message.startsWith('eyJ') ? data.message : undefined);
-        }
-      } catch (err) {
-        console.warn('[verify-otp] MSG91 widget verify error:', err);
+    try {
+      const widgetPayload: any = {
+        widgetId: MSG91_WIDGET_ID,
+        tokenAuth: MSG91_TOKEN_KEY,
+        otp: cleanOtp,
+      };
+      if (reqId) {
+        widgetPayload.reqId = reqId;
       }
+
+      const widgetRes = await fetch('https://control.msg91.com/api/v5/widget/verifyOtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(widgetPayload),
+      });
+
+      const data = await widgetRes.json();
+      console.log('[verify-otp] MSG91 verify response:', data);
+
+      if (data) {
+        accessToken = data.access_token || data.accessToken || data.jwt || data.data?.access_token || (typeof data.message === 'string' && data.message.startsWith('eyJ') ? data.message : undefined);
+        isVerified = Boolean(
+          accessToken ||
+          data.type === 'success' ||
+          data.status === 'success' ||
+          data.message === 'OTP verified success' ||
+          data.message === 'Number verified successfully'
+        );
+      }
+    } catch (err) {
+      console.warn('[verify-otp] MSG91 widget verify error:', err);
+      return NextResponse.json(
+        { success: false, error: 'Failed to verify OTP with gateway. Please try again.' },
+        { status: 502 }
+      );
+    }
+
+    if (!isVerified) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid or expired OTP code.' },
+        { status: 401 }
+      );
     }
 
     // 2. Fetch or create Firestore user

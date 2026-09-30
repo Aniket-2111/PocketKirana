@@ -39,11 +39,12 @@ export async function POST(request: Request) {
       .digest('hex');
     const expectedVerifyHeader = `${generatedHash}###${config.saltIndex}`;
 
-    if (xVerifyHeader !== expectedVerifyHeader) {
-      console.error('[PhonePe Webhook Signature Verification Failed]', {
-        received: xVerifyHeader,
-        expected: expectedVerifyHeader
-      });
+    const a = Buffer.from(xVerifyHeader);
+    const b = Buffer.from(expectedVerifyHeader);
+    const isSignatureValid = a.length === b.length && crypto.timingSafeEqual(a, b);
+
+    if (!isSignatureValid) {
+      console.error('[PhonePe Webhook Signature Verification Failed]: Signature mismatch');
       // ACK with 200 so PhonePe doesn't retry forever on tampered traffic;
       // the payment is still recovered via the client-side verify route.
       return NextResponse.json({ success: true, message: 'Invalid signature ignored' }, { status: 200 });

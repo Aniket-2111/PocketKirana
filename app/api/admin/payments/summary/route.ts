@@ -3,13 +3,10 @@ import { requireRole } from '@/lib/routeAuth';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDocs, collection } from 'firebase/firestore';
 import { INITIAL_ORDERS } from '@/lib/mockData';
+import { handleCorsPreflight } from '@/lib/cors';
 
-export async function OPTIONS() {
-  const res = NextResponse.json({ status: 'ok' });
-  res.headers.set('Access-Control-Allow-Origin', '*');
-  res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return res;
+export async function OPTIONS(req: NextRequest) {
+  return handleCorsPreflight(req);
 }
 
 export async function GET(req: NextRequest) {

@@ -16,6 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import {
   collection,
   doc,
@@ -188,10 +189,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Endpoint disabled in production.' }, { status: 403 });
   }
 
-  // Secret check: SEED_SECRET must be configured and matched
+  // Secret check: SEED_SECRET must be configured and matched using timing-safe comparison
+  const configuredSecret = process.env.SEED_SECRET;
   const secret = request.headers.get('X-Seed-Secret');
-  if (!SEED_SECRET || !secret || secret !== SEED_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized. Provide valid X-Seed-Secret header.' }, { status: 401 });
+  if (!configuredSecret || !secret) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  }
+
+  const a = Buffer.from(secret);
+  const b = Buffer.from(configuredSecret);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 
   if (!isFirebaseConfigured()) {
@@ -311,6 +319,6 @@ export async function GET() {
     return NextResponse.json({ error: 'Endpoint disabled in production.' }, { status: 403 });
   }
   return NextResponse.json({
-    message: 'PocketKirana Seeder API. Use POST with X-Seed-Secret header.',
+    message: 'PocketKirana Seeder API.',
   });
 }

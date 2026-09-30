@@ -79,13 +79,13 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        otpSent: true,
-        message: 'OTP sent to mobile number via SMS gateway',
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'SMS service unavailable. Please configure SMS gateway credentials.',
       },
-    });
+      { status: 503 }
+    );
   } catch (error: any) {
     console.error('[send-otp] Error:', error);
     return NextResponse.json(
