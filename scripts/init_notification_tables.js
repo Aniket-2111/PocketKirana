@@ -10,9 +10,19 @@
 
 const { Pool } = require('pg');
 
+const targetUser = process.env.POSTGRES_USER || process.env.DB_USER || 'postgres';
+const targetPass = process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || '';
+const targetHost = process.env.POSTGRES_HOST || process.env.DB_HOST || '127.0.0.1';
+const targetPort = process.env.POSTGRES_PORT || process.env.DB_PORT || 5432;
+const targetDb = process.env.POSTGRES_DB || process.env.DB_NAME || 'pocketkirana';
+
+const connectionString =
+  process.env.DATABASE_URL ||
+  `postgresql://${targetUser}:${encodeURIComponent(targetPass)}@${targetHost}:${targetPort}/${targetDb}`;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/pocketkirana',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString,
+  ssl: process.env.NODE_ENV === 'production' && process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
 async function migrateNotificationTables() {

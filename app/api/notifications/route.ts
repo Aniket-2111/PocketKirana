@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
     const role = searchParams.get('role') || 'customer';
-    const limit = parseInt(searchParams.get('limit') || '30', 10);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '30', 10)));
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
 
     if (!userId) {

@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDocs, collection, doc, updateDoc, setDoc } from 'firebase/firestore';
 
-export async function OPTIONS() {
-  const res = NextResponse.json({ status: 'ok' });
-  res.headers.set('Access-Control-Allow-Origin', '*');
-  res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return res;
-}
+export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
 
-export async function GET() {
   try {
     const exceptions: any[] = [];
 
@@ -21,36 +17,33 @@ export async function GET() {
       });
     }
 
-    const response = NextResponse.json({
-      success: true,
-      exceptions,
-    });
-
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
+    return NextResponse.json({ success: true, exceptions });
   } catch (error: any) {
     console.error('[Admin Exceptions GET Error]', error);
-    const response = NextResponse.json(
-      { success: false, error: error.message || 'Failed to fetch exceptions' },
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch exceptions' },
       { status: 500 }
     );
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   }
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const body = await req.json();
-    const { exceptionId, action, adminId, adminName, adminNote, orderId } = body;
+    const { exceptionId, action, adminNote, orderId } = body;
+
+    // Use verified auth context — never trust client-supplied adminId/adminName
+    const adminId = auth.uid;
+    const adminName = auth.name || 'Store Admin';
 
     if (!exceptionId || !action) {
-      const response = NextResponse.json(
+      return NextResponse.json(
         { success: false, error: 'exceptionId and action (APPROVED | REJECTED) are required.' },
         { status: 400 }
       );
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
     }
 
     const reviewedAt = new Date().toISOString();
@@ -60,8 +53,8 @@ export async function POST(req: NextRequest) {
       // 1. Update Exception document
       await updateDoc(doc(db, 'deliveryExceptions', exceptionId), {
         status: isApproved ? 'APPROVED' : 'REJECTED',
-        reviewedByAdminId: adminId || 'admin-root',
-        reviewedByAdminName: adminName || 'Store Admin',
+        reviewedByAdminId: adminId,
+        reviewedByAdminName: adminName,
         reviewedAt,
         adminNote: adminNote || (isApproved ? 'Exception authorized by Admin.' : 'Exception rejected.'),
       });
@@ -72,7 +65,7 @@ export async function POST(req: NextRequest) {
           orderStatus: 'DELIVERED',
           deliveryStatus: 'DELIVERED',
           isExceptionDelivery: true,
-          exceptionAuthorizedBy: adminName || 'Admin',
+          exceptionAuthorizedBy: adminName,
           exceptionAuthorizedAt: reviewedAt,
           deliveredAt: reviewedAt,
           updatedAt: reviewedAt,
@@ -83,31 +76,26 @@ export async function POST(req: NextRequest) {
           id: `log_exc_rev_${exceptionId}`,
           action: 'DELIVERY_EXCEPTION_APPROVED',
           orderId,
-          actorId: adminId || 'admin-root',
+          actorId: adminId,
           actorRole: 'admin',
-          description: `Admin ${adminName || 'Admin'} authorized delivery exception for Order. Note: ${adminNote || 'Authorized'}`,
+          description: `Admin ${adminName} authorized delivery exception for Order. Note: ${adminNote || 'Authorized'}`,
           timestamp: reviewedAt,
         });
       }
     }
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       message: `Delivery exception ${action.toLowerCase()} successfully.`,
       exceptionId,
       status: action,
       reviewedAt,
     });
-
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   } catch (error: any) {
     console.error('[Admin Exception Review Error]', error);
-    const response = NextResponse.json(
-      { success: false, error: error.message || 'Failed to review exception' },
+    return NextResponse.json(
+      { success: false, error: 'Failed to review exception' },
       { status: 500 }
     );
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   }
 }

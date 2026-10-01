@@ -66,44 +66,46 @@ export async function GET(
       console.warn('[Invoice API] DB Query fallback:', dbErr.message);
     }
 
-    // Fallback to in-memory / mock order data
+    // Fallback to in-memory / mock order data ONLY in development/test
     if (!order) {
-      const mockOrder = INITIAL_ORDERS.find((o) => o.id === id || o.orderNumber === id);
-      if (mockOrder) {
-        order = {
-          id: mockOrder.id,
-          order_number: mockOrder.orderNumber,
-          created_at: mockOrder.placedAt,
-          status: mockOrder.orderStatus,
-          total_amount: mockOrder.total,
-          subtotal: mockOrder.subtotal || mockOrder.total - (mockOrder.deliveryFee || 0),
-          discount_amount: mockOrder.discount || 0,
-          delivery_fee: mockOrder.deliveryFee ?? mockOrder.deliveryCharge ?? 0,
-          tax_amount: mockOrder.tax || 0,
-          payment_method: mockOrder.paymentMethod || 'Online Paid',
-          payment_status: mockOrder.paymentStatus || 'paid',
-          customer_name: mockOrder.customerName || 'Valued Customer',
-          customer_phone: mockOrder.customerPhone || '+91 98765 43210',
-          customer_id: mockOrder.customerId,
-        };
-        items = mockOrder.items.map((it: any, idx: number) => ({
-          id: `item_${idx}`,
-          product_name: it.product?.name || it.productName || 'Grocery Item',
-          quantity: it.quantity || 1,
-          unit_price: it.price || it.product?.sellingPrice || 100,
-          total_price: (it.price || it.product?.sellingPrice || 100) * (it.quantity || 1),
-          unit: it.product?.unit || it.unit || '1 unit',
-          hsn_code: it.product?.hsnCode || '0910',
-          sku: it.sku || `SKU-${idx + 1}`,
-        }));
-        address = mockOrder.address || {
-          house_no: 'Flat 302',
-          street: 'Main Market Road',
-          area: 'Neral',
-          city: 'Neral',
-          state: 'Maharashtra',
-          pincode: '410101',
-        };
+      if (process.env.NODE_ENV !== 'production') {
+        const mockOrder = INITIAL_ORDERS.find((o) => o.id === id || o.orderNumber === id);
+        if (mockOrder) {
+          order = {
+            id: mockOrder.id,
+            order_number: mockOrder.orderNumber,
+            created_at: mockOrder.placedAt,
+            status: mockOrder.orderStatus,
+            total_amount: mockOrder.total,
+            subtotal: mockOrder.subtotal || mockOrder.total - (mockOrder.deliveryFee || 0),
+            discount_amount: mockOrder.discount || 0,
+            delivery_fee: mockOrder.deliveryFee ?? mockOrder.deliveryCharge ?? 0,
+            tax_amount: mockOrder.tax || 0,
+            payment_method: mockOrder.paymentMethod || 'Online Paid',
+            payment_status: mockOrder.paymentStatus || 'paid',
+            customer_name: mockOrder.customerName || 'Valued Customer',
+            customer_phone: mockOrder.customerPhone || '+91 98765 43210',
+            customer_id: mockOrder.customerId,
+          };
+          items = mockOrder.items.map((it: any, idx: number) => ({
+            id: `item_${idx}`,
+            product_name: it.product?.name || it.productName || 'Grocery Item',
+            quantity: it.quantity || 1,
+            unit_price: it.price || it.product?.sellingPrice || 100,
+            total_price: (it.price || it.product?.sellingPrice || 100) * (it.quantity || 1),
+            unit: it.product?.unit || it.unit || '1 unit',
+            hsn_code: it.product?.hsnCode || '0910',
+            sku: it.sku || `SKU-${idx + 1}`,
+          }));
+          address = mockOrder.address || {
+            house_no: 'Flat 302',
+            street: 'Main Market Road',
+            area: 'Neral',
+            city: 'Neral',
+            state: 'Maharashtra',
+            pincode: '410101',
+          };
+        }
       }
     }
 
@@ -163,17 +165,116 @@ export async function GET(
     };
 
     // 4. Retrieve or Create Finalized Snapshot
-    const cacheKey = normalizedOrder.id;
-    let invoiceSnapshot = finalizedInvoicesCache.get(cacheKey);
+    // Check PostgreSQL authoritative invoice_records first
+    let invoiceSnapshot: InvoiceSnapshot | null = null;
+    try {
+      const invCheck = await queryPostgres(
+        `SELECT * FROM invoice_records WHERE order_id = $1 OR order_number = $1 LIMIT 1`,
+        [normalizedOrder.id]
+      );
+      if (invCheck.rows.length > 0) {
+        const row = invCheck.rows[0];
+        invoiceSnapshot = {
+          id: row.id,
+          invoiceNumber: row.invoice_number,
+          orderId: row.order_id,
+          orderNumber: row.order_number,
+          orderDate: normalizedOrder.placedAt,
+          invoiceDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+          orderStatus: normalizedOrder.orderStatus,
+          paymentStatus: row.payment_status || normalizedOrder.paymentStatus,
+          paymentMethod: row.payment_method || normalizedOrder.paymentMethod,
+          seller: {
+            sellerDisplayName: row.seller_name || 'Maule Kirana Store',
+            legalBusinessName: 'Maule Kirana',
+            address: 'Shop No. 4, Main Market, Neral, Karjat, Raigad, Maharashtra - 410101',
+            fssaiNumber: row.seller_fssai || '21524068001234',
+            isGstRegistered: !!row.seller_gstin,
+            gstin: row.seller_gstin || '',
+            phone: '+91 98765 43210',
+            email: 'support@pocketkirana.com',
+            state: 'Maharashtra',
+            invoicePrefix: 'PK-INV',
+            invoiceNumberFormat: 'PK-INV-{YEAR}-{SEQ}',
+          },
+          customer: {
+            id: normalizedOrder.customerId,
+            name: row.customer_name || normalizedOrder.customerName,
+            mobile: row.customer_phone || normalizedOrder.customerPhone,
+            deliveryAddress: normalizedOrder.address?.addressLine1 || '',
+            city: normalizedOrder.address?.city || 'Neral',
+            state: normalizedOrder.address?.state || 'Maharashtra',
+            pincode: normalizedOrder.address?.postalCode || '410101',
+          },
+          items: Array.isArray(row.items_snapshot) ? row.items_snapshot : normalizedOrder.items,
+          totals: {
+            subtotal: parseFloat(row.subtotal || normalizedOrder.subtotal),
+            discount: parseFloat(row.discount_amount || normalizedOrder.discount),
+            deliveryFee: parseFloat(row.delivery_fee || normalizedOrder.deliveryFee),
+            taxAmount: parseFloat(row.tax_amount || normalizedOrder.tax),
+            grandTotal: parseFloat(row.total_amount || normalizedOrder.total),
+          },
+          templateVersion: 1,
+          templateSnapshot: DEFAULT_INVOICE_TEMPLATE,
+          status: 'FINALIZED',
+          createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+          finalizedAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+        };
+      }
+    } catch (e: any) {
+      // Postgres check fallback
+    }
 
     if (!invoiceSnapshot) {
-      invoiceSnapshot = createOrGetInvoiceSnapshot(
-        normalizedOrder,
-        DEFAULT_INVOICE_TEMPLATE,
-        Array.from(finalizedInvoicesCache.values())
-      );
-      finalizedInvoicesCache.set(cacheKey, invoiceSnapshot);
-      finalizedInvoicesCache.set(normalizedOrder.orderNumber, invoiceSnapshot);
+      const cacheKey = normalizedOrder.id;
+      invoiceSnapshot = finalizedInvoicesCache.get(cacheKey) || null;
+
+      if (!invoiceSnapshot) {
+        invoiceSnapshot = createOrGetInvoiceSnapshot(
+          normalizedOrder,
+          DEFAULT_INVOICE_TEMPLATE,
+          Array.from(finalizedInvoicesCache.values())
+        );
+
+        // Persist to PostgreSQL invoice_records table
+        try {
+          await queryPostgres(
+            `INSERT INTO invoice_records (
+              id, invoice_number, order_id, order_number, seller_name, seller_gstin, seller_fssai,
+              customer_name, customer_phone, customer_address, items_snapshot,
+              subtotal, discount_amount, delivery_fee, tax_amount, total_amount,
+              payment_method, payment_status, created_at
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW()
+            ) ON CONFLICT (order_id) DO NOTHING`,
+            [
+              invoiceSnapshot.id,
+              invoiceSnapshot.invoiceNumber,
+              invoiceSnapshot.orderId,
+              invoiceSnapshot.orderNumber,
+              invoiceSnapshot.seller.sellerDisplayName,
+              invoiceSnapshot.seller.gstin || null,
+              invoiceSnapshot.seller.fssaiNumber || null,
+              invoiceSnapshot.customer.name,
+              invoiceSnapshot.customer.mobile,
+              JSON.stringify(normalizedOrder.address || {}),
+              JSON.stringify(invoiceSnapshot.items || []),
+              invoiceSnapshot.totals.subtotal,
+              invoiceSnapshot.totals.discount,
+              invoiceSnapshot.totals.deliveryFee,
+              invoiceSnapshot.totals.taxAmount,
+              invoiceSnapshot.totals.grandTotal,
+              invoiceSnapshot.paymentMethod,
+              invoiceSnapshot.paymentStatus,
+            ]
+          );
+        } catch (dbInsertErr: any) {
+          console.warn('[Invoice API] Could not persist invoice to DB:', dbInsertErr.message);
+        }
+
+        finalizedInvoicesCache.set(cacheKey, invoiceSnapshot);
+        finalizedInvoicesCache.set(normalizedOrder.orderNumber, invoiceSnapshot);
+      }
     }
 
     // 5. Return PDF or JSON based on request

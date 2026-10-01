@@ -30,9 +30,12 @@ import {
   MapPin,
   Truck,
   CheckCircle2,
-  Navigation
+  Navigation,
+  AlertTriangle
 } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
+import { CustomerComplaintModal } from '@/components/customer/CustomerComplaintModal';
+import { CustomerComplaintTracker } from '@/components/customer/CustomerComplaintTracker';
 
 function OrderTrackingContent() {
   const router = useRouter();
@@ -52,8 +55,9 @@ function OrderTrackingContent() {
   const [ratingComment, setRatingComment] = useState('');
   const [isRated, setIsRated] = useState(false);
 
-  // Support Chat Modal State
+  // Support Chat & Complaint Modal State
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -1054,6 +1058,34 @@ function OrderTrackingContent() {
               </button>
             </div>
 
+            {/* ── 3.5 NEED HELP / REPORT A PROBLEM ── */}
+            <div className="bg-amber-50/70 border border-amber-200/80 rounded-3xl p-5 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xs sm:text-sm font-bold text-gray-900 block">
+                    Need help with this order?
+                  </span>
+                  <span className="text-[11px] text-gray-500">
+                    Report damaged, expired, or missing items
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowComplaintModal(true)}
+                className="shrink-0 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-black text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-2xs"
+              >
+                Report Issue
+              </button>
+            </div>
+
+            {/* ── Live Complaint Tracking ── */}
+            {order && <CustomerComplaintTracker orderId={order.id} />}
+
             {/* ── 4. BILL DETAILS ── */}
             <div className="bg-white rounded-3xl p-6 border border-gray-200/90 shadow-2xs space-y-3.5">
               <h2 className="text-sm font-black text-gray-900 tracking-tight">
@@ -1334,6 +1366,15 @@ function OrderTrackingContent() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* ── Customer Complaint Modal ── */}
+        {showComplaintModal && order && (
+          <CustomerComplaintModal
+            order={order}
+            onClose={() => setShowComplaintModal(false)}
+            onSubmitted={() => setShowComplaintModal(false)}
+          />
         )}
 
       </div>

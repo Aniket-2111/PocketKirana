@@ -6,6 +6,7 @@ import { useAppStore } from '@/lib/store';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { EmptyState } from '@/components/states/EmptyState';
 import { showToast } from '@/components/ui/Toast';
 import { Address } from '@/types';
 import { MapPin, Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
@@ -84,12 +85,26 @@ export default function SavedAddressesPage() {
           </div>
 
           {/* Address Cards Grid (Matching Screen 15) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {addresses.map((addr) => (
-              <div
-                key={addr.id}
-                className="bg-white rounded-2xl border border-gray-200 p-5 shadow-2xs flex flex-col justify-between space-y-4"
-              >
+          {addresses.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+              <EmptyState
+                variant="addresses"
+                primaryAction={{
+                  label: 'Add New Address',
+                  onClick: () => {
+                    setEditingAddr(null);
+                    setShowModal(true);
+                  },
+                }}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {addresses.map((addr) => (
+                <div
+                  key={addr.id}
+                  className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-5 shadow-2xs flex flex-col justify-between space-y-4"
+                >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
@@ -139,6 +154,7 @@ export default function SavedAddressesPage() {
               </div>
             ))}
           </div>
+        )}
 
           {/* Modal */}
           {showModal && (

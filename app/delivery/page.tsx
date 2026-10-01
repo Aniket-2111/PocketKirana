@@ -143,7 +143,9 @@ export default function DeliveryPartnerPage() {
     return (
       <div className="min-h-screen bg-[#0f172a] text-white flex items-center justify-center p-6 font-sans">
         <div className="text-center space-y-3">
-          <Bike className="w-10 h-10 text-emerald-400 animate-bounce mx-auto" />
+          <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg mx-auto bg-white border border-emerald-500/40">
+            <img src="/delivery-icon.png" alt="Delivery Partner" className="w-full h-full object-cover" />
+          </div>
           <p className="text-xs font-bold text-slate-400">Loading PocketKirana Delivery Portal...</p>
         </div>
       </div>
@@ -158,8 +160,8 @@ export default function DeliveryPartnerPage() {
       <div className="min-h-screen bg-[#0f172a] text-white flex flex-col justify-between p-6 font-sans selection:bg-emerald-500">
         <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center items-center text-center space-y-6 my-auto py-12">
           
-          <div className="w-20 h-20 bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.3)]">
-            <Bike className="w-10 h-10" />
+          <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-[0_0_40px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500 bg-white">
+            <img src="/delivery-icon.png" alt="Delivery Partner" className="w-full h-full object-cover" />
           </div>
 
           <div className="space-y-2">
@@ -286,8 +288,8 @@ export default function DeliveryPartnerPage() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${isOnline ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                  <Bike className="w-5 h-5" />
+                <div className="w-11 h-11 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-white/30 bg-white">
+                  <img src="/delivery-icon.png" alt="Delivery Partner" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h3 className="text-base font-black">

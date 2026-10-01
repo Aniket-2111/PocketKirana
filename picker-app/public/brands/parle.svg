@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="100%" height="100%">
+  <rect width="200" height="80" rx="12" fill="#FFFBEB"/>
+  <rect x="25" y="18" width="150" height="44" rx="8" fill="#F59E0B"/>
+  <text x="100" y="48" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">PARLE</text>
+</svg>

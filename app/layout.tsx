@@ -1,13 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
-import { PWARegister } from '@/components/common/PWARegister';
-import dynamic from 'next/dynamic';
-const RealtimeNotificationToast = dynamic(
-  () => import('@/components/customer/RealtimeNotificationToast').then(m => ({ default: m.RealtimeNotificationToast })),
-  { ssr: false }
-);
+import { GlobalErrorBoundary } from '@/components/states/GlobalErrorBoundary';
 import './globals.css';
+
+import { GlobalErrorSuppressor } from '@/components/common/GlobalErrorSuppressor';
+import { NotificationWrapper } from '@/components/common/NotificationWrapper';
+import { PostHogProvider } from '@/lib/analytics';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -108,10 +106,13 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background flex flex-col font-sans antialiased text-foreground" suppressHydrationWarning>
-        <PWARegister />
         <GlobalErrorSuppressor />
-        <RealtimeNotificationToast />
-        {children}
+        <GlobalErrorBoundary>
+          <NotificationWrapper />
+          <PostHogProvider>
+            {children}
+          </PostHogProvider>
+        </GlobalErrorBoundary>
       </body>
     </html>
   );

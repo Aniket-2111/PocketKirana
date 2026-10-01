@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDocs, collection, doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { INITIAL_ORDERS } from '@/lib/mockData';
+import { handleCorsPreflight } from '@/lib/cors';
 
-export async function OPTIONS() {
-  const res = NextResponse.json({ status: 'ok' });
-  res.headers.set('Access-Control-Allow-Origin', '*');
-  res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return res;
+export async function OPTIONS(req: NextRequest) {
+  return handleCorsPreflight(req);
 }
 
 export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+  }
   try {
     const ledgers: Record<string, any> = {};
     const settlements: any[] = [];
@@ -74,37 +76,30 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const response = NextResponse.json({
-      success: true,
-      ledgers: Object.values(ledgers),
-      settlements,
-    });
-
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
+    return NextResponse.json({ success: true, ledgers: Object.values(ledgers), settlements });
   } catch (error: any) {
     console.error('[Admin Settlements GET Error]', error);
-    const response = NextResponse.json(
-      { success: false, error: error.message || 'Failed to fetch settlements' },
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch settlements' },
       { status: 500 }
     );
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   }
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+  }
   try {
     const body = await req.json();
-    const { partnerId, amount, adminId, adminName, settlementRef, note } = body;
+    const { partnerId, amount, settlementRef, note } = body;
 
     if (!partnerId || !amount || amount <= 0) {
-      const response = NextResponse.json(
+      return NextResponse.json(
         { success: false, error: 'Valid partnerId and positive amount are required.' },
         { status: 400 }
       );
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      return response;
     }
 
     const settlementId = `stl_${partnerId}_${Date.now()}`;
@@ -116,8 +111,8 @@ export async function POST(req: NextRequest) {
       partnerId,
       partnerName: body.partnerName || 'Partner',
       amount: Number(amount),
-      adminId: adminId || 'admin-root',
-      adminName: adminName || 'Store Admin',
+      adminId: auth.uid,
+      adminName: auth.name || 'Store Admin',
       settlementRef: cleanRef,
       note: note || 'Cash handover received and verified.',
       timestamp,
@@ -130,30 +125,25 @@ export async function POST(req: NextRequest) {
       await setDoc(doc(db, 'auditLogs', `log_stl_${settlementId}`), {
         id: `log_stl_${settlementId}`,
         action: 'SETTLEMENT_CONFIRMED',
-        actorId: adminId || 'admin-root',
+        actorId: auth.uid,
         actorRole: 'admin',
         amount: Number(amount),
-        description: `Admin ${adminName || 'Admin'} confirmed COD Cash settlement of ₹${amount} for Delivery Partner ${body.partnerName || partnerId}. Ref: ${cleanRef}`,
+        description: `Admin ${auth.name || 'Admin'} confirmed COD Cash settlement of ₹${amount} for Delivery Partner ${body.partnerName || partnerId}. Ref: ${cleanRef}`,
         timestamp,
       });
     }
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       message: `Settlement of ₹${amount} confirmed successfully!`,
       settlementId,
       data: record,
     });
-
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   } catch (error: any) {
     console.error('[Admin Settlement Confirm Error]', error);
-    const response = NextResponse.json(
-      { success: false, error: error.message || 'Failed to confirm settlement' },
+    return NextResponse.json(
+      { success: false, error: 'Failed to confirm settlement' },
       { status: 500 }
     );
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   }
 }

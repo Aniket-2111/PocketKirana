@@ -93,7 +93,7 @@ function NotServiceableContent() {
             </div>
           </div>
 
-          {/* Action Buttons: Change Location & Try Another Location */}
+          {/* Action Buttons: Change Location, Choose another location & Continue browsing */}
           <div className="space-y-2.5">
             <button
               onClick={() => router.replace('/setup-address')}
@@ -108,7 +108,14 @@ function NotServiceableContent() {
               className="w-full py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
             >
               <Compass className="w-4 h-4 text-emerald-600" />
-              Try Another Location
+              Choose Another Location
+            </button>
+
+            <button
+              onClick={() => router.replace('/home')}
+              className="w-full py-2.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              Continue Browsing
             </button>
           </div>
 

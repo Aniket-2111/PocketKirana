@@ -38,7 +38,12 @@ local.properties
 .env.local
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
+# Sub-app production env files (contain real Firebase project IDs & MSG91 IDs)
+customer-app/.env.production
+delivery-app/.env.production
+picker-app/.env.production
 *.keystore
 *.jks
 *serviceAccountKey*.json
@@ -63,3 +68,12 @@ Desktop.ini
 .reticle/
 .reticle.json
 .tmp-preview.cmd
+
+# Ad-hoc test screenshots
+exec_screen.png
+physical_device_screen.png
+screen_*.png
+physical_*.png
+
+# Scratch test files
+scratch/

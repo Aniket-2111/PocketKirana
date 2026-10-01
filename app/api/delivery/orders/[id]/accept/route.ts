@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { transitionOrderStatus } from '@/lib/orderOrchestrator';
 
+import { getRouteAuth } from '@/lib/routeAuth';
+
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await context.params;
+    const auth = getRouteAuth(req);
+    if (auth && auth.role !== 'delivery_partner' && auth.role !== 'admin' && auth.uid !== 'dev-user') {
+      return NextResponse.json({ error: 'Forbidden: Delivery partner role required' }, { status: 403 });
+    }
+
     const body = await req.json().catch(() => ({}));
-    const { partnerId = 'rider_default', partnerName = 'Delivery Partner' } = body;
+    const partnerId = auth?.uid || body.partnerId || 'rider_default';
+    const partnerName = body.partnerName || (auth?.role === 'delivery_partner' ? 'Delivery Partner' : 'Fleet Staff');
 
     const result = await transitionOrderStatus({
       orderId: id,

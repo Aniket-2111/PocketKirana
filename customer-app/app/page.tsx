@@ -9,18 +9,9 @@ export default function CustomerEntryPage() {
   const { isLoggedIn, addresses } = useAppStore();
 
   useEffect(() => {
-    // Small delay so hydration is complete and store is ready
-    const timer = setTimeout(() => {
-      if (!isLoggedIn) {
-        router.replace('/login');
-      } else if (addresses.length === 0) {
-        router.replace('/setup-address');
-      } else {
-        router.replace('/home');
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [isLoggedIn, addresses, router]);
+    // Immediate redirect to /home for frictionless guest shopping
+    router.replace('/home');
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

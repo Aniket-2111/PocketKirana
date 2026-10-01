@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "migrate": "node scripts/init_client_postgres_tables.js",
+    "worker": "node scripts/run_outbox_worker.js"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",
@@ -26,10 +29,12 @@
     "lucide-react": "^0.469.0",
     "next": "^15.1.3",
     "pg": "^8.23.0",
-    "razorpay": "^2.9.8",
+    "posthog-js": "^1.434.15",
+    "posthog-node": "^5.54.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.6.0",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

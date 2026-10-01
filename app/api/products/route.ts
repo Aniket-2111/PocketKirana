@@ -10,6 +10,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('categoryId');
 
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+    const limit = Math.min(200, Math.max(1, isNaN(rawLimit) ? 100 : rawLimit));
+
     // 1. Try fetching from PostgreSQL database with variants
     try {
       const pool = getPostgresPool();
@@ -42,13 +45,14 @@ export async function GET(request: Request) {
         prodQuery += ' WHERE p.category_id = $1 OR p.subcategory_id = $1';
         values.push(categoryId);
       }
-      prodQuery += ' ORDER BY p.created_at DESC';
+      prodQuery += ` ORDER BY p.created_at DESC LIMIT $${values.length + 1}`;
+      values.push(limit);
 
       const prodRes = await pool.query(prodQuery, values);
 
       if (prodRes.rows.length > 0) {
         // Fetch all variants for these products
-        const productIds = prodRes.rows.map((r) => r.id);
+        const productIds = prodRes.rows.map((r: any) => r.id);
         const varRes = await pool.query(
           `
           SELECT 
@@ -74,14 +78,14 @@ export async function GET(request: Request) {
             display_order as "displayOrder",
             pk_display_code as "pkDisplayCode"
           FROM product_variants
-          WHERE product_id = ANY($1)
+          WHERE product_id = ANY($1::varchar[])
           ORDER BY display_order ASC, created_at ASC;
           `,
           [productIds]
         );
 
         const variantsByProdId: Record<string, ProductVariant[]> = {};
-        for (const row of varRes.rows) {
+        for (const row of varRes.rows as any[]) {
           if (!variantsByProdId[row.productId]) {
             variantsByProdId[row.productId] = [];
           }
@@ -100,7 +104,7 @@ export async function GET(request: Request) {
           });
         }
 
-        const enrichedProducts: Product[] = prodRes.rows.map((p) => {
+        const enrichedProducts: Product[] = prodRes.rows.map((p: any) => {
           const variants = variantsByProdId[p.id] || [];
           const lowestVariantPrice = variants.length > 0
             ? Math.min(...variants.filter((v) => v.isActive).map((v) => v.sellingPrice))

@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   reactStrictMode: true,
   compress: true,
+  serverExternalPackages: ['posthog-node'],
   transpilePackages: ['@msg91comm/sendotp-sdk'],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion', 'clsx', 'tailwind-merge', 'zustand'],
@@ -12,6 +13,18 @@ const nextConfig: NextConfig = {
   images: {
     // Image optimization enabled — using Next.js built-in optimizer
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.pocketkirana.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.r2.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "**.r2.cloudflarestorage.com",
+      },
       {
         protocol: "https",
         hostname: "images.unsplash.com",

@@ -1,58 +1,53 @@
 /**
- * PocketKirana — Production PM2 Process Management Ecosystem
- *
- * Runs and manages:
- *   1. pocketkirana-main   (Main Next.js Customer & Admin Web App on Port 3000)
- *   2. pocketkirana-picker (Standalone Picker & Packing App on Port 3001)
- *
- * Features:
- *   - Auto-restart on failure / crash
- *   - Clustered instances
- *   - Unified logging to logs/
- *   - Graceful zero-downtime reloads
- *
- * Usage:
- *   pm2 start ecosystem.config.js
+ * PocketKirana — PM2 Production Process Ecosystem Configuration
+ * 
+ * Target Environment: Oracle Cloud VPS (Ubuntu 22.04 / 24.04 LTS)
+ * 
+ * Manages:
+ * 1. Next.js Web/API Application (Cluster mode, bounded memory, automatic restarts)
+ * 2. Outbox Projection Worker (Singleton fork mode, concurrency leases, graceful shutdown)
+ * 
+ * Commands:
+ *   pm2 start ecosystem.config.js --env production
  *   pm2 status
  *   pm2 logs
  *   pm2 reload all
+ *   pm2 save
+ *   pm2 startup
  */
 
 module.exports = {
   apps: [
     {
-      name: 'pocketkirana-main',
+      name: 'pocketkirana-web',
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3000',
-      cwd: './',
-      instances: 'max',
+      instances: 'max', // Utilizes available CPU cores
       exec_mode: 'cluster',
       autorestart: true,
-      max_memory_restart: '1G',
-      env: {
+      watch: false,
+      max_memory_restart: '900M',
+      env_production: {
         NODE_ENV: 'production',
         PORT: 3000,
       },
-      error_file: './logs/main-error.log',
-      out_file: './logs/main-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      kill_timeout: 5000,
+      listen_timeout: 10000,
+      time: true,
     },
     {
-      name: 'pocketkirana-picker',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3001',
-      cwd: './picker-app',
-      instances: 1,
+      name: 'pocketkirana-outbox-worker',
+      script: 'scripts/run_outbox_worker.js',
+      instances: 1, // Singleton instance: row-level locking handles leases
       exec_mode: 'fork',
       autorestart: true,
-      max_memory_restart: '512M',
-      env: {
+      watch: false,
+      max_memory_restart: '450M',
+      env_production: {
         NODE_ENV: 'production',
-        PORT: 3001,
       },
-      error_file: './logs/picker-error.log',
-      out_file: './logs/picker-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      kill_timeout: 6000,
+      time: true,
     },
   ],
 };

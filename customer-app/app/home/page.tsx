@@ -1,92 +1,52 @@
 'use client';
 
-import React, { useMemo, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import CustomerShell from '../../components/CustomerShell';
-import { HeroBanner } from '@/components/customer/HeroBanner';
-import { CategoryGrid } from '@/components/customer/CategoryGrid';
-import { ProductCarouselSection } from '@/components/customer/ProductCarouselSection';
-import { DualPromoBanner } from '@/components/customer/DualPromoBanner';
+import { DynamicHomepageRenderer } from '@/components/customer/DynamicHomepageRenderer';
 import { FestivalCampaignRenderer } from '@/components/customer/festival/FestivalCampaignRenderer';
-import { INITIAL_PRODUCTS, INITIAL_CATEGORIES, INITIAL_BRANDS } from '@/lib/mockData';
 import { Product } from '@/types';
-import { Search, Sparkles, Building2, Flame, ArrowRight } from 'lucide-react';
+import { Search, Zap } from 'lucide-react';
+import { trackPerformanceEvent, PostHogEvents } from '@/lib/analytics';
+import { BannerSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 
 export default function CustomerHome() {
   const router = useRouter();
-  const { products, categories, brands, isLoggedIn, getActiveFestivalCampaign, isFestivalEmergencyDisabled } = useAppStore();
+  const { isLoggedIn, getActiveFestivalCampaign, isFestivalEmergencyDisabled, activeHomepageLayout } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    trackPerformanceEvent(PostHogEvents.HOME_LOAD_COMPLETED, 150, {
+      screen: 'customer_home',
+    });
+  }, []);
 
   const activeFestivalCampaign = useMemo(() => {
-    if (isFestivalEmergencyDisabled) return null;
+    if (!mounted || isFestivalEmergencyDisabled) return null;
     return getActiveFestivalCampaign ? getActiveFestivalCampaign() : null;
-  }, [getActiveFestivalCampaign, isFestivalEmergencyDisabled]);
-
-  // Guard: if not logged in, redirect to login
-  useEffect(() => {
-    if (!isLoggedIn) {
-      router.replace('/login');
-    }
-  }, [isLoggedIn, router]);
+  }, [mounted, getActiveFestivalCampaign, isFestivalEmergencyDisabled]);
 
   const handleNavigateToProduct = (product: Product) => {
     router.push(`/product/${product.id || product.slug}`);
   };
 
-  // Combine store products with fallback mock data to ensure rich presentation
-  const allProducts = useMemo(() => {
-    const map = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => map.set(p.id, p));
-    (products || []).forEach((p) => {
-      const existing = map.get(p.id);
-      map.set(p.id, { ...existing, ...p });
-    });
-    return Array.from(map.values()).filter((p) => p.status !== 'discontinued');
-  }, [products]);
-
-  // Active brands
-  const activeBrands = useMemo(() => {
-    const list = brands && brands.length > 0 ? brands : INITIAL_BRANDS;
-    return list.filter((b) => b.isActive !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-  }, [brands]);
-
-  // 1. Top Savers Today (High discount products)
-  const topSaversProducts = useMemo(() => {
-    return [...allProducts]
-      .filter((p) => p.mrp > p.sellingPrice)
-      .sort((a, b) => {
-        const discA = (a.mrp - a.sellingPrice) / a.mrp;
-        const discB = (b.mrp - b.sellingPrice) / b.mrp;
-        return discB - discA;
-      })
-      .slice(0, 10);
-  }, [allProducts]);
-
-  // 2. Best Offers & Deals
-  const bestOffersProducts = useMemo(() => {
-    return [...allProducts]
-      .filter((p) => p.isPopular || p.isFeatured || (p.rating || 0) >= 4.5)
-      .slice(0, 10);
-  }, [allProducts]);
-
-  // 3. Daily Fresh Essentials & Bakery
-  const freshEssentialsProducts = useMemo(() => {
-    return allProducts
-      .filter(
-        (p) =>
-          p.categoryId === 'cat-veg' ||
-          p.categoryId === 'cat-dairy' ||
-          p.categoryId === 'cat-bakery' ||
-          p.categoryId === 'cat-staples' ||
-          ((p as any).category && ['fruits & vegetables', 'dairy & breakfast', 'staples', 'bakery'].includes((p as any).category.toLowerCase()))
-      )
-      .slice(0, 10);
-  }, [allProducts]);
+  if (!mounted) {
+    return (
+      <CustomerShell>
+        <div className="space-y-4 animate-pulse">
+          <div className="h-12 w-full rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <BannerSkeleton />
+          <ProductGridSkeleton count={4} />
+        </div>
+      </CustomerShell>
+    );
+  }
 
   return (
     <CustomerShell>
-      <div className="space-y-6 animate-in fade-in duration-200">
+      <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
         
         {/* ── SEARCH BAR PROMPT ── */}
         <div 
@@ -99,106 +59,29 @@ export default function CustomerHome() {
           </span>
         </div>
 
-        {/* ── 1. ACTIVE FESTIVAL CAMPAIGN OR PROMOTIONAL HERO BANNER ── */}
-        {activeFestivalCampaign ? (
+        {/* ── DELIVERY PROMISE REASSURANCE ── */}
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/40 text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+          <div className="flex items-center gap-1.5 min-w-0 truncate">
+            <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-current shrink-0" />
+            <span className="truncate">Delivering in <strong>30 mins</strong> to your location</span>
+          </div>
+          <span className="shrink-0 text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold pl-2">₹0 fee above ₹500</span>
+        </div>
+
+        {/* ── 1. ACTIVE FESTIVAL CAMPAIGN HEADER (IF ACTIVE) ── */}
+        {activeFestivalCampaign && (
           <FestivalCampaignRenderer
             campaign={activeFestivalCampaign}
             onOpenProductDetail={handleNavigateToProduct}
           />
-        ) : (
-          <HeroBanner />
         )}
 
-        {/* ── 2. CIRCULAR CATEGORY NAVIGATION ── */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#008F5A]" />
-              <h2 className="text-base sm:text-lg font-black text-[#111827] dark:text-[#F9FAFB] tracking-tight">
-                Shop By Category
-              </h2>
-            </div>
-            <Link
-              href="/categories"
-              className="text-xs font-bold text-[#008F5A] dark:text-[#22C55E] hover:underline flex items-center gap-1 transition-colors"
-            >
-              <span>View All</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-          <CategoryGrid />
-        </div>
-
-        {/* ── 3. TOP SAVERS TODAY CAROUSEL ── */}
-        {topSaversProducts.length > 0 && (
-          <ProductCarouselSection
-            title="Top Savers Today"
-            badge="BIG DISCOUNTS"
-            viewAllHref="/categories"
-            products={topSaversProducts}
-            onOpenDetail={handleNavigateToProduct}
-          />
-        )}
-
-        {/* ── 4. MID-PAGE DUAL PROMO BANNER ── */}
-        <DualPromoBanner />
-
-        {/* ── 5. BEST OFFERS & DEALS ── */}
-        {bestOffersProducts.length > 0 && (
-          <ProductCarouselSection
-            title="Best Offers & Deals"
-            badge="TRENDING"
-            viewAllHref="/categories"
-            products={bestOffersProducts}
-            onOpenDetail={handleNavigateToProduct}
-          />
-        )}
-
-        {/* ── 6. FEATURED BRANDS SECTION ── */}
-        {activeBrands.length > 0 && (
-          <div className="space-y-3 my-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#008F5A] dark:text-[#22C55E]" />
-                <h2 className="text-base sm:text-lg font-black text-[#111827] dark:text-[#F9FAFB] tracking-tight">
-                  Featured Brands
-                </h2>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 overflow-x-auto scrollbar-none no-scrollbar py-2 px-1 scroll-smooth">
-              {activeBrands.map((brand) => (
-                <Link
-                  key={brand.id}
-                  href={`/categories`}
-                  className="group flex flex-col items-center gap-1.5 shrink-0 bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] hover:border-[#008F5A] dark:hover:border-[#22C55E] p-3 rounded-2xl shadow-2xs hover:shadow-md transition-all w-24 sm:w-28 text-center"
-                >
-                  <div className="w-12 h-12 flex items-center justify-center p-1">
-                    <img
-                      src={brand.logo || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=100&q=80'}
-                      alt={brand.name}
-                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  <span className="text-[11px] font-bold text-[#111827] dark:text-[#D1D5DB] group-hover:text-[#008F5A] dark:group-hover:text-[#22C55E] truncate w-full">
-                    {brand.name}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── 7. DAILY FRESH ESSENTIALS ── */}
-        {freshEssentialsProducts.length > 0 && (
-          <ProductCarouselSection
-            title="Daily Fresh Essentials"
-            badge="10-MIN EXPRESS"
-            viewAllHref="/category/fruits-vegetables"
-            products={freshEssentialsProducts}
-            onOpenDetail={handleNavigateToProduct}
-          />
-        )}
+        {/* ── 2. CANONICAL DYNAMIC HOMEPAGE CMS RENDERER ── */}
+        {/* Directly consumes the published layout from the canonical Admin CMS */}
+        <DynamicHomepageRenderer
+          layout={activeHomepageLayout}
+          onOpenProductDetail={handleNavigateToProduct}
+        />
 
       </div>
     </CustomerShell>

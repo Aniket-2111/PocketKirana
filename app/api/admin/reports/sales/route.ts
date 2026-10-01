@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { INITIAL_ORDERS } from '@/lib/mockData';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   const headers = ['Order Number', 'Customer Name', 'Status', 'Payment Method', 'Amount (INR)', 'Date'];
   const rows = INITIAL_ORDERS.map((o) => [
     o.orderNumber,

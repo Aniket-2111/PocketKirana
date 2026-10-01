@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDocs, collection } from 'firebase/firestore';
 import { INITIAL_ORDERS } from '@/lib/mockData';
+import { handleCorsPreflight } from '@/lib/cors';
 
-export async function OPTIONS() {
-  const res = NextResponse.json({ status: 'ok' });
-  res.headers.set('Access-Control-Allow-Origin', '*');
-  res.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return res;
+export async function OPTIONS(req: NextRequest) {
+  return handleCorsPreflight(req);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+  }
   try {
     let totalCollection = 47100;
     let onlineCollection = 25450;
@@ -39,7 +41,7 @@ export async function GET() {
 
         if (pStatus === 'paid' || pStatus === 'completed') {
           calcTotal += amt;
-          if (pMethod === 'online' || pMethod === 'phonepe' || pMethod === 'razorpay' || pMethod === 'card') {
+          if (pMethod === 'online' || pMethod === 'phonepe' || pMethod === 'card') {
             calcOnline += amt;
           } else if (pMethod.includes('cash')) {
             calcCash += amt;
@@ -70,7 +72,7 @@ export async function GET() {
       }
     }
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       summary: {
         totalCollection,
@@ -83,16 +85,11 @@ export async function GET() {
         netCollection,
       },
     });
-
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   } catch (error: any) {
     console.error('[Admin Payments Summary Error]', error);
-    const response = NextResponse.json(
-      { success: false, error: error.message || 'Failed to fetch payment summary' },
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch payment summary' },
       { status: 500 }
     );
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
   }
 }

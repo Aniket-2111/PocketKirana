@@ -7,6 +7,7 @@ import { useAppStore } from '@/lib/store';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { ProductCard } from '@/components/customer/ProductCard';
+import { EmptyState } from '@/components/states';
 import { Product, Category } from '@/types';
 import {
   ChevronRight,
@@ -374,25 +375,19 @@ export default function DedicatedCategoryPage() {
 
             {/* ── 5. DYNAMIC PRODUCT GRID ── */}
             {displayProducts.length === 0 ? (
-              <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center space-y-4 shadow-2xs">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-50 text-slate-400 mx-auto flex items-center justify-center">
-                  <FolderOpen className="w-7 h-7 sm:w-8 sm:h-8" />
-                </div>
-                <h3 className="text-sm sm:text-base font-black text-slate-900">No products found in this section</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  {activeSubcategory
+              <EmptyState
+                type="products"
+                title="No products found in this section"
+                description={
+                  activeSubcategory
                     ? `There are currently no items under "${activeSubcategory.name}". Switch to "All ${currentCategory.name}" or explore other categories.`
-                    : `No products are currently assigned to "${currentCategory.name}". Products will appear once added by admin.`}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveSubTab('all')}
-                  className="bg-[#0B8F5A] hover:bg-[#075C3C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors shadow-2xs inline-flex items-center gap-1.5"
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>View All {currentCategory.name}</span>
-                </button>
-              </div>
+                    : `No products are currently assigned to "${currentCategory.name}". Products will appear once added by admin.`
+                }
+                primaryAction={{
+                  label: `View All ${currentCategory.name}`,
+                  onClick: () => setActiveSubTab('all'),
+                }}
+              />
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4">
                 {displayProducts.map((product) => (

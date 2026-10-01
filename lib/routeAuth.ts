@@ -43,20 +43,21 @@ export function getRouteAuth(req: NextRequest): RouteAuthContext | null {
     return { uid, role, sessionId: sessionId ?? undefined };
   }
 
-  // Session-based auth: look up the session store
-  if (sessionId) {
-    const session: UserSessionData | null = getServerSession(sessionId);
+  // Session-based auth: look up the session store from header or cookie
+  const effectiveSessionId = sessionId || req.cookies?.get('pk_session')?.value || req.cookies?.get('__pk_session')?.value;
+  if (effectiveSessionId) {
+    const session: UserSessionData | null = getServerSession(effectiveSessionId);
     if (!session) return null;
 
     return {
       uid:       session.userId,
       role:      session.role,
       name:      session.name,
-      sessionId,
+      sessionId: effectiveSessionId,
     };
   }
 
-  // No auth context — middleware should have caught this, but fail safe
+  // No auth context — fail safe
   return null;
 }
 

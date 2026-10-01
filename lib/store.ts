@@ -49,6 +49,14 @@ import {
   FestivalAuditLog,
   FestivalSectionConfig,
 } from '@/types/festival';
+import {
+  HomepageLayoutConfig,
+  HomepageSectionConfig,
+  HomepageVersionSnapshot,
+  HomepageAuditLog,
+} from '@/types/homepageCms';
+import { HomepageCmsService } from './homepageCmsService';
+import { DEFAULT_HOMEPAGE_LAYOUT, DEFAULT_HOMEPAGE_SECTIONS } from './defaultHomepageLayout';
 import { INITIAL_FESTIVAL_TEMPLATES } from './festivalTemplates';
 import {
   InvoiceSnapshot,
@@ -87,7 +95,15 @@ import {
   INITIAL_ORDERS,
   INITIAL_NOTIFICATIONS
 } from './mockData';
+import { apiFetch } from './apiClient';
 import { isFirebaseConfigured } from './firebase';
+import {
+  identifyUser,
+  resetUser,
+  trackCartEvent,
+  trackCheckoutEvent,
+  PostHogEvents,
+} from './analytics';
 import {
   fetchProductsFS,
   addProductFS,
@@ -224,7 +240,7 @@ interface AppState {
    * Calls POST /api/auth/verify-otp-token (server-side AuthKey never reaches browser).
    * On success: sets isLoggedIn, currentUser, and re-initialises Firebase sync.
    */
-  verifyMsg91Token: (accessToken: string) => Promise<{ success: boolean; error?: string }>;
+  verifyMsg91Token: (accessToken: string, providedPhone?: string) => Promise<{ success: boolean; error?: string }>;
   updateUserProfile: (updates: Partial<User>) => Promise<void>;
   logout: () => void;
 
@@ -235,8 +251,10 @@ interface AppState {
   selectedCategoryId: string | null;
   setSearchQuery: (query: string) => void;
   setSelectedCategoryId: (catId: string | null) => void;
-  addProduct: (product: Omit<Product, 'id'>) => void;
-  addProductsBatch: (products: Omit<Product, 'id'>[]) => Promise<number>;
+  catalogVersion: number;
+  syncCatalogWithServer: (sinceVersion?: number) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id'> & { id?: string }) => void;
+  addProductsBatch: (products: (Omit<Product, 'id'> & { id?: string })[]) => Promise<number>;
   updateProduct: (id: string, updates: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
   addCategory: (category: Omit<Category, 'id'> & { id?: string }) => Category;
@@ -468,6 +486,20 @@ interface AppState {
   toggleEmergencyFestivalDisable: (disabled?: boolean) => boolean;
   addFestivalAuditLog: (log: Omit<FestivalAuditLog, 'id' | 'timestamp'>) => void;
   getActiveFestivalCampaign: () => FestivalCampaign | null;
+
+  // 🌟 Dynamic Homepage CMS & Personalization Engine
+  homepageLayouts: HomepageLayoutConfig[];
+  activeHomepageLayout: HomepageLayoutConfig;
+  homepageVersionHistory: HomepageVersionSnapshot[];
+  homepageAuditLogs: HomepageAuditLog[];
+  saveHomepageSection: (section: HomepageSectionConfig) => void;
+  reorderHomepageSections: (orderedIds: string[]) => void;
+  deleteHomepageSection: (sectionId: string) => void;
+  duplicateHomepageSection: (sectionId: string) => HomepageSectionConfig | null;
+  publishHomepageLayout: (layoutId?: string, customSummary?: string) => { success: boolean; message: string; version: number };
+  rollbackHomepageLayout: (targetVersion: number) => { success: boolean; message: string; version?: number };
+  applyFestivalTemplateToHomepage: (templateId: string) => { success: boolean; message: string };
+  resetHomepageLayoutToDefault: () => void;
 }
 
 let activeSubscriptions: (() => void)[] = [];
@@ -579,16 +611,14 @@ export const useAppStore = create<AppState>()(
               ? fsOrders
               : (get().orders && get().orders.length > 0)
               ? get().orders
-              : INITIAL_ORDERS;
+              : [];
 
             const enriched = rawOrders.map((o) => {
-              const mock = INITIAL_ORDERS.find((m) => m.id === o.id || m.orderNumber === o.orderNumber);
-              const items = (o.items && o.items.length > 0) ? o.items : (mock?.items || []);
               let placedAt = o.placedAt;
               if (!placedAt || isNaN(new Date(placedAt).getTime())) {
-                placedAt = mock?.placedAt || new Date().toISOString();
+                placedAt = new Date().toISOString();
               }
-              return { ...o, items, placedAt };
+              return { ...o, items: o.items || [], placedAt };
             });
 
             const sorted = [...enriched].sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
@@ -846,14 +876,8 @@ export const useAppStore = create<AppState>()(
       activeRole: 'customer',
       setActiveRole: (role) => set({ activeRole: role }),
 
-      isLoggedIn: isFirebaseConfigured() ? false : true,
-      currentUser: isFirebaseConfigured() ? null : {
-        id: 'usr-cust-1',
-        role: 'customer',
-        mobile: '+91 8698893348',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      },
+      isLoggedIn: false,
+      currentUser: null,
       otpSent: false,
       phoneInput: '',
       setPhoneInput: (phone) => set({ phoneInput: phone }),
@@ -871,15 +895,11 @@ export const useAppStore = create<AppState>()(
           showToast('SMS verification code sent to your phone!', 'success');
           return result;
         } else {
-          // If real SMS sending is restricted (e.g. SMS Region Policy / Phone Auth disabled in Console, quota, or network block)
-          // Fall back to Demo UAT OTP mode so testing and system demonstrations remain 100% functional.
-          console.warn('[Phone Auth Fallback] Real SMS OTP notice:', result.error);
-          set({ otpSent: true });
-          showToast('Demo OTP Mode Active — Enter 1234 to sign in', 'info');
-          return { 
-            success: true, 
-            isDemoFallback: true, 
-            warning: result.error 
+          console.error('[Phone Auth Failure]:', result.error);
+          showToast(result.error || 'Failed to send OTP. Please check your phone number.', 'error');
+          return {
+            success: false,
+            error: result.error || 'Failed to send verification SMS.'
           };
         }
       },
@@ -889,15 +909,16 @@ export const useAppStore = create<AppState>()(
 
         const authResult = await verifyFirebasePhoneOtp(otp);
         if (!authResult.success) {
-          // Allow simulated test code 1234 or 123456 as fallback if Firebase Auth session was not established
-          if (otp !== '1234' && otp !== '123456') {
-            return false;
-          }
+          return false;
         }
 
-        const inputPhone = get().phoneInput || '8698893348';
-        const cleanDigits = inputPhone.replace(/\D/g, '') || '8698893348';
-        const formattedMobile = inputPhone.startsWith('+') ? inputPhone : `+91 ${cleanDigits}`;
+        const inputPhone = get().phoneInput;
+        const cleanDigits = (inputPhone || '').replace(/\D/g, '').slice(-10);
+        if (!cleanDigits || cleanDigits.length < 10) {
+          console.error('[verifyOtp] No valid 10-digit mobile number found in state');
+          return false;
+        }
+        const formattedMobile = `+91 ${cleanDigits}`;
 
         // Lookup or restore user profile directly from Firebase Firestore Database
         let existingUser = await fetchUserFS(cleanDigits);
@@ -921,18 +942,15 @@ export const useAppStore = create<AppState>()(
           fetchOrdersFS(existingUser.id)
         ]);
 
-        // Write session cookie immediately so middleware can verify role on next navigation
+        // Write session cookie if token is available
         try {
           if (authResult.user) {
             const token = await authResult.user.getIdToken();
-            writeSessionCookie(token);
-          } else {
-            // Write secure random session token for demo / UAT session
-            writeSessionCookie(`pks_${cleanDigits}_${Date.now()}`);
+            if (token) {
+              writeSessionCookie(token);
+            }
           }
-        } catch (_) {
-          writeSessionCookie(`pks_${cleanDigits}_${Date.now()}`);
-        }
+        } catch (_) {}
 
         set({
           isLoggedIn: true,
@@ -941,16 +959,25 @@ export const useAppStore = create<AppState>()(
           addresses: userAddresses || [],
           orders: userOrders || [],
         });
+        if (existingUser) {
+          identifyUser(existingUser.id, {
+            user_role: existingUser.role || 'customer',
+            account_created_at: existingUser.createdAt,
+          });
+        }
         return true;
       },
 
       // ── MSG91 OTP Widget token verification ─────────────────────────────────
       // Called after the MSG91 Widget fires its successCallback with an access_token.
       // The actual AuthKey verification happens server-side in /api/auth/verify-otp-token.
-      verifyMsg91Token: async (accessToken: string) => {
+      verifyMsg91Token: async (accessToken: string, providedPhone?: string) => {
         if (!accessToken || typeof accessToken !== 'string') {
           return { success: false, error: 'Invalid access token received from OTP widget.' };
         }
+
+        // Clean candidate phone
+        const candidatePhone = (providedPhone || get().phoneInput || '').replace(/\D/g, '').slice(-10);
 
         try {
           let user: User | null = null;
@@ -958,10 +985,15 @@ export const useAppStore = create<AppState>()(
 
           // Attempt server verification via Next.js backend endpoint
           try {
-            const res = await fetch('/api/auth/verify-otp-token', {
+            console.log('[AUTH] CUSTOMER_LOOKUP_START', { candidatePhone: candidatePhone ? `+91 XXXXXX${candidatePhone.slice(-4)}` : 'none' });
+            const res = await apiFetch('/api/auth/verify-otp-token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ access_token: accessToken, accessToken }),
+              body: JSON.stringify({ 
+                access_token: accessToken, 
+                accessToken,
+                mobile: candidatePhone || undefined 
+              }),
             });
 
             if (res.ok) {
@@ -969,6 +1001,9 @@ export const useAppStore = create<AppState>()(
               if (data.success && data.user) {
                 user = data.user as User;
                 fetchSucceeded = true;
+                if (data.token || data.sessionId) {
+                  writeSessionCookie(data.token || data.sessionId);
+                }
               } else if (data.error) {
                 return { success: false, error: data.error };
               }
@@ -985,7 +1020,7 @@ export const useAppStore = create<AppState>()(
 
           // Fallback: If running inside static APK or direct client mode without Next.js server running
           if (!fetchSucceeded || !user) {
-            let phoneDigits = get().phoneInput.replace(/\D/g, '').slice(-10);
+            let phoneDigits = candidatePhone;
             try {
               const payloadB64 = accessToken.split('.')[1];
               if (payloadB64) {
@@ -998,7 +1033,10 @@ export const useAppStore = create<AppState>()(
             } catch (_) {}
 
             if (!phoneDigits || phoneDigits.length < 10) {
-              phoneDigits = '8698893348';
+              return {
+                success: false,
+                error: 'Could not determine authenticated phone number. Please re-enter mobile number and try again.'
+              };
             }
 
             const formattedMobile = `+91 ${phoneDigits}`;
@@ -1017,9 +1055,7 @@ export const useAppStore = create<AppState>()(
             user = existingUser;
           }
 
-          // Mirror the session cookie the server already set
-          const cleanDigits = (user.mobile || '').replace(/\D/g, '').slice(-10);
-          writeSessionCookie(`pks_${cleanDigits}_${Date.now()}`);
+          const cleanDigits = (user.mobile || candidatePhone || '').replace(/\D/g, '').slice(-10);
 
           // Fetch user-specific addresses & orders from Firestore
           const [userAddresses, userOrders] = await Promise.all([
@@ -1035,6 +1071,12 @@ export const useAppStore = create<AppState>()(
             addresses: userAddresses || [],
             orders: userOrders || [],
           });
+          if (user) {
+            identifyUser(user.id, {
+              user_role: user.role || 'customer',
+              account_created_at: user.createdAt,
+            });
+          }
 
           // Re-initialise Firebase sync so real-time subscriptions run under this user
           get().initializeFirebaseSync(true).catch(() => {});
@@ -1061,10 +1103,11 @@ export const useAppStore = create<AppState>()(
 
       logout: () => {
         try {
-          fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+          apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
         } catch (_) {}
         logoutFirebaseUser();
         clearSessionCookie(); // Remove pk_session so middleware blocks portal access immediately
+        resetUser();
         set({
           isLoggedIn: false,
           currentUser: null,
@@ -1075,19 +1118,62 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      // Products & Categories — start with clean empty product catalog
-      products:    [],
+      // Products & Categories — Authoritative Catalog State
+      catalogVersion: 100,
+      products:    INITIAL_PRODUCTS,
       categories:  INITIAL_CATEGORIES,
       searchQuery: '',
       selectedCategoryId: null,
       setSearchQuery: (query) => set({ searchQuery: query }),
       setSelectedCategoryId: (catId) => set({ selectedCategoryId: catId }),
+      
+      syncCatalogWithServer: async (sinceVersion = 0) => {
+        try {
+          const res = await apiFetch(`/api/v1/catalog/sync?sinceVersion=${sinceVersion}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.data) {
+              const { catalogVersion, products, deletedProductIds, isFullSync } = data.data;
+              set((state) => {
+                let merged = isFullSync ? products : [...state.products];
+                if (!isFullSync && Array.isArray(products)) {
+                  // Merge updated products
+                  products.forEach((p: Product) => {
+                    const idx = merged.findIndex((m: Product) => m.id === p.id);
+                    if (idx >= 0) {
+                      merged[idx] = p;
+                    } else {
+                      merged.unshift(p);
+                    }
+                  });
+                }
+                if (Array.isArray(deletedProductIds) && deletedProductIds.length > 0) {
+                  const deletedSet = new Set(deletedProductIds);
+                  merged = merged.filter((p: Product) => !deletedSet.has(p.id));
+                }
+                return {
+                  catalogVersion: catalogVersion || state.catalogVersion,
+                  products: merged,
+                };
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('[syncCatalogWithServer] Error syncing catalog:', err);
+        }
+      },
+
       addProduct: (productData) => {
         const newProduct: Product = {
           ...productData,
-          id: `prod-${Date.now()}`,
+          id: productData.id || `prod-${Date.now()}`,
+          version: (productData.version || 100) + 1,
+          catalogVersion: (get().catalogVersion || 100) + 1,
         };
-        set((state) => ({ products: [newProduct, ...state.products] }));
+        set((state) => ({
+          catalogVersion: (state.catalogVersion || 100) + 1,
+          products: [newProduct, ...state.products],
+        }));
         get().addAuditLog('CREATE_PRODUCT', 'Product', newProduct.id);
 
         // Sync to Firestore
@@ -1095,14 +1181,20 @@ export const useAppStore = create<AppState>()(
       },
       addProductsBatch: async (productsData) => {
         const timestamp = Date.now();
+        const baseCatVer = get().catalogVersion || 100;
         const newProducts: Product[] = productsData.map((pData, idx) => ({
           ...pData,
-          id: `prod-${timestamp}-${idx}`,
+          id: pData.id || `prod-${timestamp}-${idx}`,
+          version: (pData.version || 100) + 1,
+          catalogVersion: baseCatVer + 1,
           rating: pData.rating || 4.5,
           reviewsCount: pData.reviewsCount || Math.floor(Math.random() * 50) + 5,
         }));
 
-        set((state) => ({ products: [...newProducts, ...state.products] }));
+        set((state) => ({
+          catalogVersion: (state.catalogVersion || 100) + 1,
+          products: [...newProducts, ...state.products],
+        }));
         get().addAuditLog('BULK_CREATE_PRODUCTS', 'Product Catalog', `${newProducts.length} items batch added`);
 
         // Sync batch to Firestore
@@ -1111,7 +1203,17 @@ export const useAppStore = create<AppState>()(
       },
       updateProduct: (id, updates) => {
         set((state) => ({
-          products: state.products.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+          catalogVersion: (state.catalogVersion || 100) + 1,
+          products: state.products.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  ...updates,
+                  version: (p.version || 100) + 1,
+                  catalogVersion: (state.catalogVersion || 100) + 1,
+                }
+              : p
+          ),
         }));
         get().addAuditLog('UPDATE_PRODUCT', 'Product', id);
 
@@ -1120,6 +1222,7 @@ export const useAppStore = create<AppState>()(
       },
       deleteProduct: (id) => {
         set((state) => ({
+          catalogVersion: (state.catalogVersion || 100) + 1,
           products: state.products.filter((p) => p.id !== id),
         }));
         get().addAuditLog('DELETE_PRODUCT', 'Product', id);
@@ -1289,7 +1392,7 @@ export const useAppStore = create<AppState>()(
       fetchBrands: async (categoryId) => {
         try {
           const url = categoryId ? `/api/brands?categoryId=${categoryId}` : '/api/brands?includeInactive=true';
-          const res = await fetch(url);
+          const res = await apiFetch(url);
           const data = await res.json();
           if (res.ok && Array.isArray(data.brands)) {
             set({ brands: data.brands });
@@ -1301,7 +1404,7 @@ export const useAppStore = create<AppState>()(
 
       addBrand: async (brandData) => {
         try {
-          const res = await fetch('/api/brands', {
+          const res = await apiFetch('/api/brands', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(brandData),
@@ -1348,7 +1451,7 @@ export const useAppStore = create<AppState>()(
         }));
 
         try {
-          const res = await fetch(`/api/brands/${id}`, {
+          const res = await apiFetch(`/api/brands/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates),
@@ -1369,7 +1472,7 @@ export const useAppStore = create<AppState>()(
           if (options?.reassignBrandId) queryParams.set('reassignBrandId', options.reassignBrandId);
           if (options?.forceDeactivate) queryParams.set('forceDeactivate', 'true');
 
-          const res = await fetch(`/api/brands/${id}?${queryParams.toString()}`, {
+          const res = await apiFetch(`/api/brands/${id}?${queryParams.toString()}`, {
             method: 'DELETE',
           });
           const data = await res.json();
@@ -1412,7 +1515,7 @@ export const useAppStore = create<AppState>()(
         }));
 
         try {
-          await fetch(`/api/brands/${id}`, {
+          await apiFetch(`/api/brands/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ isActive: newStatus }),
@@ -1440,7 +1543,7 @@ export const useAppStore = create<AppState>()(
 
         try {
           const items = orderedIds.map((id, idx) => ({ id, displayOrder: idx + 1 }));
-          await fetch('/api/brands/reorder', {
+          await apiFetch('/api/brands/reorder', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items }),
@@ -1475,16 +1578,38 @@ export const useAppStore = create<AppState>()(
             quantity: qty,
             price: effectivePrice,
             mrp: effectiveMrp,
+            measurementType: variant?.measurementType || product.measurementType,
+            measurementUnit: variant?.measurementUnit || product.measurementUnit,
+            measurementValue: variant?.measurementValue ?? product.measurementValue,
+            packagingType: variant?.packagingType || product.packagingType,
             ...(variant && {
               variantId: variant.id,
               variantName: variant.variantName,
               selectedVariant: variant,
             }),
           };
+
+          trackCartEvent(PostHogEvents.PRODUCT_ADDED_TO_CART, {
+            product_id: product.id,
+            quantity: qty,
+            cart_item_count: (state.cart.length || 0) + 1,
+            cart_value: effectivePrice * qty,
+            variant_id: variant?.id,
+          });
+
           return { cart: [...state.cart, newItem] };
         });
       },
       removeFromCart: (cartItemId) => {
+        const itemToRemove = get().cart.find((item) => item.id === cartItemId || item.productId === cartItemId);
+        if (itemToRemove) {
+          trackCartEvent(PostHogEvents.PRODUCT_REMOVED_FROM_CART, {
+            product_id: itemToRemove.productId,
+            quantity: itemToRemove.quantity,
+            cart_item_count: Math.max(0, get().cart.length - 1),
+            variant_id: itemToRemove.variantId,
+          });
+        }
         set((state) => ({
           cart: state.cart.filter((item) => item.id !== cartItemId && item.productId !== cartItemId),
         }));
@@ -1494,6 +1619,10 @@ export const useAppStore = create<AppState>()(
           get().removeFromCart(cartItemId);
           return;
         }
+        trackCartEvent(PostHogEvents.CART_QUANTITY_CHANGED, {
+          product_id: cartItemId,
+          quantity,
+        });
         set((state) => ({
           cart: state.cart.map((item) =>
             item.id === cartItemId || item.productId === cartItemId
@@ -1505,25 +1634,50 @@ export const useAppStore = create<AppState>()(
       updateCartQuantity: (cartItemId: string, quantity: number) => {
         get().updateQuantity(cartItemId, quantity);
       },
-      clearCart: () => set({ cart: [], appliedCoupon: null }),
+      clearCart: () => {
+        trackCartEvent(PostHogEvents.CART_CLEARED, {
+          cart_item_count: 0,
+          cart_value: 0,
+        });
+        set({ cart: [], appliedCoupon: null });
+      },
       applyCoupon: (code) => {
-        const coupon = get().coupons.find(
-          (c) => c.code.toUpperCase() === code.toUpperCase() && c.active
+        const clean = (code || '').trim().toUpperCase();
+        if (!clean) {
+          return { success: false, message: 'Please enter a coupon code' };
+        }
+        const allCoupons = get().coupons || [];
+        const coupon = allCoupons.find(
+          (c) => c.code.toUpperCase() === clean && (c.active ?? true)
         );
         if (!coupon) {
           return { success: false, message: 'Invalid or expired coupon code' };
         }
         const subtotal = get().cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
         if (subtotal < coupon.minimumOrder) {
+          const needed = coupon.minimumOrder - subtotal;
           return {
             success: false,
-            message: `Minimum order value of ₹${coupon.minimumOrder} required for coupon ${coupon.code}`,
+            message: `Minimum order of ₹${coupon.minimumOrder} required for ${coupon.code} (Add ₹${needed} more to apply)`,
           };
         }
+        trackCheckoutEvent(PostHogEvents.COUPON_APPLIED, {
+          coupon_code: coupon.code,
+          discount_amount: coupon.value,
+        });
         set({ appliedCoupon: coupon });
-        return { success: true, message: `Coupon ${coupon.code} applied successfully!` };
+        const discountText = coupon.type === 'fixed' ? `₹${coupon.value}` : `${coupon.value}%`;
+        return { success: true, message: `Coupon ${coupon.code} applied! (${discountText} OFF)` };
       },
-      removeCoupon: () => set({ appliedCoupon: null }),
+      removeCoupon: () => {
+        const prev = get().appliedCoupon;
+        if (prev) {
+          trackCheckoutEvent(PostHogEvents.COUPON_REMOVED, {
+            coupon_code: prev.code,
+          });
+        }
+        set({ appliedCoupon: null });
+      },
 
       // Wishlist
       wishlist: ['p-milk-1', 'p-bread-1'],
@@ -1545,7 +1699,7 @@ export const useAppStore = create<AppState>()(
           ...addrData,
           id: `addr-${Date.now()}`,
           userId: currentUser?.id || 'usr-cust-1',
-          phone: addrData.phone || currentUser?.mobile || '+91 8698893348',
+          phone: addrData.phone || currentUser?.mobile || '',
         };
         set((state) => {
           let updated = state.addresses;
@@ -1592,7 +1746,7 @@ export const useAppStore = create<AppState>()(
       activeOrderTrackingId: null,
       setActiveOrderTrackingId: (id) => set({ activeOrderTrackingId: id }),
       placeOrder: (addressId, deliverySlot, paymentMethod, cloudOrderId, cloudOrderNumber) => {
-        const { cart, appliedCoupon, addresses, currentUser } = get();
+        const { cart, addresses, currentUser, appliedCoupon } = get();
         const address = addresses.find((a) => a.id === addressId) || addresses[0];
 
         const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -1601,11 +1755,11 @@ export const useAppStore = create<AppState>()(
           if (appliedCoupon.type === 'fixed') {
             discount = appliedCoupon.value;
           } else {
-            discount = Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
+            discount = Math.round((subtotal * appliedCoupon.value) / 100);
           }
         }
-        const deliveryCharge = subtotal > 499 ? 0 : 29;
-        const tax = Math.round((subtotal - discount) * 0.05);
+        const deliveryCharge = subtotal > 500 ? 0 : 30;
+        const tax = Math.round(subtotal * 0.05); // 5% GST
         const total = Math.max(0, subtotal - discount + deliveryCharge + tax);
 
         const orderId = cloudOrderId || `ord-${Date.now()}`;
@@ -1619,7 +1773,7 @@ export const useAppStore = create<AppState>()(
             (address?.fullName || (address as any)?.name || '').trim() ||
             (currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : '') ||
             'Customer',
-          customerPhone: currentUser?.mobile || '+91 8698893348',
+          customerPhone: address?.phone || currentUser?.mobile || '',
           storeId: 'store-1',
           storeName: 'PocketKirana Express DarkStore',
           addressId,
@@ -1640,7 +1794,7 @@ export const useAppStore = create<AppState>()(
           deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
           estimatedDeliveryTime: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
           items: cart.map((item) => ({
-            id: `oi-${Date.now()}-${item.productId}`,
+            id: `oi-${Date.now()}-${item.productId}-${item.variantId || 'def'}`,
             orderId,
             productId: item.productId,
             product: item.product,
@@ -1649,6 +1803,15 @@ export const useAppStore = create<AppState>()(
             unitPrice: item.price,
             totalPrice: item.price * item.quantity,
             subtotal: item.price * item.quantity,
+            mrp: item.mrp || item.product.mrp,
+            sellingPrice: item.price,
+            variantId: item.variantId,
+            variantName: item.variantName,
+            measurementType: item.measurementType || item.product.measurementType,
+            measurementUnit: item.measurementUnit || item.product.measurementUnit,
+            measurementValue: item.measurementValue ?? item.product.measurementValue,
+            packagingType: item.packagingType || item.product.packagingType,
+            sku: item.selectedVariant?.sku || item.product.sku,
           })),
           statusHistory: [
             {
@@ -2834,6 +2997,11 @@ export const useAppStore = create<AppState>()(
           } as any,
         });
 
+        identifyUser(partner.userId || partner.id, {
+          user_role: 'delivery_partner',
+          platform: 'delivery_apk',
+        });
+
         if (typeof window !== 'undefined') {
           localStorage.setItem('pk_delivery_authenticated_partner', partner.id);
         }
@@ -2878,6 +3046,11 @@ export const useAppStore = create<AppState>()(
             status: 'active',
             createdAt: new Date().toISOString(),
           } as any,
+        });
+
+        identifyUser(picker.id, {
+          user_role: 'picker',
+          platform: 'picker_apk',
         });
 
         if (typeof window !== 'undefined') {
@@ -4857,9 +5030,255 @@ export const useAppStore = create<AppState>()(
         // Return highest priority campaign
         return campaigns.sort((a, b) => (b.priority || 0) - (a.priority || 0))[0];
       },
+
+      // 🌟 Dynamic Homepage CMS & Personalization Engine Implementation
+      homepageLayouts: [DEFAULT_HOMEPAGE_LAYOUT],
+      activeHomepageLayout: DEFAULT_HOMEPAGE_LAYOUT,
+      homepageVersionHistory: HomepageCmsService.getVersionHistory(),
+      homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+
+      saveHomepageSection: (section) => {
+        const u = get().currentUser;
+        const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+        const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+        HomepageCmsService.saveSection(section, actor);
+        set((state) => {
+          const currentSections = state.activeHomepageLayout?.sections || [];
+          const exists = currentSections.some((s) => s.id === section.id);
+          const updatedSections = exists
+            ? currentSections.map((s) => (s.id === section.id ? section : s))
+            : [...currentSections, section];
+
+          const updatedLayout: HomepageLayoutConfig = {
+            ...state.activeHomepageLayout,
+            sections: updatedSections,
+            updatedAt: new Date().toISOString(),
+          };
+
+          return {
+            activeHomepageLayout: updatedLayout,
+            homepageLayouts: state.homepageLayouts.map((l) =>
+              l.id === updatedLayout.id ? updatedLayout : l
+            ),
+            homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+          };
+        });
+      },
+
+      reorderHomepageSections: (orderedIds) => {
+        const u = get().currentUser;
+        const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+        const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+        HomepageCmsService.reorderSections(orderedIds, actor);
+        set((state) => {
+          const sectionMap = new Map(
+            (state.activeHomepageLayout?.sections || []).map((s) => [s.id, s])
+          );
+          const reordered: HomepageSectionConfig[] = [];
+          orderedIds.forEach((id, idx) => {
+            const sec = sectionMap.get(id);
+            if (sec) {
+              reordered.push({ ...sec, displayOrder: idx + 1 });
+              sectionMap.delete(id);
+            }
+          });
+          sectionMap.forEach((sec) =>
+            reordered.push({ ...sec, displayOrder: reordered.length + 1 })
+          );
+
+          const updatedLayout: HomepageLayoutConfig = {
+            ...state.activeHomepageLayout,
+            sections: reordered,
+            updatedAt: new Date().toISOString(),
+          };
+
+          return {
+            activeHomepageLayout: updatedLayout,
+            homepageLayouts: state.homepageLayouts.map((l) =>
+              l.id === updatedLayout.id ? updatedLayout : l
+            ),
+            homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+          };
+        });
+      },
+
+      deleteHomepageSection: (sectionId) => {
+        const u = get().currentUser;
+        const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+        const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+        HomepageCmsService.deleteSection(sectionId, actor);
+        set((state) => {
+          const updatedSections = (state.activeHomepageLayout?.sections || []).filter(
+            (s) => s.id !== sectionId
+          );
+          const updatedLayout: HomepageLayoutConfig = {
+            ...state.activeHomepageLayout,
+            sections: updatedSections,
+            updatedAt: new Date().toISOString(),
+          };
+          return {
+            activeHomepageLayout: updatedLayout,
+            homepageLayouts: state.homepageLayouts.map((l) =>
+              l.id === updatedLayout.id ? updatedLayout : l
+            ),
+            homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+          };
+        });
+      },
+
+      duplicateHomepageSection: (sectionId) => {
+        const section = (get().activeHomepageLayout?.sections || []).find(
+          (s) => s.id === sectionId
+        );
+        if (!section) return null;
+
+        const duplicated: HomepageSectionConfig = {
+          ...section,
+          id: `sec-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          title: `${section.title} (Copy)`,
+          displayOrder: (section.displayOrder || 0) + 1,
+        };
+
+        get().saveHomepageSection(duplicated);
+        return duplicated;
+      },
+
+      publishHomepageLayout: (layoutId, customSummary) => {
+        const u = get().currentUser;
+        const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+        const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+        const res = HomepageCmsService.publish(actor, customSummary);
+
+        set((state) => ({
+          activeHomepageLayout: res.layout,
+          homepageLayouts: state.homepageLayouts.map((l) =>
+            l.id === res.layout.id ? res.layout : l
+          ),
+          homepageVersionHistory: HomepageCmsService.getVersionHistory(),
+          homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+        }));
+
+        return {
+          success: true,
+          message: res.message,
+          version: res.version,
+        };
+      },
+
+      rollbackHomepageLayout: (targetVersion: number) => {
+        try {
+          const u = get().currentUser;
+          const actorName = u?.name || (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : 'Admin');
+          const actor = { id: u?.id || 'admin_store', name: actorName, role: get().activeRole || 'Admin' };
+          const res = HomepageCmsService.rollback(targetVersion, actor);
+
+          set((state) => ({
+            activeHomepageLayout: res.layout,
+            homepageLayouts: state.homepageLayouts.map((l) =>
+              l.id === res.layout.id ? res.layout : l
+            ),
+            homepageVersionHistory: HomepageCmsService.getVersionHistory(),
+            homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+          }));
+
+          return {
+            success: true,
+            message: res.message,
+            version: res.version,
+          };
+        } catch (err: any) {
+          return {
+            success: false,
+            message: err?.message || 'Rollback failed',
+          };
+        }
+      },
+
+      applyFestivalTemplateToHomepage: (templateId) => {
+        const template = get().festivalTemplates.find((t) => t.id === templateId);
+        if (!template) {
+          return { success: false, message: 'Template not found' };
+        }
+
+        const convertedSections: HomepageSectionConfig[] = (template.sections || []).map(
+          (s, idx) => ({
+            id: `sec-${Date.now()}-${idx}`,
+            type: s.type === 'Hero' ? 'FestivalHero' : (s.type as any),
+            title: s.title || template.name,
+            subtitle: s.subtitle,
+            badge: s.badge || template.name.toUpperCase(),
+            ctaText: s.ctaText,
+            ctaLink: s.ctaLink,
+            image: s.image,
+            mobileImage: s.mobileImage,
+            desktopImage: s.desktopImage,
+            layoutStyle: (s.layoutStyle as any) || 'carousel',
+            targetCategoryIds: s.categoryIds || (s.categoryId ? [s.categoryId] : []),
+            targetProductIds: s.productIds || [],
+            maxItems: s.maxItems || 8,
+            displayOrder: idx + 1,
+            targetPersona: 'ALL',
+            targetDate: s.targetDate,
+            showTimer: s.showTimer || s.type === 'Countdown',
+            isActive: s.active !== false,
+          })
+        );
+
+        const newLayout: HomepageLayoutConfig = {
+          id: `layout-fest-${Date.now()}`,
+          name: `${template.name} Homepage`,
+          description: template.description,
+          festivalKey: template.festivalKey,
+          version: 1,
+          status: 'PUBLISHED',
+          sections:
+            convertedSections.length > 0 ? convertedSections : DEFAULT_HOMEPAGE_SECTIONS,
+          publishedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: 'Admin via Homepage Studio',
+        };
+
+        HomepageCmsService.updateLayout(newLayout);
+
+        set((state) => ({
+          activeHomepageLayout: newLayout,
+          homepageLayouts: [newLayout, ...state.homepageLayouts],
+          homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+        }));
+
+        return {
+          success: true,
+          message: `Applied ${template.name} to Homepage CMS!`,
+        };
+      },
+
+      resetHomepageLayoutToDefault: () => {
+        const defaultLayout = HomepageCmsService.resetToDefault();
+        set({
+          activeHomepageLayout: defaultLayout,
+          homepageVersionHistory: HomepageCmsService.getVersionHistory(),
+          homepageAuditLogs: HomepageCmsService.getAuditLogs(),
+        });
+      },
     }),
     {
       name: 'pocketkirana-store-v4',
+      version: 5,
+      migrate: (persistedState: any, version: number) => {
+        if (!version || version < 5) {
+          if (persistedState && Array.isArray(persistedState.products)) {
+            persistedState.products = persistedState.products.map((p: any) => {
+              const fresh = INITIAL_PRODUCTS.find((m) => m.id === p.id);
+              if (fresh && fresh.thumbnail) {
+                return { ...p, thumbnail: fresh.thumbnail };
+              }
+              return p;
+            });
+          }
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         products: state.products,
         categories: state.categories,
@@ -4886,6 +5305,10 @@ export const useAppStore = create<AppState>()(
         festivalCampaigns: state.festivalCampaigns,
         festivalAuditLogs: state.festivalAuditLogs,
         isFestivalEmergencyDisabled: state.isFestivalEmergencyDisabled,
+        homepageLayouts: state.homepageLayouts,
+        activeHomepageLayout: state.activeHomepageLayout,
+        homepageVersionHistory: state.homepageVersionHistory,
+        homepageAuditLogs: state.homepageAuditLogs,
       }),
     }
   )

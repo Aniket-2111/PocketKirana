@@ -40,7 +40,7 @@ const client = new Client({
   port: Number(process.env.DB_PORT || 5433),
   database: process.env.DB_NAME || 'pocketkirana_db',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'varbusiness',
+  password: process.env.DB_PASSWORD || process.env.PGPASSWORD || '',
   connectionTimeoutMillis: 10000,
 });
 

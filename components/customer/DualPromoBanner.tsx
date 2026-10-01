@@ -29,7 +29,7 @@ export const DualPromoBanner: React.FC = () => {
     {
       bg: 'bg-gradient-to-r from-[#FFF8E7] via-[#FFF3D6] to-[#FFE7B3]',
       border: 'border-amber-200/80',
-      badgeBg: 'bg-[#E65100]',
+      badgeBg: 'bg-[#075C3C]',
       btnBg: 'bg-[#075C3C] hover:bg-[#0B8F5A]',
       tagText: '100% NATURAL',
     },
@@ -37,7 +37,7 @@ export const DualPromoBanner: React.FC = () => {
       bg: 'bg-gradient-to-r from-[#EBF6EE] via-[#E1F3E7] to-[#D4EDE0]',
       border: 'border-emerald-200/80',
       badgeBg: 'bg-[#0B8F5A]',
-      btnBg: 'bg-[#E65100] hover:bg-[#D84315]',
+      btnBg: 'bg-[#075C3C] hover:bg-[#0B8F5A]',
       tagText: 'FARM DIRECT',
     },
   ];
@@ -78,10 +78,10 @@ export const DualPromoBanner: React.FC = () => {
 
               <Link
                 href={banner.redirectUrl || '/category/fruits-vegetables'}
-                className={`inline-flex items-center gap-1.5 ${style.btnBg} text-white font-black text-xs px-5 py-2.5 rounded-xl transition-all shadow-2xs group/btn`}
+                className="inline-flex items-center gap-1.5 bg-[#075C3C] hover:bg-[#0B8F5A] active:bg-[#05442C] text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-2xs group/btn focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#075C3C]"
               >
                 <span>{btnLabel}</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" aria-hidden="true" />
               </Link>
             </div>
 

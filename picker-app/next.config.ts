@@ -7,9 +7,6 @@ const nextConfig: NextConfig = {
   ...(isProd ? { output: 'export', trailingSlash: true } : {}),
   reactStrictMode: false,
   devIndicators: false,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },

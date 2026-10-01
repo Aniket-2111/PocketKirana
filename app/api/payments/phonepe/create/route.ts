@@ -43,31 +43,75 @@ export async function POST(request: Request) {
     }
     const uid = auth.uid;
 
-    // ── 2. MOCK / OFFLINE FALLBACK (auth disabled or no database) ──
-    const isMockOrder = String(orderId).includes('test_phonepe_');
-
-    if (isMockOrder || !isFirebaseConfigured() || !db) {
-      const mockTxnId = `TXN_PK_MOCK_${orderId}_${Date.now()}`;
-      const mockAmount = String(orderId).includes('999') ? 350.0 : 450.0;
-      return corsResponse({
-        success: true,
-        data: {
-          merchantTransactionId: mockTxnId,
-          redirectUrl: `/checkout/mock-phonepe?transactionId=${mockTxnId}&orderId=${orderId}&amount=${mockAmount}`,
-          isSimulation: true
-        }
-      });
+    // ── 2. DATABASE READINESS CHECK (fail-closed in production) ───
+    if (!isFirebaseConfigured() || !db) {
+      return corsResponse(
+        { success: false, error: 'Database service is currently unavailable. Please contact support.' },
+        { status: 503 }
+      );
     }
 
-    // ── 3. ORDER FETCH & OWNERSHIP CHECK ───────────────────────────
-    const orderRef = doc(db, 'orders', orderId);
-    const orderSnap = await getDoc(orderRef);
-    if (!orderSnap.exists()) {
+    const isMockOrder = String(orderId).includes('test_phonepe_');
+    if (isMockOrder && !isSimulationMode()) {
+      return corsResponse({ success: false, error: 'Invalid order reference' }, { status: 400 });
+    }
+
+    // ── 3. ORDER FETCH & OWNERSHIP CHECK (PostgreSQL authoritative) ───
+    let orderData: {
+      orderId: string;
+      orderNumber: string;
+      customerId: string;
+      total: number;
+      paymentStatus: string;
+      customerPhone?: string;
+    } | null = null;
+
+    try {
+      const { queryPostgres } = await import('@/lib/postgres');
+      const pgRes = await queryPostgres(
+        `SELECT id, order_number, customer_id, firebase_uid, total_amount, payment_status, customer_phone 
+         FROM orders 
+         WHERE id = $1 OR order_number = $1 
+         LIMIT 1`,
+        [orderId]
+      );
+      if (pgRes.rows.length > 0) {
+        const row = pgRes.rows[0];
+        orderData = {
+          orderId: row.id || orderId,
+          orderNumber: row.order_number || row.id || orderId,
+          customerId: row.customer_id || row.firebase_uid || '',
+          total: parseFloat(row.total_amount || 0),
+          paymentStatus: row.payment_status || 'pending',
+          customerPhone: row.customer_phone,
+        };
+      }
+    } catch (pgErr: any) {
+      console.warn('[PhonePe Create] PG query fallback:', pgErr.message);
+    }
+
+    if (!orderData && isFirebaseConfigured() && db) {
+      const orderRef = doc(db, 'orders', orderId);
+      const orderSnap = await getDoc(orderRef);
+      if (orderSnap.exists()) {
+        const snapData = orderSnap.data()!;
+        orderData = {
+          orderId,
+          orderNumber: snapData.orderNumber || orderId,
+          customerId: snapData.customerId || '',
+          total: snapData.total,
+          paymentStatus: snapData.paymentStatus,
+          customerPhone: snapData.customerPhone,
+        };
+      }
+    }
+
+    if (!orderData) {
       return corsResponse({ success: false, error: 'Order not found' }, { status: 404 });
     }
 
-    const orderData = orderSnap.data()!;
-    if (orderData.customerId && uid !== 'usr-cust-1' && orderData.customerId !== uid) {
+    const isGuestOrder = Boolean(orderData.customerId && orderData.customerId.startsWith('usr-guest-'));
+    if (orderData.customerId && orderData.customerId !== uid && uid !== 'dev-user' && !isGuestOrder) {
       return corsResponse(
         { success: false, error: 'Access denied: Order ownership mismatch' },
         { status: 403 }
@@ -93,8 +137,11 @@ export async function POST(request: Request) {
       return corsResponse({
         success: true,
         data: {
+          orderId,
           merchantTransactionId: mockTxnId,
+          amount: totalAmount,
           redirectUrl: `/checkout/mock-phonepe?transactionId=${mockTxnId}&orderId=${orderId}&amount=${totalAmount}`,
+          token: `token_mock_${Date.now()}`,
           isSimulation: true
         }
       });
@@ -168,15 +215,46 @@ export async function POST(request: Request) {
       );
     }
 
-    // ── 6. RECORD PENDING TRANSACTION ──────────────────────────────
-    await setDoc(
-      doc(db, 'payments', `pay_pk_${merchantTransactionId}`),
-      buildPaymentDoc(orderId, customerId, totalAmount, merchantTransactionId)
-    );
+    // ── 6. RECORD PENDING TRANSACTION (PostgreSQL + Firebase mirror) ───
+    try {
+      const { queryPostgres } = await import('@/lib/postgres');
+      await queryPostgres(
+        `INSERT INTO payments (
+           id, order_id, firebase_uid, payment_method, amount, currency,
+           status, gateway, gateway_order_id, created_at
+         ) VALUES ($1, $2, $3, 'phonepe', $4, 'INR', 'pending', 'phonepe', $5, NOW())
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          `pay_pk_${merchantTransactionId}`,
+          orderId,
+          customerId,
+          totalAmount,
+          merchantTransactionId,
+        ]
+      );
+    } catch (pgInsertErr: any) {
+      console.warn('[PhonePe Create] PG payment insert fallback:', pgInsertErr.message);
+    }
+
+    if (isFirebaseConfigured() && db) {
+      await setDoc(
+        doc(db, 'payments', `pay_pk_${merchantTransactionId}`),
+        buildPaymentDoc(orderId, customerId, totalAmount, merchantTransactionId)
+      );
+    }
+
+    const token = apiJson.data?.instrumentResponse?.token || apiJson.data?.token || '';
 
     return corsResponse({
       success: true,
-      data: { merchantTransactionId, redirectUrl, isSimulation: false }
+      data: {
+        orderId,
+        merchantTransactionId,
+        redirectUrl,
+        token,
+        amount: totalAmount,
+        isSimulation: false
+      }
     });
   } catch (error: any) {
     console.error('[PhonePe Create Order Exception]', error);

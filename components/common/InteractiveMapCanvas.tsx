@@ -638,3 +638,5 @@ export const InteractiveMapCanvas: React.FC<InteractiveMapCanvasProps> = ({
     </div>
   );
 };
+
+export default InteractiveMapCanvas;

@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { fetchOrdersFS, fetchProductsFS, fetchDeliveryPartnersFS } from '@/lib/firebaseServices';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin', 'store_manager']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const [orders, products, partners] = await Promise.all([
       fetchOrdersFS(),
@@ -40,7 +44,7 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error?.message || 'Analytics error' },
+      { success: false, error: 'Analytics error' },
       { status: 500 }
     );
   }

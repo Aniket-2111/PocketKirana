@@ -44,14 +44,12 @@ export interface CheckoutQuote {
   appliedCouponCode?: string;
 }
 
+import { apiFetch } from '@/lib/apiClient';
+
 // Helper wrapper for standardized API responses
 async function request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
   try {
-    const res = await fetch(endpoint, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+    const res = await apiFetch(endpoint, {
       ...options,
     });
     const data = await res.json();
@@ -162,22 +160,14 @@ export const checkoutApi = {
 };
 
 // ----------------------------------------------------
-// 5. PAYMENT APIS (Razorpay Server Verification)
+// 5. PAYMENT APIS (PhonePe Online Gateway)
 // ----------------------------------------------------
 export const paymentsApi = {
-  async createRazorpayOrder(amount: number): Promise<ApiResponse<{ razorpayOrderId: string; keyId: string }>> {
-    return request('/api/payments/create-order', {
-      method: 'POST',
-      body: JSON.stringify({ amount }),
-    });
-  },
-
-  async verifyPayment(payload: {
-    razorpayOrderId: string;
-    razorpayPaymentId: string;
-    razorpaySignature: string;
-  }): Promise<ApiResponse<{ verified: boolean }>> {
-    return request('/api/payments/verify', {
+  async verifyPhonePePayment(payload: {
+    merchantTransactionId: string;
+    orderId?: string;
+  }): Promise<ApiResponse<{ verified: boolean; status: string }>> {
+    return request('/api/payments/phonepe/verify', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

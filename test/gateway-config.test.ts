@@ -7,11 +7,9 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getPhonePeConfig, isSimulationMode } from '@/lib/phonepeConfig';
-import { getRazorpayConfig, isRazorpaySimulationMode } from '@/lib/razorpayConfig';
 
 const PHONEPE_VARS = ['PHONEPE_MERCHANT_ID', 'PHONEPE_SALT_KEY', 'PHONEPE_SALT_INDEX', 'PHONEPE_ENV'] as const;
-const RZP_VARS = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'] as const;
-const MODE_VARS = ['PHONEPE_SIMULATION_MODE', 'RAZORPAY_SIMULATION_MODE', 'VERCEL_ENV', 'NODE_ENV'] as const;
+const MODE_VARS = ['PHONEPE_SIMULATION_MODE', 'VERCEL_ENV', 'NODE_ENV'] as const;
 
 // NODE_ENV is typed read-only by Next.js; tests need to simulate it.
 const setEnv = (k: string, v: string | undefined) => {
@@ -19,11 +17,11 @@ const setEnv = (k: string, v: string | undefined) => {
 };
 
 beforeEach(() => {
-  for (const k of [...PHONEPE_VARS, ...RZP_VARS, ...MODE_VARS]) delete process.env[k];
+  for (const k of [...PHONEPE_VARS, ...MODE_VARS]) delete process.env[k];
 });
 
 afterEach(() => {
-  for (const k of [...PHONEPE_VARS, ...RZP_VARS, ...MODE_VARS]) delete process.env[k];
+  for (const k of [...PHONEPE_VARS, ...MODE_VARS]) delete process.env[k];
 });
 
 describe('getPhonePeConfig', () => {
@@ -75,28 +73,5 @@ describe('isSimulationMode', () => {
     setEnv('NODE_ENV', undefined);
     process.env.VERCEL_ENV = 'production';
     expect(isSimulationMode()).toBe(false);
-  });
-});
-
-describe('getRazorpayConfig', () => {
-  it('returns null when credentials are missing (fail closed, no hardcoded key)', () => {
-    expect(getRazorpayConfig()).toBeNull();
-  });
-
-  it('returns config only when both credentials are present', () => {
-    process.env.RAZORPAY_KEY_ID = 'rzp_live_abc';
-    expect(getRazorpayConfig()).toBeNull();
-    process.env.RAZORPAY_KEY_SECRET = 'secret';
-    expect(getRazorpayConfig()).toEqual({ keyId: 'rzp_live_abc', keySecret: 'secret' });
-  });
-});
-
-describe('isRazorpaySimulationMode', () => {
-  it('is never on by default and is refused in production', () => {
-    expect(isRazorpaySimulationMode()).toBe(false);
-    process.env.RAZORPAY_SIMULATION_MODE = 'true';
-    expect(isRazorpaySimulationMode()).toBe(true);
-    setEnv('NODE_ENV', 'production');
-    expect(isRazorpaySimulationMode()).toBe(false);
   });
 });

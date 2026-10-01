@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { ArrowLeft, ChevronDown, ShieldCheck, Loader2, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
@@ -32,9 +32,11 @@ const COLLAGE_ITEMS = [
   ],
 ];
 
-export default function CustomerLoginPage() {
+function CustomerLoginForm() {
   const router = useRouter();
-  const { verifyMsg91Token, sendOtp, verifyOtp } = useAppStore();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirect') || '/home';
+  const { verifyMsg91Token, sendOtp, verifyOtp, setPhoneInput, logout } = useAppStore();
 
   const [phone, setPhone] = useState('');
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '']);
@@ -76,6 +78,88 @@ export default function CustomerLoginPage() {
     }
   }, [step]);
 
+  // Trigger verification with explicit OTP code
+  const triggerVerifyWithCode = async (otpCode: string) => {
+    if (isSubmittingRef.current || isLoading) return;
+    if (otpCode.length < 4) return;
+
+    setIsLoading(true);
+    isSubmittingRef.current = true;
+    setErrorMsg('');
+
+    console.log('[AUTH] OTP_VERIFY_START');
+
+    // Timeout promise (10 seconds strict limit)
+    const timeoutPromise = new Promise<{ success: false; timeout: true }>((_, reject) =>
+      setTimeout(() => reject(new Error('TIMEOUT')), 10000)
+    );
+
+    try {
+      // 1. Verify OTP with MSG91 custom UI client with timeout
+      const verifyPromise = (async () => {
+        const verifyRes = await verifyMsg91Otp(otpCode);
+        if (!verifyRes.success || !verifyRes.access_token) {
+          throw new Error(verifyRes.error || 'Incorrect OTP code entered. Please check and try again.');
+        }
+
+        console.log('[AUTH] MSG91_VERIFY_SUCCESS');
+
+        // 2. Server-side token verification (AuthKey securely verified on backend)
+        // CRITICAL: Always pass candidate cleanPhone so token and user identity are bound
+        const serverAuthRes = await verifyMsg91Token(verifyRes.access_token, cleanPhone);
+        if (!serverAuthRes.success) {
+          throw new Error(serverAuthRes.error || 'Server authentication failed. Please try again.');
+        }
+
+        return serverAuthRes;
+      })();
+
+      await Promise.race([verifyPromise, timeoutPromise]);
+
+      console.log('[AUTH] LOGIN_COMPLETE');
+      showToast('Login successful! Welcome to Pocket Kirana 🎉', 'success');
+      router.replace(redirectTo);
+    } catch (err: any) {
+      console.warn('[AUTH] Verification error:', err);
+      if (err?.message === 'TIMEOUT') {
+        setErrorMsg('Verification is taking longer than expected. Please try again.');
+        showToast('Verification is taking longer than expected. Please try again.', 'error');
+      } else {
+        const message = err?.message || 'Verification failed. Please try again.';
+        setErrorMsg(message);
+        showToast(message, 'error');
+      }
+    } finally {
+      setIsLoading(false);
+      isSubmittingRef.current = false;
+    }
+  };
+
+  // Android WebOTP / SMS Retriever zero-permission native autofill listener
+  useEffect(() => {
+    if (step !== 'OTP') return;
+    if (typeof window === 'undefined' || !('OTPCredential' in window)) return;
+
+    const ac = new AbortController();
+    (navigator.credentials as any)
+      ?.get({
+        otp: { transport: ['sms'] },
+        signal: ac.signal,
+      })
+      .then((otp: any) => {
+        if (otp && otp.code) {
+          const codeDigits = otp.code.replace(/\D/g, '').slice(0, 4).split('');
+          if (codeDigits.length === 4) {
+            setOtpDigits(codeDigits);
+            triggerVerifyWithCode(codeDigits.join(''));
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => ac.abort();
+  }, [step]);
+
   // Handle Send OTP
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -92,6 +176,12 @@ export default function CustomerLoginPage() {
     isSubmittingRef.current = true;
 
     try {
+      // Clear previous user session from client state to isolate identities
+      logout();
+      setPhoneInput(cleanPhone);
+
+      console.log('[AUTH] OTP_SUBMIT_START', { phonePrefix: `+91 XXXXXX${cleanPhone.slice(-4)}` });
+
       // 1. Call MSG91 Custom UI Send OTP (Real SMS)
       const msg91Res = await sendMsg91Otp(cleanPhone);
 
@@ -129,6 +219,9 @@ export default function CustomerLoginPage() {
       setOtpDigits(newDigits);
       const focusIndex = Math.min(pastedChars.length, 3);
       otpInputsRef.current[focusIndex]?.focus();
+      if (newDigits.join('').length === 4) {
+        triggerVerifyWithCode(newDigits.join(''));
+      }
       return;
     }
 
@@ -139,6 +232,11 @@ export default function CustomerLoginPage() {
     // Auto-advance to next input box
     if (sanitized && index < 3) {
       otpInputsRef.current[index + 1]?.focus();
+    }
+
+    // Auto-verify when 4 digits are completed
+    if (newDigits.join('').length === 4) {
+      triggerVerifyWithCode(newDigits.join(''));
     }
   };
 
@@ -191,50 +289,16 @@ export default function CustomerLoginPage() {
     setIsLoading(false);
   };
 
-  // Handle OTP Verification
+  // Handle OTP Verification from Form Submit
   const handleVerifyOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (isSubmittingRef.current || isLoading) return;
-
     const otpCode = otpDigits.join('').trim();
     if (otpCode.length < 4) {
       setErrorMsg('Please enter the complete 4-digit verification code');
       showToast('Please enter complete 4-digit OTP', 'error');
       return;
     }
-
-    setIsLoading(true);
-    isSubmittingRef.current = true;
-    setErrorMsg('');
-
-    try {
-      // 1. Verify OTP with MSG91 custom UI client
-      const verifyRes = await verifyMsg91Otp(otpCode);
-
-      if (verifyRes.success && verifyRes.access_token) {
-        // 2. Server-side token verification (AuthKey securely verified on backend)
-        const serverAuthRes = await verifyMsg91Token(verifyRes.access_token);
-
-        if (serverAuthRes.success) {
-          showToast('Login successful! Welcome to Pocket Kirana 🎉', 'success');
-          router.replace('/home');
-          return;
-        } else {
-          setErrorMsg(serverAuthRes.error || 'Server authentication failed. Please try again.');
-          showToast(serverAuthRes.error || 'Authentication failed', 'error');
-        }
-      } else {
-        const err = verifyRes.error || 'Incorrect OTP code entered. Please check and try again.';
-        setErrorMsg(err);
-        showToast(err, 'error');
-      }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Verification error. Please try again.');
-      showToast('Verification failed. Please try again.', 'error');
-    } finally {
-      setIsLoading(false);
-      isSubmittingRef.current = false;
-    }
+    await triggerVerifyWithCode(otpCode);
   };
 
   return (
@@ -421,6 +485,7 @@ export default function CustomerLoginPage() {
                     inputMode="numeric"
                     pattern="[0-9]*"
                     maxLength={1}
+                    autoComplete={index === 0 ? 'one-time-code' : 'off'}
                     value={digit}
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
@@ -497,6 +562,20 @@ export default function CustomerLoginPage() {
       </div>
 
     </div>
+  );
+}
+
+export default function CustomerLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0e1217] flex items-center justify-center p-4">
+          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+        </div>
+      }
+    >
+      <CustomerLoginForm />
+    </Suspense>
   );
 }
 

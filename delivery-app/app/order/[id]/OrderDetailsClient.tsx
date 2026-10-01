@@ -95,7 +95,6 @@ export default function OrderDetailsClient() {
     rawPaymentStatus === 'PAID' ||
     rawPaymentMethod === 'ONLINE' ||
     rawPaymentMethod === 'UPI' ||
-    rawPaymentMethod === 'RAZORPAY' ||
     rawPaymentMethod === 'CARD' ||
     rawPaymentMethod === 'NETBANKING' ||
     rawPaymentMethod === 'WALLET' ||

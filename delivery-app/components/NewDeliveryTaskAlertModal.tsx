@@ -4,6 +4,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Bike, Navigation, CheckCircle2, Volume2, VolumeX, MapPin, Clock, ArrowRight } from 'lucide-react';
 import { soundAlerts } from '@/lib/audioAlerts';
+import { apiFetch } from '@/lib/apiClient';
+import { trackDeliveryEvent, PostHogEvents } from '@/lib/analytics';
 
 export const NewDeliveryTaskAlertModal: React.FC = () => {
   const { orders, activePartnerId, authenticatedPartnerId, updateOrderStatus } = useAppStore();
@@ -27,6 +29,11 @@ export const NewDeliveryTaskAlertModal: React.FC = () => {
     if (unaccepted && (!incomingTask || incomingTask.id !== unaccepted.id)) {
       setIncomingTask(unaccepted);
       setIsSilenced(false);
+
+      trackDeliveryEvent(PostHogEvents.DELIVERY_ORDER_RECEIVED, {
+        order_id: unaccepted.id,
+        partner_id: currentPartnerId,
+      });
 
       // Play energetic delivery dispatch chime
       soundAlerts.playPartnerDispatch();
@@ -57,7 +64,7 @@ export const NewDeliveryTaskAlertModal: React.FC = () => {
       soundIntervalRef.current = null;
     }
     if (incomingTask?.id) {
-      fetch(`/api/orders/${incomingTask.id}/acknowledge`, {
+      apiFetch(`/api/orders/${incomingTask.id}/acknowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staffId: currentPartnerId, role: 'delivery_partner' }),
@@ -68,8 +75,12 @@ export const NewDeliveryTaskAlertModal: React.FC = () => {
   const handleAccept = async () => {
     handleAcknowledge();
     if (incomingTask?.id) {
+      trackDeliveryEvent(PostHogEvents.DELIVERY_ORDER_ACCEPTED, {
+        order_id: incomingTask.id,
+        partner_id: currentPartnerId,
+      });
       try {
-        await fetch(`/api/delivery/orders/${incomingTask.id}/accept`, {
+        await apiFetch(`/api/delivery/orders/${incomingTask.id}/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ partnerId: currentPartnerId }),

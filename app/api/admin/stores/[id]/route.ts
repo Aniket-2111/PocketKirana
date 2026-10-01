@@ -1,45 +1,40 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { updateStoreConfig, getStoreById } from '@/lib/locationServices';
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = requireRole(request, ['admin', 'store_manager']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const { id } = await params;
     const store = getStoreById(id);
     if (!store) {
-      return NextResponse.json(
-        { success: false, error: 'Store not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Store not found' }, { status: 404 });
     }
-    return NextResponse.json({
-      success: true,
-      data: store,
-    });
+    return NextResponse.json({ success: true, data: store });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Failed to fetch store' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch store' }, { status: 500 });
   }
 }
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = requireRole(request, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const { id } = await params;
     const body = await request.json();
 
     const updated = updateStoreConfig(id, body);
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: 'Store not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Store not found' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -48,27 +43,24 @@ export async function PUT(
       message: `Store ${updated.name} configuration updated successfully`,
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Failed to update store settings' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to update store settings' }, { status: 500 });
   }
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = requireRole(request, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const { id } = await params;
     const body = await request.json();
 
     const updated = updateStoreConfig(id, body);
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: 'Store not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Store not found' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -77,9 +69,6 @@ export async function PATCH(
       message: `Store ${updated.name} configuration updated successfully`,
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Failed to update store settings' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to update store settings' }, { status: 500 });
   }
 }

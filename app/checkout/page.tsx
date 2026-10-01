@@ -36,19 +36,7 @@ import {
   Check
 } from 'lucide-react';
 
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined') return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
 
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -191,117 +179,98 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      // Call the Cloud Function — this validates zone, stock, coupon, and creates the order server-side
-      const result = await callPlaceOrder({
-        cartItems: cart.map((item) => ({
-          productId: item.productId || item.product?.id || item.id,
-          quantity: item.quantity,
-        })),
-        addressId: selectedAddr.id,
-        paymentMethod: selectedPayment as 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card',
-        couponCode: appliedCoupon?.code,
-        storeId: 'store-001',
-      });
+      // 1. Post to Canonical PostgreSQL Checkout API
+      const idempotencyKey = `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      let result: any = null;
+
+      try {
+        const checkoutRes = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-idempotency-key': idempotencyKey,
+          },
+          body: JSON.stringify({
+            cartItems: cart.map((item) => ({
+              productId: item.productId || item.product?.id || item.id,
+              productName: item.product?.name || (item as any).name || '',
+              unitPrice: item.price,
+              imageUrl: item.product?.thumbnail || item.product?.image || (item as any).imageUrl || '',
+              sku: item.product?.sku || (item as any).sku || '',
+              quantity: item.quantity,
+            })),
+            address: selectedAddr,
+            addressId: selectedAddr.id,
+            paymentMethod: selectedPayment as 'cod' | 'phonepe' | 'upi' | 'card',
+            couponCode: appliedCoupon?.code,
+            storeId: 'store-001',
+            idempotencyKey,
+          }),
+        });
+
+        const checkoutData = await checkoutRes.json();
+        if (checkoutRes.ok && checkoutData.success) {
+          result = {
+            success: true,
+            orderId: checkoutData.data.orderId,
+            orderNumber: checkoutData.data.orderNumber,
+            total: checkoutData.data.total,
+            requiresPayment: checkoutData.data.requiresPayment,
+          };
+        }
+      } catch (e) {
+        console.warn('[Checkout] PostgreSQL API direct attempt, fallback to Cloud Function:', e);
+      }
+
+      // Fallback to Cloud Function if API was not reachable
+      if (!result) {
+        result = await callPlaceOrder({
+          cartItems: cart.map((item) => ({
+            productId: item.productId || item.product?.id || item.id,
+            quantity: item.quantity,
+          })),
+          addressId: selectedAddr.id,
+          paymentMethod: selectedPayment as 'cod' | 'phonepe' | 'upi' | 'card',
+          couponCode: appliedCoupon?.code,
+          storeId: 'store-001',
+        });
+      }
 
       if (result.success) {
         if (result.requiresPayment) {
-          // ── PHONEPE PAYMENT FLOW ──
-          if (selectedPayment === 'phonepe') {
-            const orderResponse = await fetch('/api/payments/phonepe/create', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId: result.orderId }),
-            });
-            const orderResData = await orderResponse.json();
+          // ── PHONEPE PAYMENT FLOW (Native Android / Web) ──
+          const { startPhonePeCheckoutFlow } = await import('@/lib/phonepeClient');
+          const res = await startPhonePeCheckoutFlow({
+            orderId: result.orderId,
+            amount: result.total,
+            mobileNumber: selectedAddr.phone || currentUser?.mobile || '9999999999',
+            customerId: currentUser?.id || 'customer',
+            redirectPath: '/checkout/success/',
+          });
 
-            if (!orderResData.success) {
-              throw new Error(orderResData.error || 'Failed to create PhonePe order');
-            }
-
-            const { redirectUrl } = orderResData.data;
-            window.location.href = redirectUrl;
+          if (res.status === 'REDIRECTED') {
             return;
           }
 
-          // ── ONLINE PAYMENT WORKFLOW (Razorpay) ──
-          const scriptLoaded = await loadRazorpayScript();
-          if (!scriptLoaded) {
-            showToast('Failed to load payment gateway script. Please try again.', 'error');
+          if (res.verified || res.status === 'SUCCESS') {
+            const placed = placeOrder(
+              selectedAddr.id,
+              `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
+              selectedPayment,
+              result.orderId,
+              result.orderNumber
+            );
+            setConfirmedOrder(placed);
+            setShowSuccessAnimation(true);
             setIsProcessing(false);
             return;
+          } else if (res.status === 'CANCELLED') {
+            showToast('Payment was cancelled.', 'info');
+            setIsProcessing(false);
+            return;
+          } else {
+            throw new Error(res.error || 'Failed to complete PhonePe payment');
           }
-
-          // Create order on backend (simulated or real Razorpay instance)
-          const orderResponse = await fetch('/api/payments/create-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: result.total }),
-          });
-          const orderResData = await orderResponse.json();
-          if (!orderResData.success) {
-            throw new Error(orderResData.error || 'Failed to create payment order');
-          }
-
-          const { razorpayOrderId, keyId } = orderResData.data;
-
-          const options = {
-            key: keyId,
-            amount: Math.round(result.total * 100),
-            currency: 'INR',
-            name: 'PocketKirana',
-            description: `Order #${result.orderNumber}`,
-            order_id: razorpayOrderId,
-            handler: async (response: any) => {
-              setIsProcessing(true);
-              try {
-                // Verify payment on server
-                const verifyResponse = await fetch('/api/payments/verify', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    razorpayOrderId,
-                    razorpayPaymentId: response.razorpay_payment_id,
-                    razorpaySignature: response.razorpay_signature,
-                  }),
-                });
-                const verifyData = await verifyResponse.json();
-                if (verifyData.success && verifyData.data.verified) {
-                  const placed = placeOrder(
-                    selectedAddr.id,
-                    `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
-                    selectedPayment,
-                    result.orderId,
-                    result.orderNumber
-                  );
-                  setConfirmedOrder(placed);
-                  setShowSuccessAnimation(true);
-                } else {
-                  showToast('Payment verification failed. Please contact support.', 'error');
-                }
-              } catch (err: any) {
-                console.error('[Payment Verification Error]', err);
-                showToast(err.message || 'Payment verification failed.', 'error');
-              } finally {
-                setIsProcessing(false);
-              }
-            },
-            modal: {
-              ondismiss: () => {
-                showToast('Payment cancelled by user.', 'warning');
-                setIsProcessing(false);
-              }
-            },
-            prefill: {
-              name: currentUser?.firstName || 'Customer',
-              contact: currentUser?.mobile || '',
-            },
-            theme: {
-              color: '#0F532B',
-            },
-          };
-
-          const rzp = new (window as any).Razorpay(options);
-          rzp.open();
         } else {
           // ── COD WORKFLOW ──
           const placed = placeOrder(
@@ -332,8 +301,26 @@ export default function CheckoutPage() {
         <RoleSwitcher />
         <CustomerLayout>
           <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-12 space-y-6">
-            <div className="h-14 bg-white rounded-2xl border border-gray-200 animate-pulse" />
-            <div className="h-64 bg-white rounded-3xl border border-gray-200 animate-pulse" />
+            <div className="h-14 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 animate-pulse" />
+            <div className="h-64 bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 animate-pulse" />
+          </div>
+        </CustomerLayout>
+      </>
+    );
+  }
+
+  if (cart.length === 0 && !confirmedOrder) {
+    return (
+      <>
+        <RoleSwitcher />
+        <CustomerLayout>
+          <div className="max-w-4xl mx-auto px-4 py-16">
+            <EmptyState
+              variant="cart"
+              title="Your cart is empty"
+              description="Add items from Maule Kirana darkstore to proceed with 30-min express checkout."
+              primaryAction={{ label: 'Explore Groceries', href: '/' }}
+            />
           </div>
         </CustomerLayout>
       </>

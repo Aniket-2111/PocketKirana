@@ -59,13 +59,14 @@ export const ProductCarouselSection: React.FC<ProductCarouselSectionProps> = ({
 
       {/* ── CAROUSEL WRAPPER WITH NAVIGATION BUTTONS ── */}
       <div className="relative group/carousel">
-        {/* Left Arrow Button (Matching Reference Turquoise Pill) */}
+        {/* Left Arrow Button */}
         <button
           type="button"
           suppressHydrationWarning
           onClick={() => scroll('left')}
-          className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#0B8F5A] text-white shadow-md items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+          className="hidden md:flex absolute -left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-[#075C3C] hover:bg-[#0B8F5A] text-white shadow-lg items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100 border border-white/20"
           title="Scroll Left"
+          aria-label="Scroll left"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -73,10 +74,10 @@ export const ProductCarouselSection: React.FC<ProductCarouselSectionProps> = ({
         {/* Product Cards Horizontal Row */}
         <div
           ref={scrollRef}
-          className="flex items-stretch gap-3 sm:gap-4 overflow-x-auto scrollbar-none no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-2 px-0.5 scroll-smooth snap-x"
+          className="flex items-stretch gap-3 sm:gap-4 overflow-x-auto scrollbar-none no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-2 px-1 scroll-smooth snap-x"
         >
           {products.map((product) => (
-            <div key={product.id} className="w-[162px] sm:w-52 shrink-0 snap-start">
+            <div key={product.id} className="w-[168px] sm:w-[212px] shrink-0 snap-start">
               <ProductCard product={product} onOpenDetail={onOpenDetail} />
             </div>
           ))}
@@ -87,8 +88,9 @@ export const ProductCarouselSection: React.FC<ProductCarouselSectionProps> = ({
           type="button"
           suppressHydrationWarning
           onClick={() => scroll('right')}
-          className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#0B8F5A] text-white shadow-md items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+          className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-[#075C3C] hover:bg-[#0B8F5A] text-white shadow-lg items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100 border border-white/20"
           title="Scroll Right"
+          aria-label="Scroll right"
         >
           <ChevronRight className="w-4 h-4" />
         </button>

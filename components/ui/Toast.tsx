@@ -57,7 +57,12 @@ export const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 min-w-[280px] max-w-sm pointer-events-none">
+    <div
+      style={{
+        bottom: 'calc(var(--toast-bottom-offset, var(--bottom-stack-height, 76px)) + env(safe-area-inset-bottom, 0px) + 12px)',
+      }}
+      className="fixed left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 min-w-[280px] max-w-sm pointer-events-none transition-all duration-200"
+    >
       {toasts.map((toast) => {
         const Icon = icons[toast.type];
         return (

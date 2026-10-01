@@ -6,14 +6,27 @@
  */
 
 const { Client } = require('pg');
+const fs = require('fs');
+const path = require('path');
 
-const targetHost = process.env.DB_HOST || '192.168.0.101';
-const targetPort = parseInt(process.env.DB_PORT || '5433', 10);
-const targetDb = process.env.DB_NAME || 'pocketkirana_db';
-const targetUser = process.env.DB_USER || 'postgres';
-const targetPass = process.env.DB_PASSWORD || 'varbusiness';
+// Automatically load local environment variables if available
+const envLocalPath = path.resolve(__dirname, '../.env.local');
+const envPath = path.resolve(__dirname, '../.env');
+if (fs.existsSync(envLocalPath) && typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile(envLocalPath); } catch {}
+} else if (fs.existsSync(envPath) && typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile(envPath); } catch {}
+}
 
-const connectionString = `postgresql://${targetUser}:${encodeURIComponent(targetPass)}@${targetHost}:${targetPort}/${targetDb}`;
+const targetHost = process.env.POSTGRES_HOST || process.env.DB_HOST || '192.168.0.103';
+const targetPort = parseInt(process.env.POSTGRES_PORT || process.env.DB_PORT || '5433', 10);
+const targetDb = process.env.POSTGRES_DB || process.env.DB_NAME || 'pocketkirana_db';
+const targetUser = process.env.POSTGRES_USER || process.env.DB_USER || 'postgres';
+const targetPass = process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
+
+const connectionString =
+  process.env.DATABASE_URL ||
+  `postgresql://${targetUser}:${encodeURIComponent(targetPass)}@${targetHost}:${targetPort}/${targetDb}`;
 
 const schemaSql = `
 -- Enable UUID extension
@@ -280,6 +293,7 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMP WITH TIME ZON
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_otp VARCHAR(16);
 
 -- 17. order_items
 CREATE TABLE IF NOT EXISTS order_items (
@@ -679,12 +693,64 @@ CREATE TABLE IF NOT EXISTS sales_summaries (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 40. invoice_records & sequences
+CREATE SEQUENCE IF NOT EXISTS invoice_number_seq START WITH 1001;
+CREATE SEQUENCE IF NOT EXISTS pk_order_seq START WITH 1001;
+
+CREATE TABLE IF NOT EXISTS invoice_records (
+  id VARCHAR(64) PRIMARY KEY,
+  invoice_number VARCHAR(64) UNIQUE NOT NULL,
+  order_id VARCHAR(64) UNIQUE REFERENCES orders(id) ON DELETE RESTRICT,
+  order_number VARCHAR(64) NOT NULL,
+  seller_name VARCHAR(128) NOT NULL,
+  seller_gstin VARCHAR(64),
+  seller_fssai VARCHAR(64),
+  customer_name VARCHAR(128),
+  customer_phone VARCHAR(32),
+  customer_address JSONB,
+  items_snapshot JSONB NOT NULL,
+  subtotal NUMERIC(12, 2) NOT NULL,
+  discount_amount NUMERIC(12, 2) DEFAULT 0.00,
+  delivery_fee NUMERIC(12, 2) DEFAULT 0.00,
+  tax_amount NUMERIC(12, 2) DEFAULT 0.00,
+  total_amount NUMERIC(12, 2) NOT NULL,
+  payment_method VARCHAR(32),
+  payment_status VARCHAR(32),
+  pdf_storage_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 41. outbox_events
+CREATE TABLE IF NOT EXISTS outbox_events (
+  id VARCHAR(64) PRIMARY KEY,
+  aggregate_type VARCHAR(64) NOT NULL,
+  aggregate_id VARCHAR(64) NOT NULL,
+  event_type VARCHAR(64) NOT NULL,
+  payload JSONB NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+  retry_count INT NOT NULL DEFAULT 0,
+  max_retries INT NOT NULL DEFAULT 5,
+  lease_token VARCHAR(128),
+  leased_until TIMESTAMP WITH TIME ZONE,
+  last_error TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  published_at TIMESTAMP WITH TIME ZONE
+);
+
 --------------------------------------------------------------------------------
 -- PERFORMANCE INDEXES
 --------------------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invoice_records_order ON invoice_records(order_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_records_number ON invoice_records(invoice_number);
+CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_events(status, leased_until) WHERE status IN ('PENDING', 'RETRY_SCHEDULED');
+CREATE INDEX IF NOT EXISTS idx_outbox_aggregate ON outbox_events(aggregate_type, aggregate_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_subcategory ON products(subcategory_id);
 CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand_id);
+CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
+CREATE INDEX IF NOT EXISTS idx_products_discover_sort ON products(is_featured DESC, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id);
+CREATE INDEX IF NOT EXISTS idx_variants_product_display ON product_variants(product_id, display_order, created_at);
 CREATE INDEX IF NOT EXISTS idx_variants_sku ON product_variants(sku);
 CREATE INDEX IF NOT EXISTS idx_inventory_store_variant ON inventory(store_id, variant_id);
 CREATE INDEX IF NOT EXISTS idx_carts_firebase_uid ON carts(firebase_uid);
