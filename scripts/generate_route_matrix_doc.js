@@ -36,14 +36,13 @@ for (const r of routes) {
 md += `
 ---
 
-## 3. Cloud Functions Inventory (19 Functions)
+## 3. Cloud Functions Inventory (18 Functions)
 
 | Function Name | Trigger Type | Primary Role / Responsibility |
 | :--- | :--- | :--- |
 | \`placeOrder\` | HTTPS | Atomic order creation and FEFO reservation fallback |
 | \`processPayment\` | HTTPS | Server-side payment initialization |
 | \`phonepeWebhook\` | HTTPS | PhonePe payment webhook callback handler |
-| \`razorpayWebhook\` | HTTPS | Razorpay payment webhook callback handler |
 | \`updateDeliveryLocation\` | HTTPS | Rider GPS location updates and realtime projection |
 | \`updateOrderStatus\` | HTTPS | Canonical order lifecycle transitions |
 | \`assignPicker\` | HTTPS | Auto-dispatch order to active store picker |

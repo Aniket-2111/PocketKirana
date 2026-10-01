@@ -2345,7 +2345,7 @@ export const INITIAL_NOTIFICATIONS: Notification[] = [
     type: 'ADMIN_PAYMENT_RECEIVED',
     category: 'payment',
     title: '💳 Payment Received',
-    message: 'Order #PK10240: ₹520 payment successfully received via Razorpay UPI.',
+    message: 'Order #PK10240: ₹520 payment successfully received via PhonePe UPI.',
     orderId: 'PK10240',
     deepLink: '/admin?tab=orders&orderId=PK10240',
     isRead: true,

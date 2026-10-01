@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
         if (pStatus === 'paid' || pStatus === 'completed') {
           calcTotal += amt;
-          if (pMethod === 'online' || pMethod === 'phonepe' || pMethod === 'razorpay' || pMethod === 'card') {
+          if (pMethod === 'online' || pMethod === 'phonepe' || pMethod === 'card') {
             calcOnline += amt;
           } else if (pMethod.includes('cash')) {
             calcCash += amt;

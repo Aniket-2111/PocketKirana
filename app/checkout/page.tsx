@@ -36,19 +36,7 @@ import {
   Check
 } from 'lucide-react';
 
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined') return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
 
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -213,7 +201,7 @@ export default function CheckoutPage() {
             })),
             address: selectedAddr,
             addressId: selectedAddr.id,
-            paymentMethod: selectedPayment as 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card',
+            paymentMethod: selectedPayment as 'cod' | 'phonepe' | 'upi' | 'card',
             couponCode: appliedCoupon?.code,
             storeId: 'store-001',
             idempotencyKey,
@@ -242,7 +230,7 @@ export default function CheckoutPage() {
             quantity: item.quantity,
           })),
           addressId: selectedAddr.id,
-          paymentMethod: selectedPayment as 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card',
+          paymentMethod: selectedPayment as 'cod' | 'phonepe' | 'upi' | 'card',
           couponCode: appliedCoupon?.code,
           storeId: 'store-001',
         });
@@ -251,120 +239,38 @@ export default function CheckoutPage() {
       if (result.success) {
         if (result.requiresPayment) {
           // ── PHONEPE PAYMENT FLOW (Native Android / Web) ──
-          if (selectedPayment === 'phonepe') {
-            const { startPhonePeCheckoutFlow } = await import('@/lib/phonepeClient');
-            const res = await startPhonePeCheckoutFlow({
-              orderId: result.orderId,
-              amount: result.total,
-              mobileNumber: selectedAddr.phone || currentUser?.mobile || '9999999999',
-              customerId: currentUser?.id || 'customer',
-              redirectPath: '/checkout/success/',
-            });
+          const { startPhonePeCheckoutFlow } = await import('@/lib/phonepeClient');
+          const res = await startPhonePeCheckoutFlow({
+            orderId: result.orderId,
+            amount: result.total,
+            mobileNumber: selectedAddr.phone || currentUser?.mobile || '9999999999',
+            customerId: currentUser?.id || 'customer',
+            redirectPath: '/checkout/success/',
+          });
 
-            if (res.status === 'REDIRECTED') {
-              return;
-            }
-
-            if (res.verified || res.status === 'SUCCESS') {
-              const placed = placeOrder(
-                selectedAddr.id,
-                `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
-                selectedPayment,
-                result.orderId,
-                result.orderNumber
-              );
-              setConfirmedOrder(placed);
-              setShowSuccessAnimation(true);
-              setIsProcessing(false);
-              return;
-            } else if (res.status === 'CANCELLED') {
-              showToast('Payment was cancelled.', 'info');
-              setIsProcessing(false);
-              return;
-            } else {
-              throw new Error(res.error || 'Failed to complete PhonePe payment');
-            }
-          }
-
-          // ── ONLINE PAYMENT WORKFLOW (Razorpay) ──
-          const scriptLoaded = await loadRazorpayScript();
-          if (!scriptLoaded) {
-            showToast('Failed to load payment gateway script. Please try again.', 'error');
-            setIsProcessing(false);
+          if (res.status === 'REDIRECTED') {
             return;
           }
 
-          // Create order on backend (simulated or real Razorpay instance)
-          const orderResponse = await fetch('/api/payments/create-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: result.total }),
-          });
-          const orderResData = await orderResponse.json();
-          if (!orderResData.success) {
-            throw new Error(orderResData.error || 'Failed to create payment order');
+          if (res.verified || res.status === 'SUCCESS') {
+            const placed = placeOrder(
+              selectedAddr.id,
+              `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
+              selectedPayment,
+              result.orderId,
+              result.orderNumber
+            );
+            setConfirmedOrder(placed);
+            setShowSuccessAnimation(true);
+            setIsProcessing(false);
+            return;
+          } else if (res.status === 'CANCELLED') {
+            showToast('Payment was cancelled.', 'info');
+            setIsProcessing(false);
+            return;
+          } else {
+            throw new Error(res.error || 'Failed to complete PhonePe payment');
           }
-
-          const { razorpayOrderId, keyId } = orderResData.data;
-
-          const options = {
-            key: keyId,
-            amount: Math.round(result.total * 100),
-            currency: 'INR',
-            name: 'PocketKirana',
-            description: `Order #${result.orderNumber}`,
-            order_id: razorpayOrderId,
-            handler: async (response: any) => {
-              setIsProcessing(true);
-              try {
-                // Verify payment on server
-                const verifyResponse = await fetch('/api/payments/verify', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    razorpayOrderId,
-                    razorpayPaymentId: response.razorpay_payment_id,
-                    razorpaySignature: response.razorpay_signature,
-                  }),
-                });
-                const verifyData = await verifyResponse.json();
-                if (verifyData.success && verifyData.data.verified) {
-                  const placed = placeOrder(
-                    selectedAddr.id,
-                    `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
-                    selectedPayment,
-                    result.orderId,
-                    result.orderNumber
-                  );
-                  setConfirmedOrder(placed);
-                  setShowSuccessAnimation(true);
-                } else {
-                  showToast('Payment verification failed. Please contact support.', 'error');
-                }
-              } catch (err: any) {
-                console.error('[Payment Verification Error]', err);
-                showToast(err.message || 'Payment verification failed.', 'error');
-              } finally {
-                setIsProcessing(false);
-              }
-            },
-            modal: {
-              ondismiss: () => {
-                showToast('Payment cancelled by user.', 'warning');
-                setIsProcessing(false);
-              }
-            },
-            prefill: {
-              name: currentUser?.firstName || 'Customer',
-              contact: currentUser?.mobile || '',
-            },
-            theme: {
-              color: '#0F532B',
-            },
-          };
-
-          const rzp = new (window as any).Razorpay(options);
-          rzp.open();
         } else {
           // ── COD WORKFLOW ──
           const placed = placeOrder(

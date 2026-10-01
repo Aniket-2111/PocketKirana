@@ -92,8 +92,6 @@ export interface StoreConfig {
   freeDeliveryThreshold: number;
   isOpen: boolean;
   codEnabled: boolean;
-  razorpayEnabled: boolean;
-  razorpayKeyId?: string;
 }
 
 export async function getStoreConfig(): Promise<StoreConfig> {
@@ -111,7 +109,6 @@ export async function getStoreConfig(): Promise<StoreConfig> {
       freeDeliveryThreshold: 299,
       isOpen: true,
       codEnabled: true,
-      razorpayEnabled: false,
     };
   }
   return snap.data() as StoreConfig;

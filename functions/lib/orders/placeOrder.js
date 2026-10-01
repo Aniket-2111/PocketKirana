@@ -15,7 +15,7 @@
  * 8. Create order document in Firestore (status: CREATED)
  * 9. Reserve stock atomically (stockReservations collection)
  * 10. For COD: immediately set status CONFIRMED
- * 11. For online payment: return Razorpay order ID
+ * 11. For online payment: initiate payment (PhonePe)
  * 12. Send notifications (customer + admin)
  * 13. Create audit log
  */
@@ -77,7 +77,7 @@ exports.placeOrder = (0, https_1.onCall)({ region: 'asia-south1', cors: true }, 
     if (!addressId) {
         throw new https_1.HttpsError('invalid-argument', 'Delivery address is required.');
     }
-    if (!['cod', 'razorpay', 'phonepe', 'upi', 'card'].includes(paymentMethod)) {
+    if (!['cod', 'phonepe', 'upi', 'card'].includes(paymentMethod)) {
         throw new https_1.HttpsError('invalid-argument', 'Invalid payment method.');
     }
     // ── 3. FETCH ADDRESS & VALIDATE OWNERSHIP ─────────────────────
@@ -328,9 +328,8 @@ exports.placeOrder = (0, https_1.onCall)({ region: 'asia-south1', cors: true }, 
         orderNumber,
         total,
         paymentMethod,
-        // For online payment: return Razorpay details
+        // For online payment: return payment requirement
         ...(paymentMethod !== 'cod' && {
-            // razorpayOrderId: razorpayOrder.id,  // Uncomment when Razorpay is configured
             requiresPayment: true,
             message: 'Complete payment to confirm your order.',
         }),

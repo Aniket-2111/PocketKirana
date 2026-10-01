@@ -4,14 +4,13 @@
  * Validates the core transactional and financial invariants:
  * 1. Checkout Concurrency & Oversell Protection (Row Locks)
  * 2. PhonePe Webhook Signature Verification, Idempotency & Amount Matching
- * 3. Razorpay HMAC SHA256 Signature Verification, Idempotency & Replay Protection
- * 4. Cash on Delivery (COD) Flow & Verification
- * 5. Strict Server-Side Order State Machine (Illegal Transition Rejection)
- * 6. Delivery OTP Verification (Atomicity, Bad OTP, Single-Use Anti-Replay)
- * 7. Authorization & Multi-Tenant RBAC Boundaries
- * 8. FEFO (First-Expired, First-Out) Inventory Batch Ordering
- * 9. Authoritative Pricing Engine Integrity
- * 10. Database Transaction Rollback & Zero Partial State
+ * 3. Cash on Delivery (COD) Flow & Verification
+ * 4. Strict Server-Side Order State Machine (Illegal Transition Rejection)
+ * 5. Delivery OTP Verification (Atomicity, Bad OTP, Single-Use Anti-Replay)
+ * 6. Authorization & Multi-Tenant RBAC Boundaries
+ * 7. FEFO (First-Expired, First-Out) Inventory Batch Ordering
+ * 8. Authoritative Pricing Engine Integrity
+ * 9. Database Transaction Rollback & Zero Partial State
  */
 
 import { describe, it, expect } from 'vitest';
@@ -106,42 +105,6 @@ describe('2. PhonePe Webhook Idempotency & Signature Verification', () => {
   });
 });
 
-describe('3. Razorpay HMAC SHA256 Signature Verification & Idempotency', () => {
-  const razorpaySecret = 'rzp_test_secret_key_abcdef';
-
-  function generateRazorpaySignature(orderId: string, paymentId: string, secret: string) {
-    return crypto
-      .createHmac('sha256', secret)
-      .update(`${orderId}|${paymentId}`)
-      .digest('hex');
-  }
-
-  it('accepts valid Razorpay HMAC signatures', () => {
-    const orderId = 'order_9A33X567';
-    const paymentId = 'pay_29384910';
-    const validSignature = generateRazorpaySignature(orderId, paymentId, razorpaySecret);
-
-    const generated = crypto
-      .createHmac('sha256', razorpaySecret)
-      .update(`${orderId}|${paymentId}`)
-      .digest('hex');
-
-    expect(generated === validSignature).toBe(true);
-  });
-
-  it('rejects tampered Razorpay signatures', () => {
-    const orderId = 'order_9A33X567';
-    const paymentId = 'pay_29384910';
-    const tamperedSignature = '0000000000000000000000000000000000000000000000000000000000000000';
-
-    const generated = crypto
-      .createHmac('sha256', razorpaySecret)
-      .update(`${orderId}|${paymentId}`)
-      .digest('hex');
-
-    expect(generated === tamperedSignature).toBe(false);
-  });
-});
 
 describe('4. Cash on Delivery (COD) Transactional Integrity', () => {
   it('creates COD orders in CONFIRMED state with PENDING_COD payment status', () => {

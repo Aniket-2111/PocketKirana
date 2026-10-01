@@ -55,7 +55,7 @@ interface CheckoutRequestBody {
   cartItems: CartItemInput[];
   address?: CheckoutAddressInput;
   addressId?: string;
-  paymentMethod: 'cod' | 'phonepe' | 'razorpay' | 'upi' | 'card';
+  paymentMethod: 'cod' | 'phonepe' | 'upi' | 'card';
   couponCode?: string;
   storeId?: string;
   idempotencyKey?: string;
@@ -464,7 +464,7 @@ export async function POST(req: NextRequest) {
       Promise.resolve(setDoc(doc(db, 'orders', orderId), firestoreOrderDoc))
         ?.then(() => {
           // 14. TRIGGER PICKER QUEUE FOR COD ORDERS
-          // PhonePe/Razorpay orders are triggered after payment confirmation
+          // PhonePe online orders are triggered after payment confirmation
           // (webhook/verify routes). COD orders are CONFIRMED immediately so
           // we must trigger the picker queue here.
           if (paymentMethod === 'cod') {

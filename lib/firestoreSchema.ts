@@ -161,10 +161,6 @@ export interface StoreConfig {
   isOpen: boolean;
   codEnabled: boolean;
 
-  // Online payment
-  razorpayEnabled: boolean;
-  razorpayKeyId?: string;          // Public key only (secret in Functions env)
-
   updatedAt: string;
 }
 
@@ -315,11 +311,11 @@ export interface PaymentDoc {
   customerId: string;
   amount: number;
   currency: 'INR';
-  method: 'razorpay' | 'upi' | 'phonepe' | 'cod' | 'wallet';
+  method: 'upi' | 'phonepe' | 'cod' | 'wallet';
   status: 'pending' | 'completed' | 'failed' | 'refunded';
-  gateway: 'razorpay' | 'phonepe' | 'cod' | 'internal';
-  gatewayOrderId?: string;     // Razorpay / PhonePe order or transaction ID
-  gatewayPaymentId?: string;   // Razorpay / PhonePe payment ID
+  gateway: 'phonepe' | 'cod' | 'internal';
+  gatewayOrderId?: string;     // PhonePe order or transaction ID
+  gatewayPaymentId?: string;   // PhonePe payment ID
   gatewaySignature?: string;   // For audit — do not expose to client
   paidAt?: string;
   failureReason?: string;

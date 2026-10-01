@@ -60,7 +60,7 @@ export async function POST(
     }
 
     // 2. Strict Payment / Collection Gate
-    const isOnlinePrepaid = paymentMethod === 'online' || paymentMethod === 'upi' || paymentMethod === 'razorpay' || paymentMethod === 'phonepe' || paymentMethod === 'card';
+    const isOnlinePrepaid = paymentMethod === 'online' || paymentMethod === 'upi' || paymentMethod === 'phonepe' || paymentMethod === 'card';
     const isCodUpi = paymentMethod.includes('upi') || paymentMethod === 'phonepe_upi' || paymentMethod === 'cod_upi' || collectionMethod === 'UPI';
     const isCodCash = paymentMethod === 'cod' || paymentMethod.includes('cash') || paymentMethod === 'cod_cash' || collectionMethod === 'CASH';
     const isCodOrder = paymentMethod.includes('cod') || isCodCash || isCodUpi || (!isOnlinePrepaid);

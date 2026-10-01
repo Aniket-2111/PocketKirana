@@ -710,7 +710,6 @@ export default function ActiveDeliveryPage() {
     rawPaymentStatus === 'COMPLETED' ||
     rawPaymentMethod === 'ONLINE' ||
     rawPaymentMethod === 'UPI' ||
-    rawPaymentMethod === 'RAZORPAY' ||
     rawPaymentMethod === 'CARD' ||
     rawPaymentMethod === 'PHONEPE';
 

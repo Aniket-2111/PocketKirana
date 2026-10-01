@@ -429,7 +429,7 @@ export type OrderStatus =
 
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'paid';
 
-export type PaymentMethod = 'upi' | 'razorpay' | 'phonepe' | 'card' | 'netbanking' | 'cod' | 'wallet' | 'cash' | 'phonepe_upi' | 'cod_cash';
+export type PaymentMethod = 'upi' | 'phonepe' | 'card' | 'netbanking' | 'cod' | 'wallet' | 'cash' | 'phonepe_upi' | 'cod_cash';
 
 export type CollectionMethod = 'ONLINE' | 'CASH' | 'UPI';
 

@@ -124,7 +124,6 @@ async function getStoreConfig() {
             freeDeliveryThreshold: 299,
             isOpen: true,
             codEnabled: true,
-            razorpayEnabled: false,
         };
     }
     return snap.data();

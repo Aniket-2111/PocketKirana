@@ -89,7 +89,7 @@ export interface CompleteDeliveryResult {
 export async function callPlaceOrder(params: {
   cartItems: Array<{ productId: string; quantity: number }>;
   addressId: string;
-  paymentMethod: 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card';
+  paymentMethod: 'cod' | 'phonepe' | 'upi' | 'card';
   couponCode?: string;
   storeId?: string;
 }): Promise<PlaceOrderResult> {

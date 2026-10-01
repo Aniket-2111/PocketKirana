@@ -68,7 +68,7 @@ export async function POST(
       }
 
       // 3. Eligibility Verification: must not be an online prepaid order
-      const isOnlinePrepaid = ['online', 'upi', 'razorpay', 'phonepe', 'card'].includes(currentPaymentMethod);
+      const isOnlinePrepaid = ['online', 'upi', 'phonepe', 'card'].includes(currentPaymentMethod);
       if (isOnlinePrepaid) {
         return NextResponse.json(
           { success: false, error: `Order is not eligible for cash collection (Payment method: ${currentPaymentMethod}).` },

@@ -46,7 +46,7 @@ Full request/response semantics: [`docs/reference-payments.md`](docs/reference-p
 
 ## 4. Security Invariants
 
-Implemented in `lib/phonepeConfig.ts`, `lib/razorpayConfig.ts`, `middleware.ts`, and the route handlers — enforced by `npm test`:
+Implemented in `lib/phonepeConfig.ts`, `middleware.ts`, and the route handlers — enforced by `npm test`:
 
 1. Credentials come only from env vars; no hardcoded merchant IDs or salt keys anywhere.
 2. Simulation requires `PHONEPE_SIMULATION_MODE=true` and is refused when `VERCEL_ENV=production` or `NODE_ENV=production`.

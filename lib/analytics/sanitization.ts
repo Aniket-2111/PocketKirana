@@ -24,7 +24,6 @@ const BLOCKED_SENSITIVE_KEYS = new Set([
   'salt',
   'saltkey',
   'phonepesaltkey',
-  'razorpaykeysecret',
   'privatekey',
   'otp',
   'deliveryotp',

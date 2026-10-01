@@ -49,7 +49,6 @@ const STORE_CONFIG = {
   closingTime: '23:00',
   isOpen: true,
   codEnabled: true,
-  razorpayEnabled: false,
   updatedAt: new Date().toISOString(),
 };
 

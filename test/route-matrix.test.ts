@@ -14,8 +14,8 @@ describe('Phase 17 — 74+ Route Matrix & Surface Verification', () => {
 
   describe('17A & 17B: Authoritative Route Discovery & Schema Validation', () => {
     it('discovers and reconciles all API routes present in the codebase', () => {
-      expect(routes.length).toBeGreaterThanOrEqual(74); // Baseline was 74, actual is 102
-      expect(routes.length).toBe(102);
+      expect(routes.length).toBeGreaterThanOrEqual(74); // Baseline was 74, actual is 100
+      expect(routes.length).toBe(100);
     });
 
     it('verifies that every route exists as a valid route.ts file on disk', () => {

@@ -973,18 +973,7 @@
     "isSecuritySensitive": false,
     "idempotencyRequired": true
   },
-  {
-    "route": "/api/payments/create-order",
-    "category": "PUBLIC",
-    "methods": [
-      "POST"
-    ],
-    "authRequired": false,
-    "requiredRole": "none",
-    "database": "None",
-    "isSecuritySensitive": false,
-    "idempotencyRequired": true
-  },
+
   {
     "route": "/api/payments/phonepe/create",
     "category": "PUBLIC",
@@ -1021,18 +1010,7 @@
     "isSecuritySensitive": true,
     "idempotencyRequired": true
   },
-  {
-    "route": "/api/payments/verify",
-    "category": "PUBLIC",
-    "methods": [
-      "POST"
-    ],
-    "authRequired": false,
-    "requiredRole": "none",
-    "database": "None",
-    "isSecuritySensitive": false,
-    "idempotencyRequired": true
-  },
+
   {
     "route": "/api/picker/orders/[id]/accept",
     "category": "PICKER",

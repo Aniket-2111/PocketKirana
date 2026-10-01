@@ -18,7 +18,6 @@ const SENSITIVE_KEYS = new Set([
   'salt',
   'salt_key',
   'phonepe_salt_key',
-  'razorpay_key_secret',
   'secret',
   'private_key',
   'token',
