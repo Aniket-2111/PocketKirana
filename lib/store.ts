@@ -309,7 +309,15 @@ interface AppState {
     deliverySlot: string,
     paymentMethod: PaymentMethod,
     cloudOrderId?: string,
-    cloudOrderNumber?: string
+    cloudOrderNumber?: string,
+    serverPricing?: {
+      subtotal?: number;
+      discount?: number;
+      deliveryCharge?: number;
+      tax?: number;
+      total?: number;
+    },
+    keepCart?: boolean
   ) => Order;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   assignDeliveryPartner: (orderId: string, partnerId: string) => void;
@@ -1745,22 +1753,42 @@ export const useAppStore = create<AppState>()(
       orders: [],
       activeOrderTrackingId: null,
       setActiveOrderTrackingId: (id) => set({ activeOrderTrackingId: id }),
-      placeOrder: (addressId, deliverySlot, paymentMethod, cloudOrderId, cloudOrderNumber) => {
+      placeOrder: (
+        addressId,
+        deliverySlot,
+        paymentMethod,
+        cloudOrderId,
+        cloudOrderNumber,
+        serverPricing,
+        keepCart = false
+      ) => {
         const { cart, addresses, currentUser, appliedCoupon } = get();
         const address = addresses.find((a) => a.id === addressId) || addresses[0];
 
-        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        let discount = 0;
-        if (appliedCoupon) {
-          if (appliedCoupon.type === 'fixed') {
-            discount = appliedCoupon.value;
-          } else {
-            discount = Math.round((subtotal * appliedCoupon.value) / 100);
+        const subtotal = serverPricing?.subtotal !== undefined
+          ? serverPricing.subtotal
+          : cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+        let discount = serverPricing?.discount;
+        if (discount === undefined) {
+          discount = 0;
+          if (appliedCoupon) {
+            if (appliedCoupon.type === 'fixed') {
+              discount = appliedCoupon.value;
+            } else {
+              discount = Math.round((subtotal * appliedCoupon.value) / 100);
+            }
           }
         }
-        const deliveryCharge = subtotal > 500 ? 0 : 30;
-        const tax = Math.round(subtotal * 0.05); // 5% GST
-        const total = Math.max(0, subtotal - discount + deliveryCharge + tax);
+        const deliveryCharge = serverPricing?.deliveryCharge !== undefined
+          ? serverPricing.deliveryCharge
+          : (subtotal >= 500 || subtotal === 0 ? 0 : 29);
+        const tax = serverPricing?.tax !== undefined
+          ? serverPricing.tax
+          : Math.round(Math.max(0, subtotal - discount) * 0.05); // 5% GST on net taxable
+        const total = serverPricing?.total !== undefined
+          ? serverPricing.total
+          : Math.max(0, subtotal - discount + deliveryCharge + tax);
 
         const orderId = cloudOrderId || `ord-${Date.now()}`;
         const orderNumber = cloudOrderNumber || `PK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1834,8 +1862,7 @@ export const useAppStore = create<AppState>()(
 
         set((state) => ({
           orders: [newOrder, ...state.orders],
-          cart: [],
-          appliedCoupon: null,
+          ...(keepCart ? {} : { cart: [], appliedCoupon: null }),
           activeOrderTrackingId: newOrder.id,
         }));
 

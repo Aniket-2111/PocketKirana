@@ -15,6 +15,7 @@ import { checkZoneServiceability, setStoresState, getStores } from '@/lib/locati
 import { fetchShopsFS } from '@/lib/firebaseServices';
 import { callPlaceOrder } from '@/lib/functionsClient';
 import { OrderConfirmationAnimation } from '@/components/customer/OrderConfirmationAnimation';
+import { calculateDeliveryFee } from '@/lib/freeDelivery';
 import type { Order } from '@/types';
 import {
   MapPin,
@@ -45,6 +46,7 @@ export default function CheckoutPage() {
     addresses,
     addAddress,
     placeOrder,
+    clearCart,
     appliedCoupon,
     currentUser
   } = useAppStore();
@@ -63,6 +65,16 @@ export default function CheckoutPage() {
   // Success Confirmation Animation State
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+
+  // Frozen snapshot during submission to prevent reactive ₹0 flash
+  const [frozenSnapshot, setFrozenSnapshot] = useState<{
+    items: any[];
+    subtotal: number;
+    discount: number;
+    deliveryCharge: number;
+    tax: number;
+    grandTotal: number;
+  } | null>(null);
 
   // Notify Me state for checkout
   const [notifying, setNotifying] = useState(false);
@@ -99,17 +111,40 @@ export default function CheckoutPage() {
     [mounted, cart]
   );
 
-  let discount = 20;
-  if (mounted && appliedCoupon) {
-    if (appliedCoupon.type === 'fixed') {
-      discount = appliedCoupon.value;
-    } else {
-      discount = Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
-    }
-  }
+  const discount = useMemo(() => {
+    if (!mounted || !appliedCoupon) return 0;
+    if (appliedCoupon.type === 'fixed') return appliedCoupon.value;
+    return Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
+  }, [mounted, appliedCoupon, subtotal]);
 
-  const deliveryCharge = 20;
-  const grandTotal = mounted ? Math.max(0, subtotal - discount + deliveryCharge) : 0;
+  const deliveryCharge = mounted ? calculateDeliveryFee(subtotal) : 0;
+  const tax = mounted ? Math.round((subtotal - discount) * 0.05) : 0;
+  const grandTotal = mounted ? Math.max(0, subtotal - discount + deliveryCharge + tax) : 0;
+
+  // Authoritative Display Summary: Confirmed Order -> Frozen Submission Snapshot -> Active Cart
+  const displaySummary = useMemo(() => {
+    if (confirmedOrder) {
+      return {
+        items: confirmedOrder.items || [],
+        subtotal: confirmedOrder.subtotal,
+        discount: confirmedOrder.discount || 0,
+        deliveryCharge: confirmedOrder.deliveryCharge ?? confirmedOrder.deliveryFee ?? 0,
+        tax: confirmedOrder.tax || 0,
+        grandTotal: confirmedOrder.total,
+      };
+    }
+    if (frozenSnapshot) {
+      return frozenSnapshot;
+    }
+    return {
+      items: cart,
+      subtotal,
+      discount,
+      deliveryCharge,
+      tax,
+      grandTotal,
+    };
+  }, [confirmedOrder, frozenSnapshot, cart, subtotal, discount, deliveryCharge, tax, grandTotal]);
 
   // Auto-select newly added address
   const prevAddrCount = React.useRef(addresses.length);
@@ -177,6 +212,14 @@ export default function CheckoutPage() {
     }
 
     setIsProcessing(true);
+    setFrozenSnapshot({
+      items: [...cart],
+      subtotal,
+      discount,
+      deliveryCharge,
+      tax,
+      grandTotal,
+    });
 
     try {
       // 1. Post to Canonical PostgreSQL Checkout API
@@ -258,17 +301,28 @@ export default function CheckoutPage() {
               `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
               selectedPayment,
               result.orderId,
-              result.orderNumber
+              result.orderNumber,
+              {
+                subtotal,
+                discount,
+                deliveryCharge,
+                tax,
+                total: result.total || grandTotal,
+              },
+              true // keepCart
             );
             setConfirmedOrder(placed);
             setShowSuccessAnimation(true);
+            clearCart();
             setIsProcessing(false);
             return;
           } else if (res.status === 'CANCELLED') {
             showToast('Payment was cancelled.', 'info');
+            setFrozenSnapshot(null);
             setIsProcessing(false);
             return;
           } else {
+            setFrozenSnapshot(null);
             throw new Error(res.error || 'Failed to complete PhonePe payment');
           }
         } else {
@@ -278,16 +332,27 @@ export default function CheckoutPage() {
             `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
             selectedPayment,
             result.orderId,
-            result.orderNumber
+            result.orderNumber,
+            {
+              subtotal,
+              discount,
+              deliveryCharge,
+              tax,
+              total: result.total || grandTotal,
+            },
+            true // keepCart
           );
           setConfirmedOrder(placed);
           setShowSuccessAnimation(true);
+          clearCart();
         }
       } else {
+        setFrozenSnapshot(null);
         showToast('Failed to place order. Please try again.', 'error');
       }
     } catch (err: any) {
       console.error('[Checkout] placeOrder error:', err);
+      setFrozenSnapshot(null);
       showToast(err?.message || 'Failed to place order. Please try again.', 'error');
     } finally {
       setIsProcessing(false);
@@ -309,7 +374,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (cart.length === 0 && !confirmedOrder) {
+  if (cart.length === 0 && !confirmedOrder && !showSuccessAnimation && !isProcessing) {
     return (
       <>
         <RoleSwitcher />
@@ -753,12 +818,12 @@ export default function CheckoutPage() {
 
                   {/* Cart items list preview */}
                   <div className="max-h-48 overflow-y-auto space-y-2 divide-y divide-gray-100 text-xs">
-                    {cart.map((item) => (
-                      <div key={item.id} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
+                    {displaySummary.items.map((item: any) => (
+                      <div key={item.id || item.productId} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
                         <span className="truncate max-w-[170px] font-semibold text-gray-800">
-                          {item.quantity}x {item.product?.name || 'Product'}
+                          {item.quantity}x {item.product?.name || (item as any).productName || (item as any).name || 'Product'}
                         </span>
-                        <span className="font-bold text-gray-900">₹{item.price * item.quantity}</span>
+                        <span className="font-bold text-gray-900">₹{(item.price || item.unitPrice || 0) * (item.quantity || 1)}</span>
                       </div>
                     ))}
                   </div>
@@ -766,19 +831,25 @@ export default function CheckoutPage() {
                   <div className="border-t pt-3 space-y-2 text-xs">
                     <div className="flex justify-between text-gray-600">
                       <span>Item Total</span>
-                      <span>₹{subtotal}</span>
+                      <span>₹{displaySummary.subtotal}</span>
                     </div>
-                    <div className="flex justify-between text-emerald-600 font-bold">
-                      <span>Store Discount</span>
-                      <span>-₹{discount}</span>
-                    </div>
+                    {displaySummary.discount > 0 && (
+                      <div className="flex justify-between text-emerald-600 font-bold">
+                        <span>Store Discount</span>
+                        <span>-₹{displaySummary.discount}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-gray-600">
                       <span>Delivery Partner Fee</span>
-                      <span>₹{deliveryCharge}</span>
+                      <span>{displaySummary.deliveryCharge === 0 ? 'FREE' : `₹${displaySummary.deliveryCharge}`}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>Taxes (GST)</span>
+                      <span>₹{displaySummary.tax}</span>
                     </div>
                     <div className="border-t pt-2 flex justify-between font-black text-sm text-gray-900">
                       <span>To Pay</span>
-                      <span>₹{grandTotal}</span>
+                      <span>₹{displaySummary.grandTotal}</span>
                     </div>
                   </div>
 
@@ -795,7 +866,7 @@ export default function CheckoutPage() {
                       </>
                     ) : (
                       <>
-                        <span>PLACE ORDER (₹{grandTotal})</span>
+                        <span>PLACE ORDER (₹{displaySummary.grandTotal})</span>
                         <ChevronRight className="w-4 h-4" />
                       </>
                     )}

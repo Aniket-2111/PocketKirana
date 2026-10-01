@@ -30,6 +30,7 @@ export default function CheckoutPage() {
     addresses, 
     appliedCoupon, 
     placeOrder, 
+    clearCart,
     isLoggedIn,
     currentUser
   } = useAppStore();
@@ -66,6 +67,17 @@ export default function CheckoutPage() {
   const [showAnimationModal, setShowAnimationModal] = useState(false);
   const isSubmittingRef = useRef(false);
 
+  // ── Frozen Snapshot during submission to prevent reactive ₹0 flash ──
+  const [frozenSnapshot, setFrozenSnapshot] = useState<{
+    cartCount: number;
+    subtotal: number;
+    discount: number;
+    deliveryCharge: number;
+    tax: number;
+    total: number;
+    items: any[];
+  } | null>(null);
+
   // ── Totals — only compute after hydration so cart is populated from localStorage ──
   const subtotal = useMemo(
     () => (mounted ? cart.reduce((sum, item) => sum + item.price * item.quantity, 0) : 0),
@@ -81,6 +93,33 @@ export default function CheckoutPage() {
   const total = mounted ? Math.max(0, subtotal - discount + deliveryCharge + tax) : 0;
   const cartCount = mounted ? cart.length : 0;
 
+  // ── Authoritative Display Summary: Confirmed Order -> Frozen Submission Snapshot -> Active Cart ──
+  const displaySummary = useMemo(() => {
+    if (confirmedOrder) {
+      return {
+        cartCount: confirmedOrder.items?.length || 0,
+        subtotal: confirmedOrder.subtotal,
+        discount: confirmedOrder.discount || 0,
+        deliveryCharge: confirmedOrder.deliveryCharge ?? confirmedOrder.deliveryFee ?? 0,
+        tax: confirmedOrder.tax || 0,
+        total: confirmedOrder.total,
+        items: confirmedOrder.items || [],
+      };
+    }
+    if (frozenSnapshot) {
+      return frozenSnapshot;
+    }
+    return {
+      cartCount,
+      subtotal,
+      discount,
+      deliveryCharge,
+      tax,
+      total,
+      items: cart,
+    };
+  }, [confirmedOrder, frozenSnapshot, cartCount, subtotal, discount, deliveryCharge, tax, total, cart]);
+
   const handlePlaceOrder = async () => {
     // Prevent duplicate orders
     if (isSubmittingRef.current || btnState !== 'idle') return;
@@ -94,9 +133,19 @@ export default function CheckoutPage() {
     isSubmittingRef.current = true;
     setBtnState('loading');
 
+    // Freeze snapshot before submission so UI never drops to ₹0 during async operations
+    const currentSnapshot = {
+      cartCount,
+      subtotal,
+      discount,
+      deliveryCharge,
+      tax,
+      total,
+      items: [...cart],
+    };
+    setFrozenSnapshot(currentSnapshot);
+
     try {
-      // 1. Create order in Backend / Store with safe address fallback
-      const cartBackup = [...cart];
       const targetAddressId = selectedAddressId || addresses.find((a) => a.isDefault)?.id || addresses[0]?.id || 'addr-default';
       const selectedAddr = addresses.find((a) => a.id === targetAddressId) || addresses[0];
 
@@ -111,22 +160,18 @@ export default function CheckoutPage() {
           showToast(`Outside delivery area: Selected address is ${dist.toFixed(1)} KM from Maule Kirana in Neral (Max radius: 4.5 KM)`, 'error');
           setBtnState('idle');
           isSubmittingRef.current = false;
+          setFrozenSnapshot(null);
           return;
         }
       }
 
-      const createdOrder = placeOrder(
-        targetAddressId, 
-        'Express Delivery', 
-        paymentMethod
-      );
-
       // ── CANONICAL API CHECKOUT (PostgreSQL + Firestore mirror + picker trigger) ──
-      // Calls POST /api/checkout which reserves stock, issues a sequential PK-XX
-      // order number, mirrors to Firestore (needed by PhonePe /create), and
-      // auto-triggers the picker queue for COD orders.
+      // Calls POST /api/checkout which validates stock, calculates authoritative totals,
+      // issues sequential order number, and persists to PostgreSQL & Firestore mirror.
       let serverOrderId: string | null = null;
       let serverOrderNumber: string | null = null;
+      let serverTotal: number | null = null;
+      let serverDeliveryOtp: string | null = null;
 
       try {
         const idempotencyKey = `checkout-${currentUser?.id || 'guest'}-${Date.now()}`;
@@ -172,24 +217,47 @@ export default function CheckoutPage() {
           if (apiData?.success && apiData?.data?.orderId) {
             serverOrderId = apiData.data.orderId;
             serverOrderNumber = apiData.data.orderNumber;
-            // Sync canonical IDs into the local Zustand order record
-            (createdOrder as any).id = serverOrderId;
-            (createdOrder as any).orderNumber = serverOrderNumber;
-            if (apiData.data.deliveryOtp) {
-              (createdOrder as any).deliveryOtp = apiData.data.deliveryOtp;
-            }
+            serverTotal = apiData.data.total;
+            serverDeliveryOtp = apiData.data.deliveryOtp;
           } else if (apiData?.error) {
             // Server rejected (out of stock, inactive item, serviceability) — surface to user
             showToast(apiData.error, 'error');
             setBtnState('idle');
             isSubmittingRef.current = false;
+            setFrozenSnapshot(null);
             return;
           }
         }
       } catch (apiErr) {
-        // Network error — keep the locally-generated order and proceed (offline resilience)
+        // Network error — proceed with local generation (offline resilience)
         console.warn('[Checkout] Canonical API unreachable, using local order ID:', apiErr);
       }
+
+      // Create persisted order snapshot in Zustand store with keepCart=true
+      // This ensures the immutable snapshot is stored BEFORE clearing cart
+      const finalPayableTotal = typeof serverTotal === 'number' ? serverTotal : total;
+      const createdOrder = placeOrder(
+        targetAddressId, 
+        'Express Delivery', 
+        paymentMethod,
+        serverOrderId || undefined,
+        serverOrderNumber || undefined,
+        {
+          subtotal,
+          discount,
+          deliveryCharge,
+          tax,
+          total: finalPayableTotal,
+        },
+        true // keepCart: do not wipe cart until order is confirmed
+      );
+
+      if (serverDeliveryOtp) {
+        (createdOrder as any).deliveryOtp = serverDeliveryOtp;
+      }
+
+      // Stash confirmed order snapshot immediately
+      setConfirmedOrder(createdOrder);
 
       // Verify valid Order ID
       if (!createdOrder || !createdOrder.id) {
@@ -214,7 +282,7 @@ export default function CheckoutPage() {
         const { startPhonePeCheckoutFlow } = await import('@/lib/phonepeClient');
         const res = await startPhonePeCheckoutFlow({
           orderId: createdOrder.id,
-          amount: total,
+          amount: createdOrder.total,
           mobileNumber: addr?.phone || currentUser?.mobile || '8698893348',
           customerId: currentUser?.id || 'customer',
           redirectPath: '/checkout/success/',
@@ -232,30 +300,30 @@ export default function CheckoutPage() {
         if (res.verified || res.status === 'SUCCESS') {
           // Native payment confirmed and verified by server
           setBtnState('success');
-          setConfirmedOrder(createdOrder);
+          clearCart(); // Order confirmed & payment verified: now clear cart safely
           setTimeout(() => {
             setShowAnimationModal(true);
           }, 750);
           return;
         } else if (res.status === 'CANCELLED') {
-          useAppStore.setState({ cart: cartBackup });
           showToast('Payment was cancelled.', 'info');
           setBtnState('idle');
           isSubmittingRef.current = false;
+          setFrozenSnapshot(null);
           return;
         } else {
-          // Restore cart on payment error
-          useAppStore.setState({ cart: cartBackup });
+          // Payment error: keep cart and allow retry
           showToast(res.error || 'Payment could not be verified. Please retry.', 'error');
           setBtnState('idle');
           isSubmittingRef.current = false;
+          setFrozenSnapshot(null);
           return;
         }
       }
 
-      // COD / other: show success animation
+      // COD / other: order confirmed immediately
       setBtnState('success');
-      setConfirmedOrder(createdOrder);
+      clearCart(); // Order confirmed: now clear cart safely
       setTimeout(() => {
         setShowAnimationModal(true);
       }, 750);
@@ -264,6 +332,7 @@ export default function CheckoutPage() {
       showToast('Failed to place order. Please try again.', 'error');
       setBtnState('idle');
       isSubmittingRef.current = false;
+      setFrozenSnapshot(null);
     }
   };
 
@@ -472,29 +541,29 @@ export default function CheckoutPage() {
         {/* ── 4. ORDER SUMMARY ── */}
         <div id="checkout-total" role="region" aria-label="Order total" className="scroll-mt-6 bg-white dark:bg-[#151B23] border border-slate-200 dark:border-[#263241] rounded-3xl p-5 space-y-2.5 shadow-xs text-sm font-semibold text-slate-600 dark:text-[#D1D5DB]">
           <h4 className="font-black text-slate-900 dark:text-[#F9FAFB] uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-[#263241]">
-            Total Amount ({cartCount} Products)
+            Total Amount ({displaySummary.cartCount} Products)
           </h4>
           <div className="flex items-center justify-between">
             <span>Subtotal</span>
-            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">₹{subtotal}</span>
+            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">₹{displaySummary.subtotal}</span>
           </div>
-          {discount > 0 && (
+          {displaySummary.discount > 0 && (
             <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
               <span>Coupon Savings</span>
-              <span className="font-mono font-black">-₹{discount}</span>
+              <span className="font-mono font-black">-₹{displaySummary.discount}</span>
             </div>
           )}
           <div className="flex items-center justify-between">
             <span>Delivery Fee</span>
-            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">{deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}</span>
+            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">{displaySummary.deliveryCharge === 0 ? 'FREE' : `₹${displaySummary.deliveryCharge}`}</span>
           </div>
           <div className="flex items-center justify-between">
             <span>Taxes</span>
-            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">₹{tax}</span>
+            <span className="font-mono text-slate-900 dark:text-[#F9FAFB]">₹{displaySummary.tax}</span>
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#263241] text-sm font-black text-slate-900 dark:text-[#F9FAFB]">
             <span>Grand Total</span>
-            <span className="font-mono text-emerald-800 dark:text-emerald-400 text-base">₹{total}</span>
+            <span className="font-mono text-emerald-800 dark:text-emerald-400 text-base">₹{displaySummary.total}</span>
           </div>
         </div>
 
@@ -504,7 +573,7 @@ export default function CheckoutPage() {
         <div className="mx-auto flex w-full max-w-4xl items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold text-muted-foreground">Total payable</p>
-            <p className="text-lg font-black leading-tight text-foreground">₹{total}</p>
+            <p className="text-lg font-black leading-tight text-foreground">₹{displaySummary.total}</p>
           </div>
           <div className="relative min-w-0 flex-[2]">
             {btnState === 'success' && (
