@@ -21,6 +21,7 @@ import { getRouteAuth } from '@/lib/routeAuth';
 import { appendOutboxEvent } from '@/lib/db/outbox';
 import { getFefoRecommendation, recordInventoryEvent } from '@/lib/fefo';
 import { validateServerPricing } from '@/lib/catalogSync';
+import { evaluateServerServiceability } from '@/lib/serverServiceability';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { ensurePickingTaskForOrder } from '@/lib/firebaseServices';
@@ -137,6 +138,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 2.7 CANONICAL POSTGRESQL SERVICEABILITY & STORE OPERATIONAL GATE
+    // Evaluated strictly BEFORE acquiring DB connection, beginning transaction, or locking inventory rows.
+    const preflightSubtotal = catalogValidation.recalculatedSubtotal;
+    const serviceabilityDecision = await evaluateServerServiceability(
+      storeId,
+      address?.latitude,
+      address?.longitude,
+      preflightSubtotal
+    );
+
+    if (!serviceabilityDecision.serviceable) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: serviceabilityDecision.error || 'Address is not serviceable.',
+          code: serviceabilityDecision.code || 'SERVICEABILITY_REJECTED',
+        },
+        { status: 400 }
+      );
+    }
+
+    const resolvedStore = serviceabilityDecision.store!;
+    const canonicalStoreId = resolvedStore.id;
+
     // 3. START POSTGRESQL TRANSACTION
     client = await pool.connect();
     await client.query('BEGIN');
@@ -181,10 +206,10 @@ export async function POST(req: NextRequest) {
       try {
         const invRes = await client.query(
           `SELECT id, quantity, reserved_quantity 
-           FROM inventory 
-           WHERE (variant_id = $1 OR id = $1) AND store_id = $2 
+           FROM inventory
+           WHERE (variant_id = $1 OR id = $1) AND (store_id = $2 OR store_id = $3)
            FOR UPDATE`,
-          [vId, storeId]
+          [vId, canonicalStoreId, storeId]
         );
 
         if (invRes.rowCount && invRes.rowCount > 0) {
@@ -208,7 +233,7 @@ export async function POST(req: NextRequest) {
 
           // Attempt FEFO batch balance allocation
           try {
-            const fefoRes = await getFefoRecommendation(vId, storeId, qty, client);
+            const fefoRes = await getFefoRecommendation(vId, canonicalStoreId, qty, client);
             if (fefoRes.allocations.length > 0) {
               for (const alloc of fefoRes.allocations) {
                 await client.query(
@@ -230,7 +255,7 @@ export async function POST(req: NextRequest) {
             `INSERT INTO stock_reservations (
               id, store_id, variant_id, order_id, quantity, status, expires_at
             ) VALUES ($1, $2, $3, $4, $5, 'reserved', NOW() + INTERVAL '15 minutes')`,
-            [`res-${Date.now()}-${pId}`, storeId, vId, orderId, qty]
+            [`res-${Date.now()}-${pId}`, canonicalStoreId, vId, orderId, qty]
           );
 
           // Record immutable audit ledger event
@@ -270,7 +295,7 @@ export async function POST(req: NextRequest) {
     }
 
     const discount = couponCode ? 50 : 0;
-    const deliveryFee = subtotal > 499 ? 0 : 29;
+    const deliveryFee = subtotal >= resolvedStore.freeDeliveryThreshold ? 0 : resolvedStore.deliveryFee;
     const tax = Math.round((subtotal - discount) * 0.05);
     const total = Math.max(0, subtotal - discount + deliveryFee + tax);
 
@@ -289,7 +314,7 @@ export async function POST(req: NextRequest) {
           orderId,
           orderNumber,
           customerId,
-          storeId,
+          canonicalStoreId,
           subtotal,
           discount,
           deliveryFee,
@@ -341,8 +366,8 @@ export async function POST(req: NextRequest) {
             address.city || 'Panvel',
             address.state || 'Maharashtra',
             address.pincode || '410206',
-            address.latitude || null,
-            address.longitude || null,
+            address.latitude !== undefined && address.latitude !== null ? Number(address.latitude) : resolvedStore.latitude,
+            address.longitude !== undefined && address.longitude !== null ? Number(address.longitude) : resolvedStore.longitude,
           ]
         );
       }
@@ -370,7 +395,7 @@ export async function POST(req: NextRequest) {
       customerId,
       customerName,
       customerPhone,
-      storeId,
+      storeId: canonicalStoreId,
       subtotal,
       discount,
       deliveryFee,
@@ -437,7 +462,7 @@ export async function POST(req: NextRequest) {
       customerId,
       customerName,
       customerPhone,
-      storeId,
+      storeId: canonicalStoreId,
       subtotal,
       discount,
       deliveryFee,

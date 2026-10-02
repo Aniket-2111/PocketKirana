@@ -6,12 +6,30 @@ import { POST as phonepeWebhookHandler } from '../app/api/payments/phonepe/webho
 import { POST as verifyOtpHandler } from '../app/api/delivery/orders/[id]/verify-otp/route';
 import { POST as updateLocationHandler } from '../app/api/delivery/orders/[id]/location/route';
 import { OutboxWorker } from '../lib/services/outboxWorker';
+import { clearStoreCache } from '../lib/serverServiceability';
 
 // Mock DB pool and Firestore
 const mockQuery = vi.fn();
 const mockClient = {
   query: vi.fn((sql, params) => mockQuery(sql, params)),
   release: vi.fn(),
+};
+
+const mockStoreRow = {
+  id: 'store_primary',
+  name: 'PocketKirana Central Darkstore',
+  code: 'STORE-001',
+  latitude: '19.02245360',
+  longitude: '73.32100180',
+  is_active: true,
+  delivery_radius_km: '3.00',
+  max_road_distance_km: '4.50',
+  road_distance_multiplier: '1.35',
+  opening_time: '06:00',
+  closing_time: '23:00',
+  delivery_fee: 29,
+  free_delivery_threshold: 499,
+  minimum_order_value: 50,
 };
 
 vi.mock('../lib/postgres', () => ({
@@ -61,6 +79,7 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockQuery.mockReset();
+    clearStoreCache();
 
     const cache = new Map<string, any>();
     cache.set('prod_1', {
@@ -88,6 +107,7 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
     it('executes full checkout → payment → picker → delivery → OTP → delivered sequence', async () => {
       // 1. Customer Checkout with FEFO batch allocation & Outbox event
       mockQuery
+        .mockResolvedValueOnce({ rows: [mockStoreRow] }) // SELECT store operational settings
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
         .mockResolvedValueOnce({ rows: [{ nextval: '101' }] }) // NEXTVAL pk_order_seq
         .mockResolvedValueOnce({
@@ -113,7 +133,14 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           cartItems: [{ productId: 'prod_1', quantity: 2, unitPrice: 65, productName: 'Organic Milk 1L' }],
-          address: { fullName: 'Aniket Yadav', addressLine1: '123 Main St', city: 'Mumbai', pincode: '400001' },
+          address: {
+            fullName: 'Aniket Yadav',
+            addressLine1: 'Neral Station Road',
+            city: 'Neral',
+            pincode: '410101',
+            latitude: 19.0224536,
+            longitude: 73.3210018,
+          },
           paymentMethod: 'phonepe',
         }),
       });
@@ -241,7 +268,14 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           cartItems: [{ productId: 'prod_1', quantity: 1, unitPrice: 65 }],
-          address: { fullName: 'Aniket', addressLine1: '123 Main St', city: 'Mumbai', pincode: '400001' },
+          address: {
+            fullName: 'Aniket',
+            addressLine1: 'Neral Station Road',
+            city: 'Neral',
+            pincode: '410101',
+            latitude: 19.0224536,
+            longitude: 73.3210018,
+          },
           paymentMethod: 'cod',
         }),
       });
@@ -256,6 +290,7 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
   describe('18O: Inventory Concurrency & Race Condition Defense', () => {
     it('aborts checkout when item stock is depleted during transaction', async () => {
       mockQuery
+        .mockResolvedValueOnce({ rows: [mockStoreRow] }) // SELECT store operational settings
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
         .mockResolvedValueOnce({ rows: [{ nextval: '102' }] }) // NEXTVAL pk_order_seq
         .mockResolvedValueOnce({
@@ -275,7 +310,14 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           cartItems: [{ productId: 'prod_sold_out', quantity: 1, unitPrice: 100 }],
-          address: { fullName: 'Customer', addressLine1: '123 Main St', city: 'Mumbai', pincode: '400001' },
+          address: {
+            fullName: 'Customer',
+            addressLine1: 'Neral Station Road',
+            city: 'Neral',
+            pincode: '410101',
+            latitude: 19.0224536,
+            longitude: 73.3210018,
+          },
           paymentMethod: 'cod',
         }),
       });

@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS product_attribute_values (
 -- MODULE 02: STORE & INVENTORY
 --------------------------------------------------------------------------------
 
--- 8. stores
+-- 8. stores (Phase 1B: operational settings included; values are provisional architectural defaults)
 CREATE TABLE IF NOT EXISTS stores (
   id VARCHAR(64) PRIMARY KEY,
   name VARCHAR(128) NOT NULL,
@@ -164,9 +164,28 @@ CREATE TABLE IF NOT EXISTS stores (
   latitude NUMERIC(10, 8),
   longitude NUMERIC(11, 8),
   is_active BOOLEAN DEFAULT TRUE,
+  delivery_radius_km NUMERIC(4, 2) DEFAULT 3.0,
+  max_road_distance_km NUMERIC(4, 2) DEFAULT 4.5,
+  road_distance_multiplier NUMERIC(3, 2) DEFAULT 1.35,
+  opening_time VARCHAR(8) DEFAULT '06:00',
+  closing_time VARCHAR(8) DEFAULT '23:00',
+  delivery_fee INT DEFAULT 29,
+  free_delivery_threshold INT DEFAULT 499,
+  minimum_order_value INT DEFAULT 199,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Idempotent schema upgrade for existing stores tables
+ALTER TABLE stores
+  ADD COLUMN IF NOT EXISTS delivery_radius_km NUMERIC(4, 2) DEFAULT 3.0,
+  ADD COLUMN IF NOT EXISTS max_road_distance_km NUMERIC(4, 2) DEFAULT 4.5,
+  ADD COLUMN IF NOT EXISTS road_distance_multiplier NUMERIC(3, 2) DEFAULT 1.35,
+  ADD COLUMN IF NOT EXISTS opening_time VARCHAR(8) DEFAULT '06:00',
+  ADD COLUMN IF NOT EXISTS closing_time VARCHAR(8) DEFAULT '23:00',
+  ADD COLUMN IF NOT EXISTS delivery_fee INT DEFAULT 29,
+  ADD COLUMN IF NOT EXISTS free_delivery_threshold INT DEFAULT 499,
+  ADD COLUMN IF NOT EXISTS minimum_order_value INT DEFAULT 199;
 
 -- 9. inventory
 CREATE TABLE IF NOT EXISTS inventory (
