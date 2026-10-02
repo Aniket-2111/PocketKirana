@@ -1,9 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getRouteAuth } from '@/lib/routeAuth';
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // PK-SEC-06: Require authenticated session before processing any upload
+  const auth = getRouteAuth(request);
+  if (!auth) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     const { fileData, fileName, mimeType } = body;

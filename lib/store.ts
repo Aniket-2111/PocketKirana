@@ -5291,9 +5291,9 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'pocketkirana-store-v4',
-      version: 5,
+      version: 6,
       migrate: (persistedState: any, version: number) => {
-        if (!version || version < 5) {
+        if (!version || version < 6) {
           if (persistedState && Array.isArray(persistedState.products)) {
             persistedState.products = persistedState.products.map((p: any) => {
               const fresh = INITIAL_PRODUCTS.find((m) => m.id === p.id);

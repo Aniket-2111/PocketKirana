@@ -115,8 +115,7 @@ export class OrderService {
     return await withTransaction(async (client: PoolClient) => {
       // 1. Fetch current order with row lock
       const orderRes = await client.query(
-        `SELECT id, order_number, firebase_uid, order_status, payment_status, total_amount,
-                assigned_picker_id, assigned_partner_id, delivery_otp
+        `SELECT id, order_number, firebase_uid, order_status, payment_status, total_amount, delivery_otp
          FROM orders
          WHERE id = $1 OR order_number = $1
          FOR UPDATE`,

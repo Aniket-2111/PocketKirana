@@ -81,17 +81,24 @@ async function leaseEvents(client) {
   return res.rows;
 }
 
-async function processEvent(event) {
-  // Dispatch event projections (catalog sync, notification logging, order status sync)
-  // Non-destructive idempotent execution
-  const eventName = event.event_type;
-  const aggregateId = event.aggregate_id;
-
-  // Simulate or execute domain projection
-  if (process.env.NODE_ENV === 'production') {
-    // In production, sync to read collections / FCM dispatcher
-    // console.log(`[Outbox Worker] Dispatching event: ${eventName} for aggregate: ${aggregateId}`);
+let serviceWorker = null;
+function getServiceWorker() {
+  if (!serviceWorker) {
+    const jiti = require('jiti')(__filename);
+    const { OutboxWorker } = jiti(path.resolve(__dirname, '../lib/services/outboxWorker.ts'));
+    serviceWorker = new OutboxWorker({ workerId: WORKER_ID });
   }
+  return serviceWorker;
+}
+
+function setServiceWorker(worker) {
+  serviceWorker = worker;
+}
+
+async function processEvent(event) {
+  // Authoritative projection and notification processing delegated to OutboxWorker
+  const worker = getServiceWorker();
+  await worker.dispatchEvent(event);
 }
 
 async function markPublished(client, eventId, leaseToken) {
@@ -192,5 +199,16 @@ function handleShutdown(signal) {
 process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 process.on('SIGINT', () => handleShutdown('SIGINT'));
 
-// Start polling
-pollLoop();
+// Start polling if executed as standalone process
+if (require.main === module) {
+  pollLoop();
+}
+
+module.exports = {
+  processEvent,
+  leaseEvents,
+  markPublished,
+  handleFailure,
+  getServiceWorker,
+  setServiceWorker,
+};

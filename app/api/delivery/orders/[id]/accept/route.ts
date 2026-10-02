@@ -10,8 +10,8 @@ export async function POST(
   try {
     const { id } = await context.params;
     const auth = getRouteAuth(req);
-    if (auth && auth.role !== 'delivery_partner' && auth.role !== 'admin' && auth.uid !== 'dev-user') {
-      return NextResponse.json({ error: 'Forbidden: Delivery partner role required' }, { status: 403 });
+    if (!auth || (!['delivery_partner', 'admin'].includes(auth.role) && auth.uid !== 'dev-user')) {
+      return NextResponse.json({ success: false, error: 'Forbidden: Delivery partner role required' }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));

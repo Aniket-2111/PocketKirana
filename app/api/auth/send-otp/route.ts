@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkOtpRateLimit } from '@/lib/cryptoUtils';
 
 const MSG91_WIDGET_ID = process.env.NEXT_PUBLIC_MSG91_WIDGET_ID || process.env.MSG91_WIDGET_ID || '';
 const MSG91_TOKEN_KEY = process.env.NEXT_PUBLIC_MSG91_TOKEN_KEY || process.env.MSG91_TOKEN_KEY || '';
@@ -19,7 +20,16 @@ export async function POST(request: Request) {
 
     const identifier = `91${cleanDigits}`;
 
-    // 1. Dispatch via MSG91 SendOTP Widget API
+    // PK-SEC-07: Sliding-window rate limit — 3 OTP requests per phone per minute
+    const rateCheck = checkOtpRateLimit(identifier, 3, 60000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many OTP requests. Please wait before requesting again.' },
+        { status: 429 }
+      );
+    }
+
+
     try {
       const widgetRes = await fetch('https://control.msg91.com/api/v5/widget/sendOtpMobile', {
         method: 'POST',

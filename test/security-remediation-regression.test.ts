@@ -15,6 +15,9 @@ import { PUT as variantPutHandler, DELETE as variantDeleteHandler } from '../app
 import { POST as reorderPostHandler } from '../app/api/products/[id]/variants/reorder/route';
 import { parseProductExcelFile } from '../lib/productExcelUtils';
 import { middleware } from '../middleware';
+import { GET as templateGetHandler, POST as templatePostHandler } from '../app/api/admin/invoices/template/route';
+import { POST as acceptDeliveryHandler } from '../app/api/delivery/orders/[id]/accept/route';
+import { GET as invoiceGetHandler } from '../app/api/orders/[id]/invoice/route';
 
 // Mocks
 const mockGetDoc = vi.fn();
@@ -525,6 +528,136 @@ describe('Security Remediation Regression Suite (13 Confirmed Findings)', () => 
       const result = parseProductExcelFile(corruptBuffer);
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Cloudflare Security Audit Batch 1: Inverted Authorization Fixes
+  // ══════════════════════════════════════════════════════════════
+  describe('Cloudflare Audit Batch 1: Inverted Authorization Fixes', () => {
+    describe('PK-SEC-01: Admin Invoice Template Route', () => {
+      it('rejects anonymous GET request with 403', async () => {
+        const req = new NextRequest('http://localhost:3000/api/admin/invoices/template');
+        const res = await templateGetHandler(req);
+        expect(res.status).toBe(403);
+        const json = await res.json();
+        expect(json.error).toContain('Unauthorized: Admin access required');
+      });
+
+      it('rejects anonymous POST request with 403', async () => {
+        const req = new NextRequest('http://localhost:3000/api/admin/invoices/template', {
+          method: 'POST',
+          body: JSON.stringify({ title: 'Hacked Template' }),
+        });
+        const res = await templatePostHandler(req);
+        expect(res.status).toBe(403);
+        const json = await res.json();
+        expect(json.error).toContain('Unauthorized: Admin access required');
+      });
+
+      it('allows authorized admin GET and POST', async () => {
+        const getReq = new NextRequest('http://localhost:3000/api/admin/invoices/template', {
+          headers: { 'x-pk-uid': 'adm-1', 'x-pk-role': 'admin' },
+        });
+        const getRes = await templateGetHandler(getReq);
+        expect(getRes.status).toBe(200);
+        const getJson = await getRes.json();
+        expect(getJson.success).toBe(true);
+
+        const postReq = new NextRequest('http://localhost:3000/api/admin/invoices/template', {
+          method: 'POST',
+          headers: { 'x-pk-uid': 'adm-1', 'x-pk-role': 'admin' },
+          body: JSON.stringify({ title: 'Updated Invoice Title' }),
+        });
+        const postRes = await templatePostHandler(postReq);
+        expect(postRes.status).toBe(200);
+        const postJson = await postRes.json();
+        expect(postJson.success).toBe(true);
+      });
+    });
+
+    describe('PK-SEC-02: Delivery Order Accept Route', () => {
+      it('rejects anonymous POST request with 403', async () => {
+        const req = new NextRequest('http://localhost:3000/api/delivery/orders/ord_1/accept', {
+          method: 'POST',
+          body: JSON.stringify({ partnerId: 'rider_rogue' }),
+        });
+        const res = await acceptDeliveryHandler(req, { params: Promise.resolve({ id: 'ord_1' }) });
+        expect(res.status).toBe(403);
+        const json = await res.json();
+        expect(json.error).toContain('Forbidden: Delivery partner role required');
+      });
+
+      it('rejects customer role with 403', async () => {
+        const req = new NextRequest('http://localhost:3000/api/delivery/orders/ord_1/accept', {
+          method: 'POST',
+          headers: { 'x-pk-uid': 'cust-1', 'x-pk-role': 'customer' },
+          body: JSON.stringify({ partnerId: 'cust-1' }),
+        });
+        const res = await acceptDeliveryHandler(req, { params: Promise.resolve({ id: 'ord_1' }) });
+        expect(res.status).toBe(403);
+      });
+
+      it('allows delivery_partner and admin roles', async () => {
+        const riderReq = new NextRequest('http://localhost:3000/api/delivery/orders/ord_1/accept', {
+          method: 'POST',
+          headers: { 'x-pk-uid': 'rider-1', 'x-pk-role': 'delivery_partner' },
+          body: JSON.stringify({ partnerId: 'rider-1' }),
+        });
+        const riderRes = await acceptDeliveryHandler(riderReq, { params: Promise.resolve({ id: 'ord_1' }) });
+        expect(riderRes.status).toBe(200);
+
+        const adminReq = new NextRequest('http://localhost:3000/api/delivery/orders/ord_1/accept', {
+          method: 'POST',
+          headers: { 'x-pk-uid': 'adm-1', 'x-pk-role': 'admin' },
+          body: JSON.stringify({ partnerId: 'rider-1' }),
+        });
+        const adminRes = await acceptDeliveryHandler(adminReq, { params: Promise.resolve({ id: 'ord_1' }) });
+        expect(adminRes.status).toBe(200);
+      });
+    });
+
+    describe('PK-SEC-03: Customer Invoice Ownership Route', () => {
+      it('rejects anonymous GET request with 401', async () => {
+        mockPgQuery.mockResolvedValueOnce({
+          rows: [{ id: 'ord_1', customer_id: 'usr_owner_1', order_number: 'PK-101', status: 'DELIVERED', total_amount: 100 }],
+        });
+        const req = new NextRequest('http://localhost:3000/api/orders/ord_1/invoice');
+        const res = await invoiceGetHandler(req, { params: Promise.resolve({ id: 'ord_1' }) });
+        expect(res.status).toBe(401);
+        const json = await res.json();
+        expect(json.error).toContain('Unauthorized: Authentication required');
+      });
+
+      it('rejects different customer with 403', async () => {
+        mockPgQuery.mockResolvedValueOnce({
+          rows: [{ id: 'ord_1', customer_id: 'usr_owner_1', order_number: 'PK-101', status: 'DELIVERED', total_amount: 100 }],
+        });
+        const req = new NextRequest('http://localhost:3000/api/orders/ord_1/invoice', {
+          headers: { 'x-pk-uid': 'usr_other_2', 'x-pk-role': 'customer' },
+        });
+        const res = await invoiceGetHandler(req, { params: Promise.resolve({ id: 'ord_1' }) });
+        expect(res.status).toBe(403);
+        const json = await res.json();
+        expect(json.error).toContain('Forbidden');
+      });
+
+      it('allows order owner and admin', async () => {
+        mockPgQuery.mockResolvedValue({
+          rows: [{ id: 'ord_1', customer_id: 'usr_owner_1', order_number: 'PK-101', status: 'DELIVERED', total_amount: 100, created_at: new Date().toISOString() }],
+        });
+        const ownerReq = new NextRequest('http://localhost:3000/api/orders/ord_1/invoice?format=json', {
+          headers: { 'x-pk-uid': 'usr_owner_1', 'x-pk-role': 'customer' },
+        });
+        const ownerRes = await invoiceGetHandler(ownerReq, { params: Promise.resolve({ id: 'ord_1' }) });
+        expect(ownerRes.status).toBe(200);
+
+        const adminReq = new NextRequest('http://localhost:3000/api/orders/ord_1/invoice?format=json', {
+          headers: { 'x-pk-uid': 'adm-1', 'x-pk-role': 'admin' },
+        });
+        const adminRes = await invoiceGetHandler(adminReq, { params: Promise.resolve({ id: 'ord_1' }) });
+        expect(adminRes.status).toBe(200);
+      });
     });
   });
 });

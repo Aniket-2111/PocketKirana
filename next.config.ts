@@ -72,6 +72,12 @@ const nextConfig: NextConfig = {
             key: "X-XSS-Protection",
             value: "1; mode=block",
           },
+          {
+            // PK-SEC-10: HSTS — enforce HTTPS for 2 years; Cloudflare CDN also injects this
+            // at the edge, but add it here for defence-in-depth on direct connections.
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
         ],
       },
       {

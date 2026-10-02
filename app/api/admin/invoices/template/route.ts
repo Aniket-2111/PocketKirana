@@ -8,7 +8,7 @@ let activeTemplate: InvoiceTemplateSettings = { ...DEFAULT_INVOICE_TEMPLATE };
 export async function GET(req: NextRequest) {
   try {
     const auth = getRouteAuth(req);
-    if (auth && auth.role !== 'admin' && auth.uid !== 'dev-user') {
+    if (!auth || (auth.role !== 'admin' && auth.uid !== 'dev-user')) {
       return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
     }
 
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = getRouteAuth(req);
-    if (auth && auth.role !== 'admin' && auth.uid !== 'dev-user') {
+    if (!auth || (auth.role !== 'admin' && auth.uid !== 'dev-user')) {
       return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
     }
 

@@ -24,6 +24,13 @@ export async function GET(
     }
 
     const auth = getRouteAuth(req);
+    if (!auth) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Authentication required to access this invoice' },
+        { status: 401 }
+      );
+    }
+
     const url = new URL(req.url);
     const format = url.searchParams.get('format') || (req.headers.get('accept')?.includes('application/pdf') ? 'pdf' : 'json');
 
@@ -34,9 +41,8 @@ export async function GET(
 
     try {
       const orderRes = await queryPostgres(
-        `SELECT o.*, u.full_name as customer_name, u.phone_number as customer_phone, u.email as customer_email
+        `SELECT o.*, o.customer_name, o.customer_phone, null as customer_email
          FROM orders o
-         LEFT JOIN users u ON o.customer_id = u.id
          WHERE o.id = $1 OR o.order_number = $1
          LIMIT 1`,
         [id]
@@ -113,11 +119,9 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // 2. Strict Security Ownership Check
-    // If authenticated as customer, customer must own this order. Admin has access.
-    if (auth && auth.role !== 'admin' && auth.uid !== 'dev-user') {
-      const orderCustomerUid = order.customer_id || order.user_id;
-      if (orderCustomerUid && orderCustomerUid !== auth.uid) {
+    if (auth.role !== 'admin' && auth.uid !== 'dev-user') {
+      const orderCustomerUid = order.customer_id || order.user_id || order.customerId;
+      if (!orderCustomerUid || orderCustomerUid !== auth.uid) {
         return NextResponse.json(
           { error: 'Forbidden: You do not have permission to access this invoice' },
           { status: 403 }
