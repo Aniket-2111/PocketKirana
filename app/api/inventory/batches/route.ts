@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { requireRole } from '@/lib/routeAuth';
 import { recordInventoryEvent } from '@/lib/fefo';
+import { getPrimaryWarehouseIdForStore } from '@/lib/storeOperationsService';
 import { randomUUID } from 'crypto';
 
 export async function GET(req: NextRequest) {
@@ -20,7 +21,20 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const variantId = searchParams.get('variant_id');
     const warehouseId = searchParams.get('warehouse_id');
+    const storeId = searchParams.get('store_id') || searchParams.get('storeId');
     const status = searchParams.get('status') || 'ACTIVE';
+
+    let effectiveWarehouseId = warehouseId;
+    if (storeId) {
+      try {
+        effectiveWarehouseId = await getPrimaryWarehouseIdForStore(storeId);
+      } catch (err: any) {
+        return NextResponse.json(
+          { error: err.message || `No primary warehouse found for store ${storeId}` },
+          { status: err.statusCode || 404 }
+        );
+      }
+    }
 
     const pool = getPostgresPool();
 
@@ -34,12 +48,15 @@ export async function GET(req: NextRequest) {
         pv.variant_name,
         pv.sku,
         p.name AS product_name,
-        w.name AS warehouse_name
+        w.name AS warehouse_name,
+        COALESCE(s.name, w.name) AS store_name,
+        w.store_id
       FROM inventory_batches ib
       JOIN inventory_balances bal ON bal.batch_id = ib.id
       JOIN product_variants pv ON pv.id = ib.variant_id
       JOIN products p ON p.id = pv.product_id
       JOIN warehouses w ON w.id = ib.warehouse_id
+      LEFT JOIN stores s ON s.id = w.store_id
       WHERE 1=1
     `;
 
@@ -50,9 +67,9 @@ export async function GET(req: NextRequest) {
       query += ` AND ib.variant_id = $${idx++}`;
       params.push(variantId);
     }
-    if (warehouseId) {
+    if (effectiveWarehouseId) {
       query += ` AND ib.warehouse_id = $${idx++}`;
-      params.push(warehouseId);
+      params.push(effectiveWarehouseId);
     }
     if (status !== 'ALL') {
       query += ` AND ib.status = $${idx++}`;
@@ -84,6 +101,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       warehouse_id,
+      store_id,
+      storeId,
       variant_id,
       batch_number,
       manufacture_date,
@@ -93,9 +112,19 @@ export async function POST(req: NextRequest) {
       notes,
     } = body;
 
-    if (!warehouse_id || !variant_id || typeof received_qty !== 'number' || received_qty <= 0) {
+    const targetStoreId = store_id || storeId;
+    let effectiveWarehouseId = warehouse_id;
+
+    if (!variant_id || typeof received_qty !== 'number' || received_qty <= 0) {
       return NextResponse.json(
-        { error: 'warehouse_id, variant_id, and positive received_qty are required' },
+        { error: 'variant_id and positive received_qty are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!effectiveWarehouseId && !targetStoreId) {
+      return NextResponse.json(
+        { error: 'store_id (or warehouse_id), variant_id, and positive received_qty are required' },
         { status: 400 }
       );
     }
@@ -105,6 +134,11 @@ export async function POST(req: NextRequest) {
 
     try {
       await client.query('BEGIN');
+
+      // Canonical Store -> Primary Internal Warehouse resolution
+      if (targetStoreId) {
+        effectiveWarehouseId = await getPrimaryWarehouseIdForStore(targetStoreId, client);
+      }
 
       const batchId = randomUUID();
       const balanceId = randomUUID();
@@ -118,7 +152,7 @@ export async function POST(req: NextRequest) {
          RETURNING *`,
         [
           batchId,
-          warehouse_id,
+          effectiveWarehouseId,
           variant_id,
           batch_number || null,
           manufacture_date || null,
@@ -135,7 +169,7 @@ export async function POST(req: NextRequest) {
         `INSERT INTO inventory_balances
            (id, warehouse_id, variant_id, batch_id, available_qty, reserved_qty, damaged_qty, expired_qty, updated_at)
          VALUES ($1, $2, $3, $4, $5, 0, 0, 0, NOW())`,
-        [balanceId, warehouse_id, variant_id, batchId, received_qty]
+        [balanceId, effectiveWarehouseId, variant_id, batchId, received_qty]
       );
 
       // 3. Create expiry_record if expiry date provided
@@ -149,7 +183,7 @@ export async function POST(req: NextRequest) {
           [
             expiryRecordId,
             batchId,
-            warehouse_id,
+            effectiveWarehouseId,
             variant_id,
             expiry_date,
             received_qty,
@@ -163,13 +197,13 @@ export async function POST(req: NextRequest) {
         `SELECT COALESCE(SUM(available_qty), 0) AS total_avail
          FROM inventory_balances
          WHERE warehouse_id = $1 AND variant_id = $2`,
-        [warehouse_id, variant_id]
+        [effectiveWarehouseId, variant_id]
       );
       const balanceAfter = parseInt(totalRes.rows[0].total_avail, 10);
 
       // 5. Append to inventory_events ledger
       await recordInventoryEvent(client, {
-        warehouseId: warehouse_id,
+        warehouseId: effectiveWarehouseId,
         variantId: variant_id,
         batchId: batchId,
         eventType: 'RECEIVED',
@@ -190,14 +224,18 @@ export async function POST(req: NextRequest) {
         batch: batchRes.rows[0],
         totalAvailable: balanceAfter,
       }, { status: 201 });
-    } catch (txErr) {
+    } catch (txErr: any) {
       await client.query('ROLLBACK');
-      throw txErr;
+      console.error('[POST /api/inventory/batches transaction]', txErr.message);
+      return NextResponse.json(
+        { error: txErr.message || 'Transaction failed' },
+        { status: txErr.statusCode || 500 }
+      );
     } finally {
       client.release();
     }
   } catch (error: any) {
     console.error('[POST /api/inventory/batches]', error.message);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: error.statusCode || 500 });
   }
 }

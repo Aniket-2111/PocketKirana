@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { requireRole } from '@/lib/routeAuth';
 
 /**
  * POST /api/categories/reorder
@@ -7,6 +8,13 @@ import { getPostgresPool } from '@/lib/postgres';
  * Batch updates display_order for categories or subcategories in PostgreSQL.
  */
 export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to reorder categories' },
+      { status: 403 }
+    );
+  }
   try {
     const body = await req.json();
     const items: Array<{ id: string; displayOrder: number }> = body.items || [];

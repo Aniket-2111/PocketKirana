@@ -11,9 +11,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { showToast } from '@/components/ui/Toast';
 import { PaymentMethod, Address, Store } from '@/types';
 import { LocationPickerModal } from '@/components/customer/LocationPickerModal';
-import { checkZoneServiceability, setStoresState, getStores } from '@/lib/locationServices';
-import { fetchShopsFS } from '@/lib/firebaseServices';
-import { callPlaceOrder } from '@/lib/functionsClient';
 import { OrderConfirmationAnimation } from '@/components/customer/OrderConfirmationAnimation';
 import type { Order } from '@/types';
 import {
@@ -36,19 +33,7 @@ import {
   Check
 } from 'lucide-react';
 
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined') return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
 
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -57,6 +42,7 @@ export default function CheckoutPage() {
     addresses,
     addAddress,
     placeOrder,
+    clearCart,
     appliedCoupon,
     currentUser
   } = useAppStore();
@@ -76,52 +62,161 @@ export default function CheckoutPage() {
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
+  // Frozen snapshot during submission to prevent reactive ₹0 flash
+  const [frozenSnapshot, setFrozenSnapshot] = useState<{
+    items: any[];
+    subtotal: number;
+    discount: number;
+    deliveryCharge: number;
+    tax: number;
+    grandTotal: number;
+  } | null>(null);
+
   // Notify Me state for checkout
   const [notifying, setNotifying] = useState(false);
   const [notified, setNotified] = useState(false);
 
-  // Sync store settings from Firestore on mount
+  // Mount effect
   React.useEffect(() => {
     setMounted(true);
-    async function loadStore() {
-      try {
-        const shops = await fetchShopsFS();
-        if (shops && shops.length > 0) {
-          setStoresState(shops);
-        }
-      } catch (e) {
-        console.warn('Could not sync store settings from Firestore:', e);
-      } finally {
-        setStoreLoaded(true);
-      }
-    }
-    loadStore();
+    setStoreLoaded(true);
   }, []);
 
   const selectedAddr = addresses.find((a) => a.id === selectedAddrId) || defaultAddr;
 
-  // Real-time Serviceability validation for selected address
-  const selectedZone = selectedAddr
-    ? checkZoneServiceability(selectedAddr.latitude, selectedAddr.longitude)
-    : null;
-  const isSelectedServiceable = selectedZone ? selectedZone.isServiceable : true;
+  // Canonical Serviceability Preview Interface
+  interface CanonicalServiceabilityPreview {
+    serviceable: boolean;
+    distanceKm?: number;
+    deliveryFee?: number;
+    freeDeliveryThreshold?: number | null;
+    freeDeliveryEnabled?: boolean;
+    maximumDistanceKm?: number;
+    storeName?: string;
+    storeId?: string;
+    message?: string;
+    error?: string;
+    loading?: boolean;
+  }
+
+  const [canonicalPreview, setCanonicalPreview] = useState<CanonicalServiceabilityPreview | null>(null);
+  const [addrZones, setAddrZones] = useState<Record<string, { serviceable: boolean; distanceKm: number; maxRadius: number }>>({});
 
   const subtotal = useMemo(
     () => (mounted ? cart.reduce((sum, item) => sum + item.price * item.quantity, 0) : 0),
     [mounted, cart]
   );
 
-  let discount = 20;
-  if (mounted && appliedCoupon) {
-    if (appliedCoupon.type === 'fixed') {
-      discount = appliedCoupon.value;
-    } else {
-      discount = Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
+  // Asynchronously query canonical preview from GET /api/serviceability/check
+  React.useEffect(() => {
+    if (!selectedAddr || typeof selectedAddr.latitude !== 'number' || typeof selectedAddr.longitude !== 'number') {
+      setCanonicalPreview(null);
+      return;
     }
-  }
 
-  const deliveryCharge = 20;
-  const grandTotal = mounted ? Math.max(0, subtotal - discount + deliveryCharge) : 0;
+    let isCurrent = true;
+    const url = `/api/serviceability/check?lat=${selectedAddr.latitude}&lng=${selectedAddr.longitude}&storeId=store-001&subtotal=${subtotal}`;
+
+    fetch(url)
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (isCurrent && data) {
+          setCanonicalPreview({
+            serviceable: data.serviceable ?? false,
+            distanceKm: data.distanceKm ?? data.straightLineDistanceKm,
+            deliveryFee: typeof data.deliveryFee === 'number' ? data.deliveryFee : 0,
+            freeDeliveryThreshold: data.freeDeliveryThreshold ?? null,
+            freeDeliveryEnabled: data.freeDeliveryEnabled ?? false,
+            maximumDistanceKm: data.maximumDistanceKm ?? 3,
+            storeName: data.storeName ?? 'PocketKirana Store',
+            storeId: data.storeId ?? 'store-001',
+            message: data.message,
+            error: data.error,
+            loading: false,
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('[Checkout] Serviceability preview fetch failed:', err);
+        if (isCurrent) {
+          setCanonicalPreview({
+            serviceable: true,
+            loading: false,
+          });
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [selectedAddr?.id, selectedAddr?.latitude, selectedAddr?.longitude, subtotal]);
+
+  // Query per-address serviceability for address cards preview
+  React.useEffect(() => {
+    if (!addresses || addresses.length === 0) return;
+    let isCurrent = true;
+
+    addresses.forEach((addr) => {
+      if (typeof addr.latitude !== 'number' || typeof addr.longitude !== 'number') return;
+      fetch(`/api/serviceability/check?lat=${addr.latitude}&lng=${addr.longitude}&storeId=store-001`)
+        .then(async (res) => {
+          const data = await res.json().catch(() => null);
+          if (isCurrent && data) {
+            setAddrZones((prev) => ({
+              ...prev,
+              [addr.id]: {
+                serviceable: data.serviceable ?? false,
+                distanceKm: data.distanceKm ?? data.straightLineDistanceKm ?? 0,
+                maxRadius: data.maximumDistanceKm ?? 3,
+              },
+            }));
+          }
+        })
+        .catch(() => {});
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [addresses]);
+
+  const selectedZone = canonicalPreview;
+  const isSelectedServiceable = canonicalPreview ? canonicalPreview.serviceable : true;
+
+  const discount = useMemo(() => {
+    if (!mounted || !appliedCoupon) return 0;
+    if (appliedCoupon.type === 'fixed') return appliedCoupon.value;
+    return Math.min((subtotal * appliedCoupon.value) / 100, appliedCoupon.maxDiscount);
+  }, [mounted, appliedCoupon, subtotal]);
+
+  const deliveryCharge = mounted ? (canonicalPreview?.deliveryFee ?? 0) : 0;
+  const tax = mounted ? Math.round((subtotal - discount) * 0.05) : 0;
+  const grandTotal = mounted ? Math.max(0, subtotal - discount + deliveryCharge + tax) : 0;
+
+  // Authoritative Display Summary: Confirmed Order -> Frozen Submission Snapshot -> Active Cart
+  const displaySummary = useMemo(() => {
+    if (confirmedOrder) {
+      return {
+        items: confirmedOrder.items || [],
+        subtotal: confirmedOrder.subtotal,
+        discount: confirmedOrder.discount || 0,
+        deliveryCharge: confirmedOrder.deliveryCharge ?? confirmedOrder.deliveryFee ?? 0,
+        tax: confirmedOrder.tax || 0,
+        grandTotal: confirmedOrder.total,
+      };
+    }
+    if (frozenSnapshot) {
+      return frozenSnapshot;
+    }
+    return {
+      items: cart,
+      subtotal,
+      discount,
+      deliveryCharge,
+      tax,
+      grandTotal,
+    };
+  }, [confirmedOrder, frozenSnapshot, cart, subtotal, discount, deliveryCharge, tax, grandTotal]);
 
   // Auto-select newly added address
   const prevAddrCount = React.useRef(addresses.length);
@@ -148,7 +243,7 @@ export default function CheckoutPage() {
           latitude: selectedAddr.latitude,
           longitude: selectedAddr.longitude,
           pincode: selectedAddr.postalCode,
-          shopId: selectedZone?.storeId || 'store-1',
+          shopId: selectedZone?.storeId || 'store-001',
         }),
       });
       const data = await res.json();
@@ -177,148 +272,153 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Quick client-side zone pre-check (authoritative check is server-side)
-    const zone = checkZoneServiceability(selectedAddr.latitude, selectedAddr.longitude);
-    if (!zone.isServiceable) {
-      showToast(
-        `Delivery unavailable: ${zone.message || 'This address is outside our delivery area.'}`,
-        'error'
-      );
-      setStep(1);
-      return;
-    }
-
     setIsProcessing(true);
+    setFrozenSnapshot({
+      items: [...cart],
+      subtotal,
+      discount,
+      deliveryCharge,
+      tax,
+      grandTotal,
+    });
 
     try {
-      // Call the Cloud Function — this validates zone, stock, coupon, and creates the order server-side
-      const result = await callPlaceOrder({
-        cartItems: cart.map((item) => ({
-          productId: item.productId || item.product?.id || item.id,
-          quantity: item.quantity,
-        })),
-        addressId: selectedAddr.id,
-        paymentMethod: selectedPayment as 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card',
-        couponCode: appliedCoupon?.code,
-        storeId: 'store-001',
-      });
+      // 1. Post to Canonical PostgreSQL Checkout API
+      const idempotencyKey = `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      let result: any = null;
+
+      try {
+        const checkoutRes = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-idempotency-key': idempotencyKey,
+          },
+          body: JSON.stringify({
+            cartItems: cart.map((item) => ({
+              productId: item.productId || item.product?.id || item.id,
+              productName: item.product?.name || (item as any).name || '',
+              unitPrice: item.price,
+              imageUrl: item.product?.thumbnail || item.product?.image || (item as any).imageUrl || '',
+              sku: item.product?.sku || (item as any).sku || '',
+              quantity: item.quantity,
+            })),
+            address: selectedAddr,
+            addressId: selectedAddr.id,
+            paymentMethod: selectedPayment as 'cod' | 'phonepe' | 'upi' | 'card',
+            couponCode: appliedCoupon?.code,
+            storeId: 'store-001',
+            idempotencyKey,
+          }),
+        });
+
+        const checkoutData = await checkoutRes.json();
+        if (checkoutRes.ok && checkoutData.success) {
+          result = {
+            success: true,
+            orderId: checkoutData.data.orderId,
+            orderNumber: checkoutData.data.orderNumber,
+            total: checkoutData.data.total,
+            requiresPayment: checkoutData.data.requiresPayment,
+          };
+        } else {
+          // Canonical API rejection (e.g. out of stock, unserviceable, store closed)
+          const errorMsg = checkoutData?.error || 'Failed to place order. Please try again.';
+          setFrozenSnapshot(null);
+          showToast(errorMsg, 'error');
+          setIsProcessing(false);
+          return;
+        }
+      } catch (networkErr: any) {
+        console.error('[Checkout] Canonical PostgreSQL API network/request error:', networkErr);
+        setFrozenSnapshot(null);
+        showToast('Network error while placing order. Please check your connection and try again.', 'error');
+        setIsProcessing(false);
+        return;
+      }
 
       if (result.success) {
         if (result.requiresPayment) {
-          // ── PHONEPE PAYMENT FLOW ──
-          if (selectedPayment === 'phonepe') {
-            const orderResponse = await fetch('/api/payments/phonepe/create', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId: result.orderId }),
-            });
-            const orderResData = await orderResponse.json();
+          // ── PHONEPE PAYMENT FLOW (Native Android / Web) ──
+          const { startPhonePeCheckoutFlow } = await import('@/lib/phonepeClient');
+          const res = await startPhonePeCheckoutFlow({
+            orderId: result.orderId,
+            amount: result.total,
+            mobileNumber: selectedAddr.phone || currentUser?.mobile || '9999999999',
+            customerId: currentUser?.id || 'customer',
+            redirectPath: '/checkout/success/',
+          });
 
-            if (!orderResData.success) {
-              throw new Error(orderResData.error || 'Failed to create PhonePe order');
-            }
-
-            const { redirectUrl } = orderResData.data;
-            window.location.href = redirectUrl;
+          if (res.status === 'REDIRECTED') {
             return;
           }
 
-          // ── ONLINE PAYMENT WORKFLOW (Razorpay) ──
-          const scriptLoaded = await loadRazorpayScript();
-          if (!scriptLoaded) {
-            showToast('Failed to load payment gateway script. Please try again.', 'error');
+          if (res.verified || res.status === 'SUCCESS') {
+            const etaString = selectedZone?.distanceKm
+              ? `${Math.max(10, Math.round(10 + selectedZone.distanceKm * 3))}–${Math.max(15, Math.round(15 + selectedZone.distanceKm * 3))} mins`
+              : '25–30 mins';
+
+            const placed = placeOrder(
+              selectedAddr.id,
+              etaString,
+              selectedPayment,
+              result.orderId,
+              result.orderNumber,
+              {
+                subtotal,
+                discount,
+                deliveryCharge,
+                tax,
+                total: result.total || grandTotal,
+              },
+              true // keepCart
+            );
+            setConfirmedOrder(placed);
+            setShowSuccessAnimation(true);
+            clearCart();
             setIsProcessing(false);
             return;
+          } else if (res.status === 'CANCELLED') {
+            showToast('Payment was cancelled.', 'info');
+            setFrozenSnapshot(null);
+            setIsProcessing(false);
+            return;
+          } else {
+            setFrozenSnapshot(null);
+            throw new Error(res.error || 'Failed to complete PhonePe payment');
           }
-
-          // Create order on backend (simulated or real Razorpay instance)
-          const orderResponse = await fetch('/api/payments/create-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: result.total }),
-          });
-          const orderResData = await orderResponse.json();
-          if (!orderResData.success) {
-            throw new Error(orderResData.error || 'Failed to create payment order');
-          }
-
-          const { razorpayOrderId, keyId } = orderResData.data;
-
-          const options = {
-            key: keyId,
-            amount: Math.round(result.total * 100),
-            currency: 'INR',
-            name: 'PocketKirana',
-            description: `Order #${result.orderNumber}`,
-            order_id: razorpayOrderId,
-            handler: async (response: any) => {
-              setIsProcessing(true);
-              try {
-                // Verify payment on server
-                const verifyResponse = await fetch('/api/payments/verify', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    razorpayOrderId,
-                    razorpayPaymentId: response.razorpay_payment_id,
-                    razorpaySignature: response.razorpay_signature,
-                  }),
-                });
-                const verifyData = await verifyResponse.json();
-                if (verifyData.success && verifyData.data.verified) {
-                  const placed = placeOrder(
-                    selectedAddr.id,
-                    `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
-                    selectedPayment,
-                    result.orderId,
-                    result.orderNumber
-                  );
-                  setConfirmedOrder(placed);
-                  setShowSuccessAnimation(true);
-                } else {
-                  showToast('Payment verification failed. Please contact support.', 'error');
-                }
-              } catch (err: any) {
-                console.error('[Payment Verification Error]', err);
-                showToast(err.message || 'Payment verification failed.', 'error');
-              } finally {
-                setIsProcessing(false);
-              }
-            },
-            modal: {
-              ondismiss: () => {
-                showToast('Payment cancelled by user.', 'warning');
-                setIsProcessing(false);
-              }
-            },
-            prefill: {
-              name: currentUser?.firstName || 'Customer',
-              contact: currentUser?.mobile || '',
-            },
-            theme: {
-              color: '#0F532B',
-            },
-          };
-
-          const rzp = new (window as any).Razorpay(options);
-          rzp.open();
         } else {
           // ── COD WORKFLOW ──
+          const etaString = selectedZone?.distanceKm
+            ? `${Math.max(10, Math.round(10 + selectedZone.distanceKm * 3))}–${Math.max(15, Math.round(15 + selectedZone.distanceKm * 3))} mins`
+            : '25–30 mins';
+
           const placed = placeOrder(
             selectedAddr.id,
-            `${zone.estimatedDeliveryMinutes}–${zone.estimatedDeliveryMinutes + 5} mins`,
+            etaString,
             selectedPayment,
             result.orderId,
-            result.orderNumber
+            result.orderNumber,
+            {
+              subtotal,
+              discount,
+              deliveryCharge,
+              tax,
+              total: result.total || grandTotal,
+            },
+            true // keepCart
           );
           setConfirmedOrder(placed);
           setShowSuccessAnimation(true);
+          clearCart();
         }
       } else {
+        setFrozenSnapshot(null);
         showToast('Failed to place order. Please try again.', 'error');
       }
     } catch (err: any) {
       console.error('[Checkout] placeOrder error:', err);
+      setFrozenSnapshot(null);
       showToast(err?.message || 'Failed to place order. Please try again.', 'error');
     } finally {
       setIsProcessing(false);
@@ -332,8 +432,26 @@ export default function CheckoutPage() {
         <RoleSwitcher />
         <CustomerLayout>
           <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-12 space-y-6">
-            <div className="h-14 bg-white rounded-2xl border border-gray-200 animate-pulse" />
-            <div className="h-64 bg-white rounded-3xl border border-gray-200 animate-pulse" />
+            <div className="h-14 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 animate-pulse" />
+            <div className="h-64 bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 animate-pulse" />
+          </div>
+        </CustomerLayout>
+      </>
+    );
+  }
+
+  if (cart.length === 0 && !confirmedOrder && !showSuccessAnimation && !isProcessing) {
+    return (
+      <>
+        <RoleSwitcher />
+        <CustomerLayout>
+          <div className="max-w-4xl mx-auto px-4 py-16">
+            <EmptyState
+              variant="cart"
+              title="Your cart is empty"
+              description="Add items from Maule Kirana darkstore to proceed with 30-min express checkout."
+              primaryAction={{ label: 'Explore Groceries', href: '/' }}
+            />
           </div>
         </CustomerLayout>
       </>
@@ -461,8 +579,8 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {addresses.map((addr) => {
                     const isSelected = selectedAddrId === addr.id;
-                    const zone = checkZoneServiceability(addr.latitude, addr.longitude);
-                    const isServiceable = zone.isServiceable;
+                    const zone = addrZones[addr.id];
+                    const isServiceable = zone ? zone.serviceable : true;
 
                     return (
                       <div
@@ -506,13 +624,19 @@ export default function CheckoutPage() {
 
                           {/* Serviceability Badge */}
                           <div className="mt-2.5">
-                            {isServiceable ? (
-                              <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                                <Check className="w-3 h-3" /> Delivery Available ({zone.estimatedDeliveryMinutes} min)
-                              </span>
+                            {zone ? (
+                              isServiceable ? (
+                                <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                  <Check className="w-3 h-3" /> Delivery Available ({zone.distanceKm.toFixed(1)} KM)
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3 text-amber-600" /> Outside {zone.maxRadius} KM Area ({zone.distanceKm.toFixed(1)} KM)
+                                </span>
+                              )
                             ) : (
-                              <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3 text-amber-600" /> Outside {zone.radiusKm} KM Area ({zone.distanceKm} KM)
+                              <span className="text-[10px] font-bold text-slate-400 inline-flex items-center gap-1">
+                                <Loader2 className="w-3 h-3 animate-spin" /> Checking area…
                               </span>
                             )}
                           </div>
@@ -541,7 +665,7 @@ export default function CheckoutPage() {
                         📍 We&apos;re Coming Soon to this Area!
                       </h4>
                       <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                        PocketKirana is not delivering to <strong>{selectedAddr.addressLine1}</strong> yet. This address is <strong>{selectedZone?.distanceKm} KM away</strong>, which exceeds our active store radius of <strong>{selectedZone?.radiusKm} KM</strong>.
+                        PocketKirana is not delivering to <strong>{selectedAddr.addressLine1}</strong> yet. This address is <strong>{selectedZone?.distanceKm?.toFixed(1) ?? '—'} KM away</strong>, which exceeds our active store radius of <strong>{selectedZone?.maximumDistanceKm ?? 3} KM</strong>.
                       </p>
                     </div>
                   </div>
@@ -766,12 +890,12 @@ export default function CheckoutPage() {
 
                   {/* Cart items list preview */}
                   <div className="max-h-48 overflow-y-auto space-y-2 divide-y divide-gray-100 text-xs">
-                    {cart.map((item) => (
-                      <div key={item.id} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
+                    {displaySummary.items.map((item: any) => (
+                      <div key={item.id || item.productId} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
                         <span className="truncate max-w-[170px] font-semibold text-gray-800">
-                          {item.quantity}x {item.product?.name || 'Product'}
+                          {item.quantity}x {item.product?.name || (item as any).productName || (item as any).name || 'Product'}
                         </span>
-                        <span className="font-bold text-gray-900">₹{item.price * item.quantity}</span>
+                        <span className="font-bold text-gray-900">₹{(item.price || item.unitPrice || 0) * (item.quantity || 1)}</span>
                       </div>
                     ))}
                   </div>
@@ -779,19 +903,25 @@ export default function CheckoutPage() {
                   <div className="border-t pt-3 space-y-2 text-xs">
                     <div className="flex justify-between text-gray-600">
                       <span>Item Total</span>
-                      <span>₹{subtotal}</span>
+                      <span>₹{displaySummary.subtotal}</span>
                     </div>
-                    <div className="flex justify-between text-emerald-600 font-bold">
-                      <span>Store Discount</span>
-                      <span>-₹{discount}</span>
-                    </div>
+                    {displaySummary.discount > 0 && (
+                      <div className="flex justify-between text-emerald-600 font-bold">
+                        <span>Store Discount</span>
+                        <span>-₹{displaySummary.discount}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-gray-600">
                       <span>Delivery Partner Fee</span>
-                      <span>₹{deliveryCharge}</span>
+                      <span>{displaySummary.deliveryCharge === 0 ? 'FREE' : `₹${displaySummary.deliveryCharge}`}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>Taxes (GST)</span>
+                      <span>₹{displaySummary.tax}</span>
                     </div>
                     <div className="border-t pt-2 flex justify-between font-black text-sm text-gray-900">
                       <span>To Pay</span>
-                      <span>₹{grandTotal}</span>
+                      <span>₹{displaySummary.grandTotal}</span>
                     </div>
                   </div>
 
@@ -808,7 +938,7 @@ export default function CheckoutPage() {
                       </>
                     ) : (
                       <>
-                        <span>PLACE ORDER (₹{grandTotal})</span>
+                        <span>PLACE ORDER (₹{displaySummary.grandTotal})</span>
                         <ChevronRight className="w-4 h-4" />
                       </>
                     )}

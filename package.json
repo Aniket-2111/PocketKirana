@@ -8,9 +8,15 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "migrate": "node scripts/init_client_postgres_tables.js",
+    "migrate:test": "node scripts/init_test_postgres_tables.js",
+    "worker": "node scripts/run_outbox_worker.js"
   },
   "dependencies": {
+    "@copilotkit/react-core": "^1.75.0",
+    "@copilotkit/runtime": "^1.75.0",
     "@capacitor/core": "^8.5.2",
     "@capacitor/geolocation": "^8.2.2",
     "@msg91comm/sendotp-sdk": "^1.0.1",
@@ -26,10 +32,13 @@
     "lucide-react": "^0.469.0",
     "next": "^15.1.3",
     "pg": "^8.23.0",
-    "razorpay": "^2.9.8",
+    "posthog-js": "^1.434.15",
+    "posthog-node": "^5.54.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.6.0",
+    "zod": "^4.6.5",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

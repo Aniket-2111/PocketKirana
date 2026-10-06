@@ -28,13 +28,15 @@ export function getProductBrand(
     if (found) return found;
   }
 
-  // 3. Match from INITIAL_PRODUCTS catalog
-  const mock = INITIAL_PRODUCTS.find(
-    (m) => m.id === product.id || m.slug === product.slug
-  );
-  if (mock?.brandId) {
-    const found = brandsList.find((b) => b.id === mock.brandId);
-    if (found) return found;
+  // 3. Match from INITIAL_PRODUCTS catalog in non-production only
+  if (process.env.NODE_ENV !== 'production') {
+    const mock = INITIAL_PRODUCTS.find(
+      (m) => m.id === product.id || m.slug === product.slug
+    );
+    if (mock?.brandId) {
+      const found = brandsList.find((b) => b.id === mock.brandId);
+      if (found) return found;
+    }
   }
 
   // 4. Name prefix / keyword matching (e.g. "Amul Fresh Milk", "Mother Dairy Toned Milk", "Tata Salt", etc.)

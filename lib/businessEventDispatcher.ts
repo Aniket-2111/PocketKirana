@@ -15,6 +15,8 @@
 
 import { dispatchNotification, OrderNotificationEvent } from './notificationDispatcher';
 import { logAuditEvent } from './auditLogger';
+import { PostHogEvents } from './analytics';
+import { trackServerEvent } from './analytics/serverAnalytics';
 
 export type BusinessEventType =
   | 'ORDER_PLACED'
@@ -92,5 +94,29 @@ export async function emitBusinessEvent(event: BusinessEventPayload): Promise<vo
   // 3. Operational Console Stream Logging (in dev/staging)
   if (process.env.NODE_ENV !== 'production') {
     console.log(`📡 [BusinessEvent] ${eventType} | Order: ${orderNumber || orderId || 'N/A'} | Role: ${actorRole || 'system'}`);
+  }
+
+  // 4. Asynchronously track in PostHog Product & Operational Analytics
+  const postHogEventMap: Partial<Record<BusinessEventType, string>> = {
+    ORDER_PLACED: PostHogEvents.ORDER_CREATED,
+    ORDER_CONFIRMED: PostHogEvents.ORDER_CONFIRMED,
+    PICKING_STARTED: PostHogEvents.ORDER_PICKING_STARTED,
+    ITEM_PICKED: PostHogEvents.PRODUCT_PICKED,
+    ORDER_PACKED: PostHogEvents.ORDER_PACKED,
+    RIDER_ACCEPTED: PostHogEvents.DELIVERY_ORDER_ACCEPTED,
+    OUT_FOR_DELIVERY: PostHogEvents.ORDER_OUT_FOR_DELIVERY,
+    ORDER_DELIVERED: PostHogEvents.ORDER_DELIVERED,
+    ORDER_CANCELLED: PostHogEvents.ORDER_CANCELLED,
+  };
+
+  const phEvent = postHogEventMap[eventType];
+  if (phEvent) {
+    trackServerEvent(recipientUid || actorId || 'system', phEvent, {
+      order_id: orderId,
+      order_number: orderNumber,
+      actor_id: actorId,
+      actor_role: actorRole,
+      ...metadata,
+    }).catch(() => {});
   }
 }

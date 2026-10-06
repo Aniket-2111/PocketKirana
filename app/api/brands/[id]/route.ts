@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { requireRole } from '@/lib/routeAuth';
 import { Brand } from '@/types';
 
 interface RouteContext {
@@ -117,6 +118,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
  * Updates a brand's metadata, logo, banner, and category associations.
  */
 export async function PUT(req: NextRequest, context: RouteContext) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to update brand' },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     const body = await req.json();
@@ -250,6 +258,13 @@ export async function PUT(req: NextRequest, context: RouteContext) {
  * - forceDeactivate: If true, deactivates the brand instead of raw deletion.
  */
 export async function DELETE(req: NextRequest, context: RouteContext) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to delete brand' },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     const { searchParams } = new URL(req.url);

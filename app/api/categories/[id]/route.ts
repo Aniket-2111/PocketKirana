@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { requireRole } from '@/lib/routeAuth';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -68,6 +69,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
  * Updates category or subcategory properties.
  */
 export async function PUT(req: NextRequest, context: RouteContext) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to update category' },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     const body = await req.json();
@@ -207,6 +215,13 @@ export async function PUT(req: NextRequest, context: RouteContext) {
  * - reassignSubcategoryId: Target subcategory ID to move products to.
  */
 export async function DELETE(req: NextRequest, context: RouteContext) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to delete category' },
+      { status: 403 }
+    );
+  }
   try {
     const { id } = await context.params;
     let body: any = {};

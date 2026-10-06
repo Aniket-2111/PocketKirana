@@ -60,12 +60,15 @@ import {
   History,
   CheckCheck,
   Building2,
-  Menu
+  Menu,
+  RotateCcw,
+  AlertTriangle,
+  LifeBuoy
 } from 'lucide-react';
 import { BulkCSVUploadModal } from '@/components/admin/BulkCSVUploadModal';
+import { ProductExcelImportModal } from '@/components/admin/ProductExcelImportModal';
 import { uploadProductImageFS } from '@/lib/firebaseStorage';
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell';
-import { NotificationSimulator } from '@/components/common/NotificationSimulator';
 import { Product360Modal } from '@/components/admin/Product360Modal';
 import { AddProductWithBarcodeModal } from '@/components/admin/AddProductWithBarcodeModal';
 import { BatchInventoryView } from '@/components/admin/BatchInventoryView';
@@ -82,8 +85,11 @@ import { PaymentsAndSettlementView } from '@/components/admin/PaymentsAndSettlem
 import { FestivalCampaignsCMS } from '@/components/admin/festival/FestivalCampaignsCMS';
 import { ProductEditorModal } from '@/components/admin/ProductEditorModal';
 import { NotificationCenterView } from '@/components/admin/NotificationCenterView';
+import { MarketingManagementView } from '@/components/admin/marketing/MarketingManagementView';
+import { DeliveryExceptionsAdminView } from '@/components/admin/DeliveryExceptionsAdminView';
+import { ReturnsManagementAdminView } from '@/components/admin/ReturnsManagementAdminView';
+import { CustomerIssuesAdminView } from '@/components/admin/CustomerIssuesAdminView';
 import { Order } from '@/types';
-import { INITIAL_ORDERS } from '@/lib/mockData';
 
 function AdminDashboardContent() {
   const searchParams = useSearchParams();
@@ -158,7 +164,7 @@ function AdminDashboardContent() {
   };
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'analytics' | 'inventory' | 'batches' | 'expiry' | 'ledger' | 'categories' | 'brands' | 'offers' | 'orders' | 'customers' | 'notifications' | 'audit' | 'delivery-fleet' | 'service-area' | 'invoices' | 'invoice-settings' | 'payments' | 'festivals'
+    'overview' | 'analytics' | 'inventory' | 'batches' | 'expiry' | 'ledger' | 'categories' | 'brands' | 'offers' | 'orders' | 'customers' | 'notifications' | 'audit' | 'delivery-fleet' | 'service-area' | 'invoices' | 'invoice-settings' | 'payments' | 'festivals' | 'delivery-exceptions' | 'returns' | 'customer-issues'
   >(
     initialTab === 'store' ? 'orders' : (initialTab as any) || 'overview'
   );
@@ -180,21 +186,13 @@ function AdminDashboardContent() {
     }
     const orderIdParam = searchParams.get('orderId');
     if (orderIdParam) {
-      const match =
-        orders.find(
-          (o) =>
-            o.id === orderIdParam ||
-            o.orderNumber === orderIdParam ||
-            o.id.toLowerCase() === orderIdParam.toLowerCase() ||
-            o.orderNumber.toLowerCase() === orderIdParam.toLowerCase()
-        ) ||
-        INITIAL_ORDERS.find(
-          (o) =>
-            o.id === orderIdParam ||
-            o.orderNumber === orderIdParam ||
-            o.id.toLowerCase() === orderIdParam.toLowerCase() ||
-            o.orderNumber.toLowerCase() === orderIdParam.toLowerCase()
-        );
+      const match = orders.find(
+        (o) =>
+          o.id === orderIdParam ||
+          o.orderNumber === orderIdParam ||
+          o.id.toLowerCase() === orderIdParam.toLowerCase() ||
+          o.orderNumber.toLowerCase() === orderIdParam.toLowerCase()
+      );
       if (match) {
         setSelectedOrderModal(match);
       }
@@ -204,6 +202,7 @@ function AdminDashboardContent() {
   const [selectedMonth, setSelectedMonth] = useState('Jul 2026');
 
   // Modals & search states
+  const [showProductExcelModal, setShowProductExcelModal] = useState(false);
   const [showBulkCSVModal, setShowBulkCSVModal] = useState(false);
   const [showAddBannerModal, setShowAddBannerModal] = useState(false);
   const [bannerTitle, setBannerTitle] = useState('');
@@ -552,6 +551,8 @@ function AdminDashboardContent() {
       items: [
         { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'orders', label: 'Orders & Queue', icon: ShoppingBag, count: activeOrders.length },
+        { id: 'delivery-exceptions', label: 'Delivery Exceptions', icon: AlertTriangle },
+        { id: 'returns', label: 'Returns & Inspections', icon: RotateCcw },
         { id: 'delivery-fleet', label: 'Staff & Fleet', icon: Truck, count: deliveryPartners.length + (pickers?.length || 0) },
         { id: 'service-area', label: 'Service Area', icon: MapPin, href: '/admin/service-area' },
       ],
@@ -572,6 +573,7 @@ function AdminDashboardContent() {
       items: [
         { id: 'festivals', label: 'Festival Campaigns', icon: Sparkles },
         { id: 'offers', label: 'Banners & Marketing', icon: Percent, count: banners.length + coupons.length },
+        { id: 'customer-issues', label: 'Customer Complaints', icon: LifeBuoy },
         { id: 'customers', label: 'Customer Base', icon: Users },
         { id: 'notifications', label: 'Broadcast & Alerts', icon: Bell, count: adminUnreadCount > 0 ? adminUnreadCount : undefined },
       ],
@@ -770,11 +772,11 @@ function AdminDashboardContent() {
               <AdminNotificationBell />
 
               <button
-                onClick={() => setShowBulkCSVModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                onClick={() => setShowProductExcelModal(true)}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                <span>Bulk CSV Import</span>
+                <span>Bulk Product Import</span>
               </button>
 
               <button
@@ -806,9 +808,9 @@ function AdminDashboardContent() {
                   </div>
 
                   <div className="flex items-baseline justify-between flex-wrap gap-x-2 gap-y-1 pt-1">
-                    <span className="text-2xl font-black text-slate-900">₹{totalGMV > 0 ? totalGMV.toLocaleString() : '82,650'}</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                      <TrendingUp className="w-3 h-3" /> +11%
+                    <span className="text-2xl font-black text-slate-900">₹{totalGMV.toLocaleString()}</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                      Live
                     </span>
                   </div>
                 </div>
@@ -826,9 +828,9 @@ function AdminDashboardContent() {
                   </div>
 
                   <div className="flex items-baseline justify-between pt-1">
-                    <span className="text-2xl font-black text-slate-900">{orders.length > 0 ? orders.length : '1,645'}</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                      <TrendingUp className="w-3 h-3" /> +11%
+                    <span className="text-2xl font-black text-slate-900">{orders.length}</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                      Live
                     </span>
                   </div>
                 </div>
@@ -907,7 +909,7 @@ function AdminDashboardContent() {
                       <div className="space-y-1">
                         <h4 className="font-bold text-slate-900 text-xs truncate">{prod.name}</h4>
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 font-medium">752 Pcs</span>
+                          <span className="text-slate-500 font-medium">{prod.unit || '1 Unit'}</span>
                           <span className="font-black text-slate-900">₹{prod.sellingPrice}</span>
                         </div>
                       </div>
@@ -958,13 +960,25 @@ function AdminDashboardContent() {
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 </div>
 
-                <button
-                  onClick={() => setShowAddProductModal(true)}
-                  className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Product</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowProductExcelModal(true)}
+                    className="bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Import Excel (.xlsx)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProductModal(true)}
+                    className="bg-black hover:bg-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add New Product</span>
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
@@ -1081,9 +1095,9 @@ function AdminDashboardContent() {
             </div>
           )}
 
-          {/* ── TAB 4: MARKETING & BANNERS ── */}
+          {/* ── TAB 4: MARKETING, OFFERS & PROMOTIONS HUB ── */}
           {activeTab === 'offers' && (
-            <BannerManagementView />
+            <MarketingManagementView />
           )}
 
           {/* ── TAB 5: ORDERS & STORE QUEUE (Orders Management) ── */}
@@ -1359,6 +1373,21 @@ function AdminDashboardContent() {
           {/* ── TAB: FESTIVAL CAMPAIGNS & AI TEMPLATES CMS ── */}
           {activeTab === 'festivals' && (
             <FestivalCampaignsCMS />
+          )}
+
+          {/* ── TAB: DELIVERY EXCEPTIONS & FAILED DELIVERIES ── */}
+          {activeTab === 'delivery-exceptions' && (
+            <DeliveryExceptionsAdminView />
+          )}
+
+          {/* ── TAB: RETURNS MANAGEMENT & GROCERY SAFETY INSPECTIONS ── */}
+          {activeTab === 'returns' && (
+            <ReturnsManagementAdminView />
+          )}
+
+          {/* ── TAB: CUSTOMER COMPLAINTS & QUALITY ISSUES ── */}
+          {activeTab === 'customer-issues' && (
+            <CustomerIssuesAdminView />
           )}
 
         </main>
@@ -1816,12 +1845,17 @@ function AdminDashboardContent() {
         onClose={() => setShowBarcodeAddModal(false)}
       />
 
+      {/* Bulk Product Excel Import & Specifications Sync Modal */}
+      <ProductExcelImportModal
+        isOpen={showProductExcelModal}
+        onClose={() => setShowProductExcelModal(false)}
+      />
+
       {/* Bulk CSV Product Upload & Scanner Modal */}
       <BulkCSVUploadModal
         isOpen={showBulkCSVModal}
         onClose={() => setShowBulkCSVModal(false)}
       />
-      <NotificationSimulator />
     </div>
   );
 }

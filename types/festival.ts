@@ -2,12 +2,27 @@ export type FestivalKey =
   | 'ganesh_chaturthi'
   | 'diwali'
   | 'navratri'
+  | 'durga_puja'
+  | 'baisakhi'
+  | 'karwa_chauth'
   | 'holi'
   | 'dussehra'
   | 'eid'
   | 'christmas'
   | 'new_year'
   | 'teej'
+  | 'raksha_bandhan'
+  | 'makar_sankranti'
+  | 'independence_day'
+  | 'republic_day'
+  | 'akshaya_tritiya'
+  | 'onam'
+  | 'pongal'
+  | 'easter'
+  | 'weekend_sale'
+  | 'monthly_sale'
+  | 'store_anniversary'
+  | 'flash_sale'
   | 'custom';
 
 export type TemplateCategory = 'SYSTEM' | 'AI_GENERATED' | 'MY_TEMPLATES' | 'ARCHIVED';
@@ -32,6 +47,7 @@ export type SectionType =
   | 'PromoStrip'
   | 'Collection'
   | 'Countdown'
+  | 'FlashSale'
   | 'ImageText'
   | 'FestivalDivider'
   | 'RecommendationCarousel'
@@ -54,7 +70,7 @@ export interface FestivalTheme {
   accentTextColor?: string;
   badgeBg?: string;
   badgeTextColor?: string;
-  mood?: 'premium_festive' | 'modern_quick_commerce' | 'traditional_indian' | 'minimal_elegant';
+  mood?: 'premium_festive' | 'modern_quick_commerce' | 'traditional_indian' | 'minimal_elegant' | 'vibrant_celebration';
   fontStyle?: 'festive_serif' | 'clean_modern' | 'bold_display';
   borderRadius?: 'rounded' | 'curved' | 'pill';
 }

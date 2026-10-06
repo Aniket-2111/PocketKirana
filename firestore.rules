@@ -196,12 +196,12 @@ service cloud.firestore {
     // 10. ORDERS (Full Order State Machine)
     // ══════════════════════════════════════════
     match /orders/{orderId} {
-      // Customer reads own orders; Picker/Partner reads assigned orders; Admin reads all
+      // Customer reads own orders; Assigned Picker/Partner reads assigned orders; Admin reads all
       allow read: if isAuthenticated() && (
+        isAdmin() ||
         resource.data.customerId == uid() ||
-        isPicker() ||
-        isDeliveryPartner() ||
-        isAdmin()
+        (isDeliveryPartner() && (resource.data.partnerId == uid() || resource.data.deliveryPartnerId == uid())) ||
+        (isPicker() && (resource.data.pickerId == uid() || (resource.data.pickerId == null && resource.data.storeId != null && isPickerForStore(resource.data.storeId))))
       );
 
       // Order creation is handled by Cloud Function (placeOrder)
@@ -216,8 +216,10 @@ service cloud.firestore {
 
     match /orderItems/{itemId} {
       allow read: if isAuthenticated() && (
-        isAdmin() || isPicker() || isDeliveryPartner() ||
-        get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.customerId == uid()
+        isAdmin() ||
+        resource.data.customerId == uid() ||
+        (isDeliveryPartner() && resource.data.partnerId == uid()) ||
+        (isPicker() && (resource.data.pickerId == uid() || resource.data.pickerId == null))
       );
       allow write: if isAdmin();
     }
@@ -240,8 +242,14 @@ service cloud.firestore {
     }
 
     match /packingTasks/{taskId} {
-      allow read: if isPicker() || isAdmin();
-      allow update: if isPicker() || isAdmin();
+      allow read: if (isPicker() &&
+        (resource.data.pickerId == uid() || resource.data.pickerId == null)) ||
+        isAdmin();
+      allow update: if (isPicker() &&
+        resource.data.pickerId == uid() &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['orderId', 'storeId', 'createdAt'])) ||
+        isAdmin();
       allow create, delete: if isAdmin();
     }
 

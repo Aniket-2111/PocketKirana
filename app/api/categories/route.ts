@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { requireRole } from '@/lib/routeAuth';
 
 /**
  * GET /api/categories
@@ -81,6 +82,13 @@ export async function GET(req: NextRequest) {
  * Creates a new category or subcategory with unique slug validation and auto ordering.
  */
 export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to create categories' },
+      { status: 403 }
+    );
+  }
   try {
     const body = await req.json();
     const {

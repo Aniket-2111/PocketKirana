@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   reactStrictMode: true,
   compress: true,
+  serverExternalPackages: ['posthog-node'],
   transpilePackages: ['@msg91comm/sendotp-sdk'],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion', 'clsx', 'tailwind-merge', 'zustand'],
@@ -12,6 +13,18 @@ const nextConfig: NextConfig = {
   images: {
     // Image optimization enabled — using Next.js built-in optimizer
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.pocketkirana.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.r2.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "**.r2.cloudflarestorage.com",
+      },
       {
         protocol: "https",
         hostname: "images.unsplash.com",
@@ -58,6 +71,12 @@ const nextConfig: NextConfig = {
           {
             key: "X-XSS-Protection",
             value: "1; mode=block",
+          },
+          {
+            // PK-SEC-10: HSTS — enforce HTTPS for 2 years; Cloudflare CDN also injects this
+            // at the edge, but add it here for defence-in-depth on direct connections.
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
           },
         ],
       },

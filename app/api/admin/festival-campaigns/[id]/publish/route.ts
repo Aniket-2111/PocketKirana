@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { validateFestivalCampaign } from '@/lib/festivalValidator';
 
 export async function POST(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const { id } = await params;
     const body = await req.json();
@@ -24,7 +28,8 @@ export async function POST(
 
     const publishedVersion = (body.currentVersion || 1) + 1;
     const publishedAt = new Date().toISOString();
-    const publishedBy = body.publishedBy || 'Admin';
+    // Use verified auth uid instead of client-supplied publishedBy
+    const publishedBy = auth.name || auth.uid;
 
     const newVersionSnapshot = {
       versionNumber: publishedVersion,

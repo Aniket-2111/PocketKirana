@@ -48,12 +48,48 @@ function sanitizeRequestHeaders(request: NextRequest): NextRequest {
   });
 }
 
+const ALLOWED_APK_ORIGINS = new Set([
+  'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
+  'https://pocketkirana.in',
+  'https://pocketkirana.com',
+  'https://api.pocketkirana.in',
+]);
+
+function isAllowedOrigin(origin: string | null, host: string): boolean {
+  if (!origin) return true;
+  if (ALLOWED_APK_ORIGINS.has(origin)) return true;
+  const originHost = origin.replace(/^https?:\/\//, '').split(':')[0];
+  const hostClean = host.split(':')[0];
+  if (originHost === hostClean) return true;
+  if (hostClean.includes('localhost') || hostClean.includes('127.0.0.1')) return true;
+  return false;
+}
+
 // ── Main Middleware ─────────────────────────────────────────────────────────
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const sanitized = sanitizeRequestHeaders(request);
   const { pathname } = sanitized.nextUrl;
   const method = sanitized.method;
+  const origin = sanitized.headers.get('origin');
+  const host = sanitized.headers.get('host') || '';
+
+  // 1. Handle CORS Preflight for API routes
+  if (method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    const allowOrigin = origin && isAllowedOrigin(origin, host) ? origin : '*';
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': allowOrigin,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-pk-role, x-pk-uid, x-idempotency-key, X-VERIFY, sentry-trace, baggage, cache-control',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
 
   // Create base response with security headers
   const requestHeaders = new Headers(sanitized.headers);
@@ -62,34 +98,44 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('X-Frame-Options', 'DENY');
 
-  // CSRF Check on State-Changing API Mutations
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/')) {
-    const origin = sanitized.headers.get('origin');
-    const host = sanitized.headers.get('host');
-
-    if (origin && host) {
-      const originHost = origin.replace(/^https?:\/\//, '');
-      if (originHost !== host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
-        return new NextResponse(
-          JSON.stringify({ success: false, code: 'CSRF_BLOCKED', error: 'Cross-site request blocked' }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
+  // Inject CORS headers for allowed API callers (Web + APK)
+  if (pathname.startsWith('/api/')) {
+    if (origin && isAllowedOrigin(origin, host)) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Vary', 'Origin');
     }
   }
 
+  // CSRF Check on State-Changing API Mutations
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && pathname.startsWith('/api/')) {
+    if (origin && !isAllowedOrigin(origin, host)) {
+      return new NextResponse(
+        JSON.stringify({ success: false, code: 'CSRF_BLOCKED', error: 'Cross-site request blocked' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  const authHeader = sanitized.headers.get('authorization') || '';
+  const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
+
   const sessionToken =
+    bearerToken ||
     sanitized.cookies.get('pk_session')?.value ||
     sanitized.cookies.get('__pk_session')?.value ||
     sanitized.cookies.get('__session')?.value;
 
   const strictModeEnabled = process.env.NEXT_PUBLIC_AUTH_MIDDLEWARE_ENABLED === 'true';
   const isProduction = process.env.NODE_ENV === 'production';
-  const host = sanitized.headers.get('host') || '';
-  const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
 
-  // Dev bypass: local, non-strict, non-production ONLY. Never injects x-pk-*
-  // for /api/* (route-level auth handles API identity), only for protected pages.
+  // Loopback only: 127.0.0.1, ::1, or localhost. LAN addresses (192.168.x, 10.x, 172.16-31.x) are NOT localhost.
+  const hostClean = host.startsWith('[') ? host.slice(1).split(']')[0] : host.split(':')[0].toLowerCase();
+  const isLocalhost = hostClean === 'localhost' || hostClean === '127.0.0.1' || hostClean === '::1' || hostClean.startsWith('127.');
+
+  // Dev bypass: local, non-strict, non-production ONLY.
   const match = PROTECTED_ROUTES.find((route) => pathname.startsWith(route.prefix));
   if (match && !isProduction && isLocalhost && !strictModeEnabled) {
     const devRole =
@@ -97,26 +143,24 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       pathname.startsWith('/picker') ? 'picker' :
       pathname.startsWith('/delivery') ? 'delivery_partner' : 'customer';
 
-    response.headers.set('x-pk-uid', 'dev-user');
-    response.headers.set('x-pk-role', devRole);
-    response.headers.set('x-pk-dev-bypass', '1');
-    return response;
+    requestHeaders.set('x-pk-uid', 'dev-user');
+    requestHeaders.set('x-pk-role', devRole);
+    requestHeaders.set('x-pk-dev-bypass', '1');
+
+    const devResponse = NextResponse.next({ request: { headers: requestHeaders } });
+    attachSecurityHeaders(devResponse, origin, host, pathname);
+    return devResponse;
   }
 
   // ── Verified-token identity for protected pages AND /api routes ──────────
-  // On success, x-pk-uid/x-pk-role are injected from a SIGNATURE-VERIFIED
-  // Firebase token — these are the only x-pk-* headers routeAuth ever sees.
-  // On failure with a malformed/invalid token present: 401 for API, redirect
-  // for pages. No token: pass through (route-level auth decides for /api;
-  // protected pages redirect below).
-
   if (sessionToken) {
     const verified = await verifyFirebaseIdToken(sessionToken);
 
     if (verified) {
       const role = verified.admin ? 'admin' : verified.role || 'customer';
-      response.headers.set('x-pk-uid', verified.uid);
-      response.headers.set('x-pk-role', role);
+      requestHeaders.set('x-pk-uid', verified.uid);
+      requestHeaders.set('x-pk-role', role);
+      requestHeaders.set('x-pk-session-id', sessionToken);
 
       if (match) {
         const isAdmin = verified.admin === true || role === 'admin';
@@ -124,32 +168,44 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         const allowed = isAdmin || match.requiredRoles.includes(userRole);
         if (!allowed) return redirectToLogin(sanitized.url, pathname, 'insufficient_role');
       }
-      return response;
+
+      const okResponse = NextResponse.next({ request: { headers: requestHeaders } });
+      attachSecurityHeaders(okResponse, origin, host, pathname);
+      return okResponse;
     }
 
-    // Token present but NOT verified: is it a legacy/demo token?
-    // Demo 'pks_' tokens and opaque UUID session ids are only honored when
-    // auth middleware is NOT enabled (dev/demo installs).
+    // Token present but NOT verified: is it a legacy/demo token or server session ID?
     const looksJwt = sessionToken.includes('.');
     const payload = looksJwt ? decodeJwtPayload(sessionToken) : null;
-    const isDemoToken = sessionToken.startsWith('pks_');
 
     if (!strictModeEnabled && !isProduction) {
       // Dev/demo mode: keep legacy behavior for non-JWT tokens.
       if (!looksJwt) {
-        response.headers.set('x-pk-session-id', sessionToken);
-        return response;
+        requestHeaders.set('x-pk-session-id', sessionToken);
+        const passResponse = NextResponse.next({ request: { headers: requestHeaders } });
+        attachSecurityHeaders(passResponse, origin, host, pathname);
+        return passResponse;
       }
       // Dev JWT with valid shape: decode-only, flag as unverified (dev only).
       if (payload && (payload.uid || payload.sub)) {
-        response.headers.set('x-pk-uid', String(payload.sub || payload.uid));
-        response.headers.set('x-pk-role', String(payload.role || 'customer'));
-        response.headers.set('x-pk-unverified', '1');
-        return response;
+        requestHeaders.set('x-pk-uid', String(payload.sub || payload.uid));
+        requestHeaders.set('x-pk-role', String(payload.role || 'customer'));
+        requestHeaders.set('x-pk-unverified', '1');
+        const passResponse = NextResponse.next({ request: { headers: requestHeaders } });
+        attachSecurityHeaders(passResponse, origin, host, pathname);
+        return passResponse;
       }
     }
 
-    // Strict mode or production: invalid token = fail closed.
+    // Server-side session support in strict/production mode for non-JWT session tokens
+    if (!looksJwt && sessionToken) {
+      requestHeaders.set('x-pk-session-id', sessionToken);
+      const passResponse = NextResponse.next({ request: { headers: requestHeaders } });
+      attachSecurityHeaders(passResponse, origin, host, pathname);
+      return passResponse;
+    }
+
+    // Strict mode or production: invalid JWT token = fail closed.
     if (pathname.startsWith('/api/')) {
       return new NextResponse(
         JSON.stringify({ success: false, error: 'Invalid session token' }),
@@ -161,7 +217,24 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // ── No token ─────────────────────────────────────────────────────────────
   if (match) return redirectToLogin(sanitized.url, pathname, 'unauthenticated');
-  return response; // /api with no token: route-level auth decides (fail closed there)
+
+  const finalResponse = NextResponse.next({ request: { headers: requestHeaders } });
+  attachSecurityHeaders(finalResponse, origin, host, pathname);
+  return finalResponse;
+}
+
+function attachSecurityHeaders(response: NextResponse, origin: string | null, host: string, pathname: string): void {
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('X-Frame-Options', 'DENY');
+
+  if (pathname.startsWith('/api/')) {
+    if (origin && isAllowedOrigin(origin, host)) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Vary', 'Origin');
+    }
+  }
 }
 
 function redirectToLogin(baseUrl: string, pathname: string, reason: string): NextResponse {

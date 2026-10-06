@@ -6,6 +6,7 @@ import { useAppStore } from '@/lib/store';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { Search } from 'lucide-react';
+import { NoSearchResults, EmptyState, ProductImageWithFallback } from '@/components/states';
 
 const CATEGORY_COLORS: Record<string, { bg: string; border: string }> = {
   'fruits-vegetables': { bg: 'bg-[#EEF7F1]', border: 'border-[#53B175]/40' },
@@ -62,36 +63,54 @@ export default function FindProductsPage() {
           </div>
 
           {/* 2-Column Vibrant Pastel Cards Grid (Matching Mockup 3) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 pt-2">
-            {filteredCategories.map((cat, idx) => {
-              const theme = CATEGORY_COLORS[cat.slug] || {
-                bg: idx % 2 === 0 ? 'bg-[#EEF7F1]' : 'bg-[#FFF9E5]',
-                border: 'border-gray-200',
-              };
+          {filteredCategories.length === 0 ? (
+            search.trim() ? (
+              <NoSearchResults
+                query={search}
+                onClearSearch={() => setSearch('')}
+                onSelectSuggestion={(kw: string) => setSearch(kw)}
+              />
+            ) : (
+              <EmptyState
+                type="custom"
+                title="No Categories Available"
+                description="Categories are currently being updated. Please check back shortly."
+                primaryAction={{
+                  label: "Return Home",
+                  onClick: () => window.location.assign('/'),
+                }}
+              />
+            )
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 pt-2">
+              {filteredCategories.map((cat, idx) => {
+                const theme = CATEGORY_COLORS[cat.slug] || {
+                  bg: idx % 2 === 0 ? 'bg-[#EEF7F1]' : 'bg-[#FFF9E5]',
+                  border: 'border-gray-200',
+                };
 
-              return (
-                <Link
-                  key={cat.id}
-                  href={`/category/${cat.slug}`}
-                  className={`${theme.bg} ${theme.border} border rounded-3xl p-5 flex flex-col items-center justify-between text-center min-h-[190px] sm:min-h-[210px] hover:scale-[1.02] hover:shadow-md transition-all group cursor-pointer`}
-                >
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center p-2 group-hover:scale-105 transition-transform duration-200">
-                    <img
-                      src={cat.image}
-                      alt={cat.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="max-w-full max-h-full object-contain rounded-xl drop-shadow-xs"
-                    />
-                  </div>
+                return (
+                  <Link
+                    key={cat.id}
+                    href={`/category/${cat.slug}`}
+                    className={`${theme.bg} ${theme.border} border rounded-3xl p-5 flex flex-col items-center justify-between text-center min-h-[190px] sm:min-h-[210px] hover:scale-[1.02] hover:shadow-md transition-all group cursor-pointer`}
+                  >
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center p-2 group-hover:scale-105 transition-transform duration-200">
+                      <ProductImageWithFallback
+                        src={cat.image}
+                        alt={cat.name}
+                        className="max-w-full max-h-full object-contain rounded-xl drop-shadow-xs"
+                      />
+                    </div>
 
-                  <h3 className="font-black text-sm sm:text-base text-gray-900 leading-tight tracking-tight mt-2 line-clamp-2">
-                    {cat.name}
-                  </h3>
-                </Link>
-              );
-            })}
-          </div>
+                    <h3 className="font-black text-sm sm:text-base text-gray-900 leading-tight tracking-tight mt-2 line-clamp-2">
+                      {cat.name}
+                    </h3>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
         </div>
       </CustomerLayout>

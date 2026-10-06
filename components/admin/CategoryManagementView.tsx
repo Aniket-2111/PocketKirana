@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Category, Product } from '@/types';
 import { showToast } from '@/components/ui/Toast';
+import { EmptyState } from '@/components/states/EmptyState';
 import {
   Layers,
   Plus,
@@ -346,24 +347,19 @@ export const CategoryManagementView: React.FC = () => {
 
       {/* ── CATEGORY TREE LIST ── */}
       {filteredTopCategories.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-400 mx-auto flex items-center justify-center font-bold">
-            <Layers className="w-8 h-8" />
-          </div>
-          <h3 className="text-base font-bold text-slate-900">No categories found</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {searchQuery
-              ? `No categories match your search "${searchQuery}". Try clearing filters.`
-              : 'Start by creating your first store category to organize products.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => setCategoryModal({ isOpen: true, mode: 'add', parentId: null })}
-            className="bg-emerald-600 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-2xs inline-flex items-center gap-2 mt-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create First Category</span>
-          </button>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xs">
+          <EmptyState
+            variant="admin-categories"
+            description={
+              searchQuery
+                ? `No categories match your search "${searchQuery}". Try clearing filters.`
+                : 'Start by creating your first store category to organize products.'
+            }
+            primaryAction={{
+              label: 'Create First Category',
+              onClick: () => setCategoryModal({ isOpen: true, mode: 'add', parentId: null }),
+            }}
+          />
         </div>
       ) : (
         <div className="space-y-4">

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
+import { apiFetch } from '@/lib/apiClient';
 import CustomerShell from '../../components/CustomerShell';
 import {
   User,
@@ -35,7 +36,7 @@ import { getStoredTheme, setAppTheme, initThemeListener, ThemeMode } from '../..
 
 export default function CustomerProfile() {
   const router = useRouter();
-  const { currentUser, logout } = useAppStore();
+  const { currentUser, logout, isLoggedIn } = useAppStore();
 
   const [theme, setTheme] = useState<ThemeMode>('system');
   const [appearanceOpen, setAppearanceOpen] = useState(false);
@@ -62,8 +63,8 @@ export default function CustomerProfile() {
 
   const handleShareApp = async () => {
     const shareData = {
-      title: 'Pocket Kirana - 10-Min Grocery Delivery',
-      text: 'Order groceries and daily essentials in 10 minutes with Pocket Kirana!',
+      title: 'Pocket Kirana - 30-Min Grocery Delivery',
+      text: 'Order groceries and daily essentials in 30 minutes with Pocket Kirana!',
       url: window.location.origin || 'https://pocketkirana.in'
     };
 
@@ -82,16 +83,50 @@ export default function CustomerProfile() {
     }
   };
 
+  // Authoritatively sync user identity from server on mount
+  useEffect(() => {
+    let active = true;
+    apiFetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        if (data.authenticated && (data.customer || data.user)) {
+          const authUser = data.customer || data.user;
+          useAppStore.setState({
+            currentUser: {
+              id: authUser.id,
+              role: authUser.role || 'customer',
+              mobile: authUser.phone || authUser.mobile,
+              status: 'active',
+              firstName: authUser.firstName || authUser.name,
+              createdAt: authUser.lastActivityAt || new Date().toISOString(),
+            },
+            isLoggedIn: true,
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleLogout = () => {
+    if (currentUser?.id && typeof window !== 'undefined') {
+      localStorage.removeItem(`fcm_token_${currentUser.id}`);
+      localStorage.removeItem('pk_notification_onboarding_shown');
+      localStorage.removeItem('pk_notifications_enabled');
+    }
     logout();
     showToast('Logged out successfully', 'info');
     router.replace('/login');
   };
 
-  const userMobile = currentUser?.mobile || '8698893348';
+  const userMobile = currentUser?.mobile || (isLoggedIn ? 'Verified Customer' : 'Not signed in');
   const userName = currentUser?.firstName 
     ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() 
-    : 'Your account';
+    : (isLoggedIn ? 'PocketKirana Customer' : 'Welcome Guest');
 
   return (
     <CustomerShell title="Profile" showBack={false}>
@@ -410,7 +445,7 @@ export default function CustomerProfile() {
 
       {/* ══ NOTIFICATION PREFERENCES MODAL ══ */}
       {showNotifModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#1a202c] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -488,7 +523,7 @@ export default function CustomerProfile() {
 
       {/* ══ NEED HELP / SUPPORT MODAL ══ */}
       {showHelpModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#151B23] border border-[#E5E7EB] dark:border-[#263241] rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -499,7 +534,7 @@ export default function CustomerProfile() {
                   <h3 className="text-base font-black text-[#111827] dark:text-[#F9FAFB]">
                     Need Help?
                   </h3>
-                  <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">10-Min Fast Support</span>
+                  <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">Express Fast Support</span>
                 </div>
               </div>
               <button

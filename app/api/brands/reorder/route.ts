@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
+import { requireRole } from '@/lib/routeAuth';
 
 /**
  * POST /api/brands/reorder
@@ -7,6 +8,13 @@ import { getPostgresPool } from '@/lib/postgres';
  * Body: { items: Array<{ id: string; displayOrder: number }> }
  */
 export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: Admin role required to reorder brands' },
+      { status: 403 }
+    );
+  }
   try {
     const body = await req.json();
     const { items } = body;

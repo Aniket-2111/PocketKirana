@@ -2,9 +2,11 @@
 /**
  * Cloud Function: validateDeliveryZone
  *
+ * @deprecated NON-AUTHORITATIVE — Replaced by canonical GET /api/serviceability/check
+ * backed by PostgreSQL stores and evaluated by evaluateServerServiceability().
+ * Preserved for transitional fallback compatibility only. Zero active production callers.
+ *
  * Server-side delivery zone check using Haversine formula.
- * Called before checkout to verify the customer address is
- * within the configured delivery radius.
  *
  * Input:  { latitude: number, longitude: number }
  * Output: { isServiceable: boolean, distanceKm: number, message: string }

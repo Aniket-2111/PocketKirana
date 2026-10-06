@@ -21,13 +21,17 @@ export async function OPTIONS() {
 
 /** Read the session cookie (same names the middleware accepts). */
 export async function getSessionToken(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return (
-    cookieStore.get('pk_session')?.value || // written by login (lib/sessionCookie.ts)
-    cookieStore.get('__pk_session')?.value ||
-    cookieStore.get('__session')?.value ||
-    null
-  );
+  try {
+    const cookieStore = await cookies();
+    return (
+      cookieStore.get('pk_session')?.value || // written by login (lib/sessionCookie.ts)
+      cookieStore.get('__pk_session')?.value ||
+      cookieStore.get('__session')?.value ||
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 
 // Edge/Node-safe JWT payload decoder (same logic as middleware.ts)
@@ -64,6 +68,11 @@ export async function authenticateRequest(): Promise<
   if (sessionToken) {
     const user = decodeJwtPayload(sessionToken);
     if (user?.uid) return { uid: user.uid };
+    try {
+      const { getServerSession } = await import('@/lib/serverSession');
+      const session = getServerSession(sessionToken);
+      if (session?.userId) return { uid: session.userId };
+    } catch (_) {}
     if (isAuthMiddlewareEnabled()) return { error: 'Unauthorized session', status: 401 };
   } else if (isAuthMiddlewareEnabled()) {
     return { error: 'Authentication required', status: 401 };

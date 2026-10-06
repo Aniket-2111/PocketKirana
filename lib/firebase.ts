@@ -15,6 +15,15 @@ const firebaseConfig = {
 export const isFirebaseConfigured = (): boolean => {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+  // Production isolation guard: ensure production never points to dev projects
+  if (process.env.NODE_ENV === 'production') {
+    if (projectId === 'pocketkirana-dev' || projectId === 'default') {
+      console.error('🚨 [Firebase Security] Production environment cannot connect to development Firebase project!');
+      return false;
+    }
+  }
+
   return Boolean(
     apiKey &&
       projectId &&

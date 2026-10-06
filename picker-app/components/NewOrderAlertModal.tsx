@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Bell, ShoppingBag, ArrowRight, CheckCircle2, Volume2, VolumeX, ShieldAlert } from 'lucide-react';
 import { soundAlerts } from '@/lib/audioAlerts';
+import { apiFetch } from '@/lib/apiClient';
 
 export const NewOrderAlertModal: React.FC = () => {
   const { orders, activePickerId, acceptOrderTask } = useAppStore();
@@ -55,7 +56,7 @@ export const NewOrderAlertModal: React.FC = () => {
     }
     // Call server acknowledge API
     if (incomingOrder?.id) {
-      fetch(`/api/orders/${incomingOrder.id}/acknowledge`, {
+      apiFetch(`/api/orders/${incomingOrder.id}/acknowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staffId: activePickerId, role: 'picker' }),
@@ -67,7 +68,7 @@ export const NewOrderAlertModal: React.FC = () => {
     handleAcknowledge();
     if (incomingOrder?.id) {
       try {
-        await fetch(`/api/picker/orders/${incomingOrder.id}/accept`, {
+        await apiFetch(`/api/picker/orders/${incomingOrder.id}/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pickerId: activePickerId }),

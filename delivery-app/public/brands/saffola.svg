@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="100%" height="100%">
+  <rect width="200" height="80" rx="12" fill="#FFFBEB"/>
+  <path d="M 60 30 C 60 20, 80 15, 100 35 C 120 15, 140 20, 140 30 C 140 50, 100 65, 100 65 C 100 65, 60 50, 60 30 Z" fill="#EF4444" opacity="0.15"/>
+  <text x="100" y="48" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="900" fill="#B91C1C" text-anchor="middle" letter-spacing="-0.5">Saffola</text>
+  <text x="100" y="62" font-family="system-ui, -apple-system, sans-serif" font-size="8" font-weight="800" fill="#D97706" text-anchor="middle">HEART HEALTH</text>
+</svg>

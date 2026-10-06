@@ -9,12 +9,14 @@ import { ProductCard } from '@/components/customer/ProductCard';
 import { ProductDetailModal } from '@/components/customer/ProductDetailModal';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { NoSearchResults } from '@/components/states/NoSearchResults';
 import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { Product, Brand } from '@/types';
 import { getProductBrand } from '@/lib/brandUtils';
 import { INITIAL_BRANDS } from '@/lib/mockData';
 import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { trackEvent, PostHogEvents } from '@/lib/analytics';
 
 type SortKey = 'relevance' | 'price_asc' | 'price_desc' | 'rating' | 'discount';
 
@@ -62,6 +64,22 @@ function SearchContent() {
     const inCat = !selectedCatId || p.categoryId === selectedCatId;
     return inQuery && inCat;
   });
+
+  useEffect(() => {
+    if (!loading && query.trim()) {
+      if (filtered.length === 0) {
+        trackEvent(PostHogEvents.SEARCH_NO_RESULTS, {
+          query: query.trim(),
+          result_count: 0,
+        }, { dedupKey: `search_no_results:${query.trim()}`, dedupWindowMs: 5000 });
+      } else {
+        trackEvent(PostHogEvents.SEARCH_SUBMITTED, {
+          query: query.trim(),
+          result_count: filtered.length,
+        }, { dedupKey: `search_submitted:${query.trim()}`, dedupWindowMs: 5000 });
+      }
+    }
+  }, [loading, query, filtered.length]);
 
   // Calculate brand counts dynamically for products in search results
   const brandCountMap = new Map<string, { brand: Brand; count: number }>();
@@ -310,10 +328,19 @@ function SearchContent() {
                 ))}
               </div>
             ) : sorted.length === 0 ? (
-              <EmptyState
-                variant="search"
-                description={`No products found for "${query}". Try searching with different keywords.`}
-              />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                <NoSearchResults
+                  query={query}
+                  onClearSearch={() => {
+                    setLocalQ('');
+                    router.push('/search');
+                  }}
+                  onSelectSuggestion={(suggestion) => {
+                    setLocalQ(suggestion);
+                    router.push(`/search?q=${encodeURIComponent(suggestion)}`);
+                  }}
+                />
+              </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {sorted.map((prod) => (

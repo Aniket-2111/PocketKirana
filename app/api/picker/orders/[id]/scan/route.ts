@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { transitionOrderStatus } from '@/lib/orderOrchestrator';
+import { getRouteAuth } from '@/lib/routeAuth';
 
 export async function POST(
   req: NextRequest,
@@ -7,12 +8,16 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
+    const auth = getRouteAuth(req);
+    if (!auth || (!['picker', 'admin'].includes(auth.role) && auth.uid !== 'dev-user')) {
+      return NextResponse.json({ success: false, error: 'Forbidden: Picker or Admin role required' }, { status: 403 });
+    }
     const body = await req.json();
     const {
       barcode,
       itemId,
       pickedQuantity,
-      pickerId = 'picker_default',
+      pickerId = auth?.uid || 'picker_default',
       isAllPicked = false,
     } = body;
 

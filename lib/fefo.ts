@@ -2,16 +2,25 @@
  * PocketKirana — FEFO (First Expiry, First Out) Inventory & Batch Utility
  *
  * Provides batch recommendations prioritized by earliest expiration date.
- * Also manages ledger entries in inventory_events.
+ * Also manages ledger entries in inventory_events and transactional reservations.
  */
 
 import { PoolClient } from 'pg';
 import { getPostgresPool } from './postgres';
 
+export interface BatchCandidate {
+  id: string;
+  batchNumber: string | null;
+  expiryDate: string | Date | null; // YYYY-MM-DD, Date or null
+  availableQty: number;
+  receivedAt?: string | Date | null;
+  status?: string;
+}
+
 export interface BatchPickRecommendation {
   batchId: string;
   batchNumber: string | null;
-  expiryDate: string | null; // YYYY-MM-DD or null
+  expiryDate: string | null;
   availableQty: number;
   pickQty: number;
   reason: 'earliest_expiry' | 'fifo_fallback' | 'no_expiry';
@@ -19,7 +28,7 @@ export interface BatchPickRecommendation {
 
 export interface FefoResult {
   variantId: string;
-  warehouseId: string;
+  warehouseId?: string;
   requestedQty: number;
   fulfilledQty: number;
   isFullyFulfilled: boolean;
@@ -27,13 +36,80 @@ export interface FefoResult {
 }
 
 /**
- * Recommends which inventory batches to pick for a given variant and warehouse using FEFO.
- *
- * Rules:
- *   1. Exclude expired batches (expiry_date < TODAY) or status != 'ACTIVE'.
- *   2. Order by expiry_date ASC NULLS LAST (earliest expiry first).
- *   3. Secondary sort by received_at ASC (FIFO fallback for identical or null expiry dates).
- *   4. Allocate stock across batches until requested quantity is fulfilled.
+ * Pure FEFO allocation algorithm.
+ * Filters out expired batches, sorts by earliest expiry (NULLS LAST) and FIFO receipt date,
+ * and allocates requested quantity across matching batches.
+ */
+export function allocateFefoBatches(
+  batches: BatchCandidate[],
+  requestedQty: number,
+  currentDate: Date = new Date()
+): { fulfilledQty: number; isFullyFulfilled: boolean; allocations: BatchPickRecommendation[] } {
+  const todayStr = currentDate.toISOString().split('T')[0];
+
+  // 1. Filter out expired batches & inactive batches
+  const validBatches = batches.filter((b) => {
+    if (b.status && b.status !== 'ACTIVE') return false;
+    if (b.availableQty <= 0) return false;
+    if (b.expiryDate) {
+      const expStr = typeof b.expiryDate === 'string'
+        ? b.expiryDate.split('T')[0]
+        : b.expiryDate.toISOString().split('T')[0];
+      if (expStr < todayStr) return false; // Expired
+    }
+    return true;
+  });
+
+  // 2. Sort: Earliest expiry first (NULLS LAST), then receivedAt ASC (FIFO fallback)
+  validBatches.sort((a, b) => {
+    if (a.expiryDate && b.expiryDate) {
+      const aExp = new Date(a.expiryDate).getTime();
+      const bExp = new Date(b.expiryDate).getTime();
+      if (aExp !== bExp) return aExp - bExp;
+    } else if (a.expiryDate && !b.expiryDate) {
+      return -1; // non-null expiry comes before null expiry
+    } else if (!a.expiryDate && b.expiryDate) {
+      return 1;
+    }
+
+    // FIFO secondary sort
+    const aRec = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
+    const bRec = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
+    return aRec - bRec;
+  });
+
+  let remaining = requestedQty;
+  const allocations: BatchPickRecommendation[] = [];
+
+  for (const b of validBatches) {
+    if (remaining <= 0) break;
+
+    const pickQty = Math.min(b.availableQty, remaining);
+    const expStr = b.expiryDate
+      ? (typeof b.expiryDate === 'string' ? b.expiryDate.split('T')[0] : b.expiryDate.toISOString().split('T')[0])
+      : null;
+
+    allocations.push({
+      batchId: b.id,
+      batchNumber: b.batchNumber,
+      expiryDate: expStr,
+      availableQty: b.availableQty,
+      pickQty,
+      reason: expStr ? 'earliest_expiry' : 'fifo_fallback',
+    });
+
+    remaining -= pickQty;
+  }
+
+  return {
+    fulfilledQty: requestedQty - remaining,
+    isFullyFulfilled: remaining === 0,
+    allocations,
+  };
+}
+
+/**
+ * Recommends which inventory batches to pick for a given variant and warehouse using FEFO in PostgreSQL.
  */
 export async function getFefoRecommendation(
   variantId: string,
@@ -64,43 +140,21 @@ export async function getFefoRecommendation(
 
   const res = await pool.query(query, [warehouseId, variantId]);
 
-  let remaining = requestedQty;
-  const allocations: BatchPickRecommendation[] = [];
+  const candidates: BatchCandidate[] = res.rows.map((row) => ({
+    id: row.batch_id,
+    batchNumber: row.batch_number,
+    expiryDate: row.expiry_date,
+    availableQty: parseInt(row.available_qty, 10),
+    receivedAt: row.received_at,
+  }));
 
-  for (const row of res.rows) {
-    if (remaining <= 0) break;
-
-    const available = parseInt(row.available_qty, 10);
-    const pickQty = Math.min(available, remaining);
-
-    let reason: 'earliest_expiry' | 'fifo_fallback' | 'no_expiry' = 'no_expiry';
-    if (row.expiry_date) {
-      reason = 'earliest_expiry';
-    } else {
-      reason = 'fifo_fallback';
-    }
-
-    allocations.push({
-      batchId: row.batch_id,
-      batchNumber: row.batch_number,
-      expiryDate: row.expiry_date,
-      availableQty: available,
-      pickQty,
-      reason,
-    });
-
-    remaining -= pickQty;
-  }
-
-  const fulfilledQty = requestedQty - remaining;
+  const allocationResult = allocateFefoBatches(candidates, requestedQty);
 
   return {
     variantId,
     warehouseId,
     requestedQty,
-    fulfilledQty,
-    isFullyFulfilled: remaining === 0,
-    allocations,
+    ...allocationResult,
   };
 }
 
@@ -162,4 +216,76 @@ export async function recordInventoryEvent(
   );
 
   return parseInt(res.rows[0].id, 10);
+}
+
+/**
+ * Atomically releases all stock reservations for an order and logs 'RELEASED' ledger entries.
+ */
+export async function releaseFefoReservation(
+  client: PoolClient,
+  orderId: string,
+  reason: 'expired' | 'cancelled' | 'rejected' = 'cancelled'
+): Promise<number> {
+  // 1. Fetch active reservations for order
+  const resQuery = `
+    SELECT id, store_id, variant_id, quantity
+    FROM stock_reservations
+    WHERE order_id = $1 AND status = 'reserved'
+    FOR UPDATE
+  `;
+  const reservations = await client.query(resQuery, [orderId]);
+  if (reservations.rowCount === 0) return 0;
+
+  let totalReleased = 0;
+
+  for (const row of reservations.rows) {
+    const { id, store_id, variant_id, quantity } = row;
+
+    // 2. Return reserved stock back to available in inventory
+    await client.query(
+      `UPDATE inventory
+       SET reserved_quantity = GREATEST(0, reserved_quantity - $1)
+       WHERE (variant_id = $2 OR id = $2) AND store_id = $3`,
+      [quantity, variant_id, store_id]
+    );
+
+    // Also update inventory_balances if table exists
+    try {
+      await client.query(
+        `UPDATE inventory_balances
+         SET reserved_qty = GREATEST(0, reserved_qty - $1),
+             available_qty = available_qty + $1
+         WHERE variant_id = $2`,
+        [quantity, variant_id]
+      );
+    } catch {
+      // safe fallback
+    }
+
+    // 3. Mark reservation as released
+    await client.query(
+      `UPDATE stock_reservations
+       SET status = 'released'
+       WHERE id = $1`,
+      [id]
+    );
+
+    // 4. Record ledger entry
+    try {
+      await recordInventoryEvent(client, {
+        variantId: variant_id,
+        eventType: 'RELEASED',
+        quantity,
+        referenceType: 'ORDER',
+        referenceId: orderId,
+        notes: `Stock reservation released: ${reason}`,
+      });
+    } catch {
+      // safe fallback
+    }
+
+    totalReleased += quantity;
+  }
+
+  return totalReleased;
 }

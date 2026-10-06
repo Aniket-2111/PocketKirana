@@ -1,142 +1,174 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateDistanceKm, getStores } from '@/lib/locationServices';
-import { INITIAL_STORES } from '@/lib/mockData';
+import { evaluateServerServiceability } from '@/lib/serverServiceability';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Single Authoritative Serviceability Check API
- * POST /api/serviceability/check
- *
- * Business Rules:
- * - Service Area: Neral only
- * - Store: Maule Kirana Shop
- * - Maximum Delivery Radius: 3.0 KM
- */
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => ({}));
-    const { latitude, longitude } = body;
+function parseCoordinate(val: unknown): number | null {
+  if (val === undefined || val === null || val === '') return null;
+  const num = typeof val === 'number' ? val : parseFloat(String(val).trim());
+  if (isNaN(num) || !isFinite(num)) return null;
+  return num;
+}
 
-    if (
-      typeof latitude !== 'number' ||
-      typeof longitude !== 'number' ||
-      isNaN(latitude) ||
-      isNaN(longitude)
-    ) {
+function parseSubtotal(val: unknown): number {
+  if (typeof val === 'number') return Math.max(0, isNaN(val) || !isFinite(val) ? 0 : val);
+  if (typeof val === 'string' && val.trim() !== '') {
+    const num = parseFloat(val.trim());
+    return Math.max(0, isNaN(num) || !isFinite(num) ? 0 : num);
+  }
+  return 0;
+}
+
+interface ServiceabilityCheckParams {
+  latInput: unknown;
+  lngInput: unknown;
+  storeIdInput?: unknown;
+  subtotalInput?: unknown;
+}
+
+async function handleServiceabilityCheck(params: ServiceabilityCheckParams) {
+  try {
+    const lat = parseCoordinate(params.latInput);
+    const lng = parseCoordinate(params.lngInput);
+
+    if (lat === null || lat < -90 || lat > 90 || lng === null || lng < -180 || lng > 180) {
       return NextResponse.json(
         {
-          error: 'Invalid coordinates. Both latitude and longitude numbers are required.',
           serviceable: false,
+          code: 'INVALID_COORDINATES',
           status: 'INVALID_COORDINATES',
+          error: 'Invalid coordinates provided. Latitude must be between -90 and 90, longitude between -180 and 180.',
         },
         { status: 400 }
       );
     }
 
-    // Active store: Maule Kirana (Neral)
-    const stores = getStores();
-    const activeStore =
-      stores.find((s) => s.status === 'active') || INITIAL_STORES[0];
+    const storeId =
+      typeof params.storeIdInput === 'string' && params.storeIdInput.trim() !== ''
+        ? params.storeIdInput.trim()
+        : 'store-001';
 
-    const storeLat = activeStore.latitude || 19.0224536;
-    const storeLon = activeStore.longitude || 73.3210018;
-    const storeName = 'Maule Kirana';
-    const serviceArea = 'Neral';
-    const maximumDistanceKm = activeStore.deliveryRadiusKm || 4.5;
+    const subtotal = parseSubtotal(params.subtotalInput);
 
-    // Haversine distance in KM
-    const rawDistanceKm = calculateDistanceKm(storeLat, storeLon, latitude, longitude);
-    const distanceKm = Number(rawDistanceKm.toFixed(1));
+    const decision = await evaluateServerServiceability(
+      storeId,
+      lat,
+      lng,
+      subtotal
+    );
 
-    const isStoreOperational =
-      activeStore.status === 'active' && activeStore.deliveryStatus !== 'INACTIVE';
+    if (!decision.serviceable) {
+      if (decision.code === 'INVALID_COORDINATES') {
+        return NextResponse.json(
+          {
+            serviceable: false,
+            code: 'INVALID_COORDINATES',
+            status: 'INVALID_COORDINATES',
+            error: decision.error || 'Invalid coordinates provided.',
+          },
+          { status: 400 }
+        );
+      }
 
-    const isWithinRadius = distanceKm <= maximumDistanceKm;
-    const serviceable = isWithinRadius && isStoreOperational;
+      if (decision.code === 'STORE_NOT_FOUND') {
+        return NextResponse.json(
+          {
+            serviceable: false,
+            code: 'STORE_NOT_FOUND',
+            status: 'STORE_NOT_FOUND',
+            error: decision.error || `Store '${storeId}' was not found.`,
+          },
+          { status: 404 }
+        );
+      }
 
-    if (serviceable) {
+      const statusAlias = decision.code === 'OUT_OF_SERVICE_AREA' ? 'OUT_OF_RANGE' : decision.code;
       return NextResponse.json({
-        serviceable: true,
-        status: 'SERVICEABLE',
-        serviceArea,
-        storeName,
-        distanceKm,
-        maximumDistanceKm,
-        storeLatitude: storeLat,
-        storeLongitude: storeLon,
-        message: '✓ PocketKirana delivers to your location',
+        serviceable: false,
+        code: decision.code,
+        status: statusAlias,
+        error: decision.error,
+        message: decision.error,
+        straightLineDistanceKm: decision.straightLineDistanceKm,
+        distanceKm: decision.straightLineDistanceKm,
+        store: decision.store,
+        storeName: decision.store?.name,
+        storeId: decision.store?.id,
+        storeLatitude: decision.store?.latitude,
+        storeLongitude: decision.store?.longitude,
+        maximumDistanceKm: decision.store?.deliveryRadiusKm,
+        serviceArea: decision.store?.name || 'Neral',
       });
     }
 
-    const status = !isStoreOperational
-      ? 'STORE_OFFLINE'
-      : 'OUT_OF_RANGE';
-
     return NextResponse.json({
-      serviceable: false,
-      status,
-      serviceArea,
-      storeName,
-      distanceKm,
-      maximumDistanceKm,
-      storeLatitude: storeLat,
-      storeLongitude: storeLon,
-      message: !isStoreOperational
-        ? 'Delivery service currently paused.'
-        : 'PocketKirana currently delivers within 3 KM of our Neral store.',
+      serviceable: true,
+      code: 'SERVICEABLE',
+      status: 'SERVICEABLE',
+      message: '✓ PocketKirana delivers to your location',
+      straightLineDistanceKm: decision.straightLineDistanceKm,
+      distanceKm: decision.straightLineDistanceKm,
+      deliveryFee: decision.deliveryFee,
+      freeDeliveryThreshold: decision.freeDeliveryThreshold,
+      freeDeliveryEnabled: decision.store?.freeDeliveryEnabled,
+      store: decision.store,
+      storeName: decision.store?.name,
+      storeId: decision.store?.id,
+      storeLatitude: decision.store?.latitude,
+      storeLongitude: decision.store?.longitude,
+      maximumDistanceKm: decision.store?.deliveryRadiusKm,
+      serviceArea: decision.store?.name || 'Neral',
     });
   } catch (error: any) {
+    console.error('[Serviceability Check API Error]', error?.message || error);
     return NextResponse.json(
       {
-        error: error?.message || 'Failed to check serviceability',
         serviceable: false,
-        status: 'SERVER_ERROR',
+        code: 'SERVICEABILITY_ERROR',
+        status: 'SERVICEABILITY_ERROR',
+        error: 'Serviceability evaluation temporarily unavailable. Please try again.',
       },
       { status: 500 }
     );
   }
 }
 
+/**
+ * Public Serviceability Check API
+ * GET /api/serviceability/check?lat=19.0224&lng=73.3210&storeId=store-001&subtotal=300
+ */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const latStr = searchParams.get('lat') || searchParams.get('latitude');
-  const lonStr = searchParams.get('lon') || searchParams.get('lng') || searchParams.get('longitude');
+  const latInput = searchParams.get('lat') ?? searchParams.get('latitude');
+  const lngInput = searchParams.get('lng') ?? searchParams.get('lon') ?? searchParams.get('longitude');
+  const storeIdInput = searchParams.get('storeId') ?? searchParams.get('store_id');
+  const subtotalInput = searchParams.get('subtotal');
 
-  if (!latStr || !lonStr) {
-    const stores = getStores();
-    const activeStore = stores.find((s) => s.status === 'active') || INITIAL_STORES[0];
-    return NextResponse.json({
-      serviceArea: 'Neral',
-      storeName: 'Maule Kirana',
-      maximumDistanceKm: activeStore.deliveryRadiusKm || 4.5,
-      storeLatitude: activeStore.latitude || 19.0224536,
-      storeLongitude: activeStore.longitude || 73.3210018,
-      status: 'ACTIVE',
-    });
-  }
-
-  const latitude = parseFloat(latStr);
-  const longitude = parseFloat(lonStr);
-
-  const stores = getStores();
-  const activeStore = stores.find((s) => s.status === 'active') || INITIAL_STORES[0];
-  const storeLat = activeStore.latitude || 19.0224536;
-  const storeLon = activeStore.longitude || 73.3210018;
-  const maximumDistanceKm = activeStore.deliveryRadiusKm || 4.5;
-
-  const rawDistanceKm = calculateDistanceKm(storeLat, storeLon, latitude, longitude);
-  const distanceKm = Number(rawDistanceKm.toFixed(1));
-  const serviceable = distanceKm <= maximumDistanceKm && activeStore.status === 'active';
-
-  return NextResponse.json({
-    serviceable,
-    status: serviceable ? 'SERVICEABLE' : 'OUT_OF_RANGE',
-    serviceArea: 'Neral',
-    storeName: 'Maule Kirana',
-    distanceKm,
-    maximumDistanceKm,
-    storeLatitude: storeLat,
-    storeLongitude: storeLon,
+  return handleServiceabilityCheck({
+    latInput,
+    lngInput,
+    storeIdInput,
+    subtotalInput,
   });
 }
+
+/**
+ * Public Serviceability Check API
+ * POST /api/serviceability/check
+ * Body: { latitude: 19.0224, longitude: 73.3210, storeId: 'store-001', subtotal: 300 }
+ */
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const latInput = body.latitude ?? body.lat;
+  const lngInput = body.longitude ?? body.lng ?? body.lon;
+  const storeIdInput = body.storeId ?? body.store_id;
+  const subtotalInput = body.subtotal;
+
+  return handleServiceabilityCheck({
+    latInput,
+    lngInput,
+    storeIdInput,
+    subtotalInput,
+  });
+}
+

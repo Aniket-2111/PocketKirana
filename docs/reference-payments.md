@@ -1,6 +1,6 @@
 # Payments & Auth Reference
 
-Complete technical reference for PocketKirana's payment gateways (PhonePe, Razorpay) and the session auth that guards them. Every claim here is traceable to code; for the "why", see [Explanation: payment security design](explanation-payment-security.md).
+Complete technical reference for PocketKirana's payment gateway (PhonePe) and the session auth that guards it. Every claim here is traceable to code; for the "why", see [Explanation: payment security design](explanation-payment-security.md).
 
 ## Environment variables
 
@@ -13,8 +13,6 @@ All gateway credentials are **server-side only** (no `NEXT_PUBLIC_` prefix — c
 | `PHONEPE_SALT_INDEX` | real PhonePe payments | `1` | Falls back to `1` when credentials exist |
 | `PHONEPE_ENV` | real PhonePe payments | `sandbox` | `production` switches base URL to `api.phonepe.com/apis/hermes` |
 | `PHONEPE_SIMULATION_MODE` | local dev only | off | `true` enables the mock pay page; **refused** when `NODE_ENV=production` or `VERCEL_ENV=production` |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | real Razorpay payments | — | Razorpay routes return **503** (fail closed) |
-| `RAZORPAY_SIMULATION_MODE` | local dev only | off | Same rules as PhonePe simulation |
 | `NEXT_PUBLIC_AUTH_MIDDLEWARE_ENABLED` | production auth | `false` | `true` = strict mode: invalid/absent sessions are rejected at middleware; demo fallbacks off |
 | `NEXT_PUBLIC_SITE_URL` | redirects/callbacks | `http://localhost:3000` | Used for PhonePe `redirectUrl` and `callbackUrl` |
 
@@ -73,9 +71,7 @@ Server-to-server callback. No session (PhonePe calls it); authenticity is the `X
 
 CORS preflight: `Access-Control-Allow-Origin: *`, methods `GET, POST, OPTIONS`, headers `Content-Type, Authorization, X-VERIFY`. The wildcard origin supports the Capacitor Android WebView; tightening is a deliberate decision (see explanation doc).
 
-## Razorpay routes
 
-`app/api/payments/create-order` and `app/api/payments/verify` follow the same pattern via `lib/razorpayConfig.ts`: explicit `RAZORPAY_SIMULATION_MODE=true` for mocks, 503 when credentials are missing, no hardcoded key fallbacks (the old `rzp_test_PocketKiranaKey` auto-verify behavior was removed as a security fix). Long-term, PhonePe is the primary Indian rail; keep Razorpay config aligned when touching either.
 
 ## Data model
 

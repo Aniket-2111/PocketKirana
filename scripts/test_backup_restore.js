@@ -36,7 +36,7 @@ const targetHost = process.env.DB_HOST || '192.168.0.101';
 const targetPort = process.env.DB_PORT || '5433';
 const targetDb   = process.env.DB_NAME || 'pocketkirana_db';
 const targetUser = process.env.DB_USER || 'postgres';
-const targetPass = process.env.DB_PASSWORD || 'varbusiness';
+const targetPass = process.env.DB_PASSWORD || process.env.PGPASSWORD || '';
 
 const backupDir = path.resolve(process.cwd(), 'backups');
 if (!fs.existsSync(backupDir)) {

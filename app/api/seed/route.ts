@@ -16,6 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import {
   collection,
   doc,
@@ -26,7 +27,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebaseDb, isFirebaseConfigured } from '@/lib/firebase';
 
-const SEED_SECRET = process.env.SEED_SECRET || 'pocketkirana-seed-2024';
+const SEED_SECRET = process.env.SEED_SECRET;
 
 const STORE_CONFIG = {
   storeId: 'store-001',
@@ -48,7 +49,6 @@ const STORE_CONFIG = {
   closingTime: '23:00',
   isOpen: true,
   codEnabled: true,
-  razorpayEnabled: false,
   updatedAt: new Date().toISOString(),
 };
 
@@ -183,10 +183,22 @@ const COUPONS = [
 ];
 
 export async function POST(request: NextRequest) {
-  // Secret check
+  // Completely disable in production
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Endpoint disabled in production.' }, { status: 403 });
+  }
+
+  // Secret check: SEED_SECRET must be configured and matched using timing-safe comparison
+  const configuredSecret = process.env.SEED_SECRET;
   const secret = request.headers.get('X-Seed-Secret');
-  if (secret !== SEED_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized. Provide valid X-Seed-Secret header.' }, { status: 401 });
+  if (!configuredSecret || !secret) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  }
+
+  const a = Buffer.from(secret);
+  const b = Buffer.from(configuredSecret);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 
   if (!isFirebaseConfigured()) {
@@ -302,8 +314,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Endpoint disabled in production.' }, { status: 403 });
+  }
   return NextResponse.json({
-    message: 'PocketKirana Seeder API. Use POST with X-Seed-Secret header.',
-    usage: 'curl -X POST http://localhost:3000/api/seed -H "X-Seed-Secret: pocketkirana-seed-2024"',
+    message: 'PocketKirana Seeder API.',
   });
 }

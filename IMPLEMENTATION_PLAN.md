@@ -69,7 +69,7 @@
 
 ### G2 — Production Secrets & Environment Hardening
 - Populate production environment variables in deployment host (never in Git):
-  `DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `NEXT_PUBLIC_FIREBASE_VAPID_KEY`, `PHONEPE_MERCHANT_ID`, `PHONEPE_SALT_KEY`, `PHONEPE_SALT_INDEX`, `PHONEPE_ENV=production`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`.
+  `DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `NEXT_PUBLIC_FIREBASE_VAPID_KEY`, `PHONEPE_MERCHANT_ID`, `PHONEPE_SALT_KEY`, `PHONEPE_SALT_INDEX`, `PHONEPE_ENV=production`.
 - Confirm `NODE_ENV=production` strictly fails closed and refuses simulation/sandbox fallback modes.
 
 ### G3 — Staging Provider Sandbox
@@ -77,7 +77,7 @@
   `Customer Login` → `Browse` → `Cart` → `Checkout` → `Inventory Row Lock` → `Sandbox Webhook` → `Order Confirmed` → `Picker` → `Packed` → `Rider Delivery OTP` → `Delivered` → `Tax Invoice Generation`.
 
 ### G4 — Controlled Production Payment Smoke Test
-- Execute **one real low-value live transaction** (e.g. ₹1) on production PhonePe/Razorpay credentials.
+- Execute **one real low-value live transaction** (e.g. ₹1) on production PhonePe credentials.
 - **4-Way Payment Reconciliation Invariant (Validated Immediately Post-Payment):**
   $$\text{Gateway Transaction Record} \equiv \text{PostgreSQL Payment} \equiv \text{PostgreSQL Order (CONFIRMED)} \equiv \text{Customer Invoice}$$
   All four must agree on:
@@ -131,7 +131,6 @@ PHASE G — GO-LIVE GATE
 [ ] Production Firebase project configured (authorized domains, security rules)
 [ ] Production environment variables verified (NODE_ENV=production, zero sandbox fallbacks)
 [ ] PhonePe production HTTPS webhook verified in merchant dashboard
-[ ] Razorpay production HTTPS webhook verified in merchant dashboard
 [ ] TLS certificate & DNS routing verified (pocketkirana.com)
 [ ] Production monitoring & APM enabled
 [ ] Error alerts configured (5xx spikes, DB saturation, webhook failures)

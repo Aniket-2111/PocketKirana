@@ -6,10 +6,23 @@
   "server": {
     "androidScheme": "https",
     "allowNavigation": [
+      "*.msg91.com",
+      "control.msg91.com",
+      "*.pocketkirana.in",
+      "pocketkirana.in",
+      "*.pocketkirana.com",
+      "pocketkirana.com",
+      "*.firebaseapp.com",
+      "*.googleapis.com",
+      "*.firebasestorage.app",
       "*.phonepe.com",
       "mercury.uat.phonepe.com",
       "mercury-uat.phonepe.com",
-      "api-preprod.phonepe.com"
+      "api-preprod.phonepe.com",
+      "*.posthog.com",
+      "us.i.posthog.com",
+      "images.unsplash.com",
+      "*.unsplash.com"
     ]
   },
   "android": {

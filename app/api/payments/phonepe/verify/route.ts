@@ -28,10 +28,11 @@ export async function POST(request: Request) {
     const config = getPhonePeConfig();
     const simulation = isSimulationMode();
 
-    // Mock transaction ids may ONLY be verified while simulation mode is on.
+    // Mock transaction ids may ONLY be verified while simulation mode is explicitly active.
     const isMockOrder = String(orderId || '').includes('test_phonepe_');
+    const isMockTxn = String(merchantTransactionId || '').startsWith('TXN_PK_MOCK');
 
-    if (isMockOrder && !simulation) {
+    if ((isMockOrder || isMockTxn) && !simulation) {
       return corsResponse({ success: false, error: 'Invalid transaction reference' }, { status: 400 });
     }
 
@@ -57,6 +58,26 @@ export async function POST(request: Request) {
         if (orderSnap.exists() && orderSnap.data().paymentStatus !== 'paid') {
           const orderData = orderSnap.data();
           const txnId = `txn_sim_ph_${Date.now()}`;
+
+          // Authoritative PostgreSQL transition
+          try {
+            const { OrderService } = await import('@/lib/services/orderService');
+            await OrderService.transitionOrder({
+              orderId,
+              targetStatus: 'CONFIRMED',
+              actorId: 'sim-phonepe-verify',
+              actorRole: 'system',
+              reason: `Simulation payment verified: ${txnId}`,
+              metadata: {
+                paymentMethod: 'phonepe',
+                merchantTransactionId,
+                gatewayPaymentId: txnId,
+                amount: orderData.total,
+              },
+            });
+          } catch (pgErr: any) {
+            console.warn('[PhonePe Verify Sim] PG transition fallback:', pgErr.message);
+          }
 
           await updateDoc(orderRef, {
             paymentStatus: 'paid',
@@ -163,41 +184,189 @@ export async function POST(request: Request) {
       });
     }
 
+    const { queryPostgres, withTransaction } = await import('@/lib/postgres');
+
+    // ── 2. FETCH AUTHORITATIVE POSTGRESQL ORDER ───────────────────────
+    let pgOrder: any = null;
+    try {
+      const pgOrderRes = await queryPostgres(
+        `SELECT id, order_number, firebase_uid, total_amount, order_status, payment_status
+         FROM orders
+         WHERE id = $1 OR order_number = $1`,
+        [resolvedOrderId]
+      );
+      if (pgOrderRes && pgOrderRes.rows && pgOrderRes.rows.length > 0) {
+        pgOrder = pgOrderRes.rows[0];
+      }
+    } catch (pgErr: any) {
+      console.warn('[PhonePe Verify] PG query notice:', pgErr.message);
+    }
+
     const orderRef = doc(db, 'orders', resolvedOrderId);
     const orderSnap = await getDoc(orderRef);
+    const orderData = orderSnap.exists() ? orderSnap.data() : null;
 
-    if (orderSnap.exists()) {
-      const orderData = orderSnap.data();
-      const expectedAmountInPaise = Math.round(orderData.total * 100);
+    // ── 3. VALIDATE AUTHORITATIVE AMOUNT ──────────────────────────────
+    const expectedAmountInPaise = pgOrder
+      ? Math.round(Number(pgOrder.total_amount) * 100)
+      : orderData
+        ? Math.round(Number(orderData.total) * 100)
+        : null;
 
-      if (isPaid && apiJson.data.amount && apiJson.data.amount !== expectedAmountInPaise) {
-        console.warn('[PhonePe Amount Mismatch]', {
-          phonepeAmountInPaise: apiJson.data.amount,
-          expectedAmountInPaise
+    if (isPaid && apiJson.data.amount && expectedAmountInPaise && apiJson.data.amount !== expectedAmountInPaise) {
+      console.warn('[PhonePe Amount Mismatch]', {
+        phonepeAmountInPaise: apiJson.data.amount,
+        expectedAmountInPaise
+      });
+      await setDoc(
+        paymentRef,
+        { status: 'failed', failureReason: `Amount mismatch: expected ${expectedAmountInPaise} paise, got ${apiJson.data.amount} paise` },
+        { merge: true }
+      );
+      return corsResponse({ success: true, data: { verified: false, status: 'AMOUNT_MISMATCH' } });
+    }
+
+    // ── 4. AUTHORITATIVE ATOMIC POSTGRESQL RECONCILIATION & UPDATE ────
+    if (isPaid) {
+      if (pgOrder) {
+        const { appendOutboxEvent } = await import('@/lib/db/outbox');
+
+        await withTransaction(async (client) => {
+          // 1. SELECT the order FOR UPDATE to serialize concurrent verification attempts
+          const lockRes = await client.query(
+            `SELECT id, order_number, firebase_uid, total_amount, order_status, payment_status, delivery_otp
+             FROM orders
+             WHERE id = $1 OR order_number = $1
+             FOR UPDATE`,
+            [resolvedOrderId]
+          );
+
+          if (lockRes.rowCount === 0) {
+            return;
+          }
+
+          const currentOrder = lockRes.rows[0];
+          const currentOrderStatus = (currentOrder.order_status?.toUpperCase() || 'PLACED');
+          const currentPaymentStatus = currentOrder.payment_status || 'pending';
+
+          // 2. Determine whether reconciliation is required
+          const isOrderAlreadyConfirmed = currentOrderStatus === 'CONFIRMED';
+          const isPaymentAlreadyPaid = currentPaymentStatus === 'paid';
+
+          if (isOrderAlreadyConfirmed && isPaymentAlreadyPaid) {
+            // Idempotent fast-path: both order and payment are already confirmed
+            return;
+          }
+
+          // 3. Atomically update BOTH order_status and payment_status in ONE statement
+          await client.query(
+            `UPDATE orders 
+             SET order_status = 'CONFIRMED',
+                 payment_status = 'paid',
+                 confirmed_at = COALESCE(confirmed_at, NOW()),
+                 updated_at = NOW() 
+             WHERE id = $1`,
+            [currentOrder.id]
+          );
+
+          // 4. Upsert payments row
+          const paymentId = `pay_pk_${merchantTransactionId}`;
+          await client.query(
+            `INSERT INTO payments (
+               id, order_id, firebase_uid, payment_method, amount, currency,
+               status, gateway, gateway_order_id, gateway_payment_id, paid_at
+             ) VALUES ($1, $2, $3, 'phonepe', $4, 'INR', 'completed', 'phonepe', $5, $6, NOW())
+             ON CONFLICT (id) DO UPDATE SET
+               status = 'completed',
+               gateway_payment_id = $6,
+               paid_at = NOW(),
+               updated_at = NOW()`,
+            [
+              paymentId,
+              currentOrder.id,
+              currentOrder.firebase_uid || orderData?.customerId || '',
+              currentOrder.total_amount,
+              merchantTransactionId,
+              apiJson.data.transactionId || '',
+            ]
+          );
+
+          // 5. Insert payment_transactions ledger entry with unique constraint protection
+          await client.query(
+            `INSERT INTO payment_transactions (
+               id, payment_id, transaction_id, transaction_type, amount, status, response_data
+             ) VALUES ($1, $2, $3, 'VERIFY_PAYMENT', $4, 'SUCCESS', $5)
+             ON CONFLICT (transaction_id) DO NOTHING`,
+            [
+              `ptxn_${Date.now()}`,
+              paymentId,
+              apiJson.data.transactionId || merchantTransactionId,
+              currentOrder.total_amount,
+              JSON.stringify(apiJson.data),
+            ]
+          );
+
+          // 6. Record order status history ONLY if order was not already CONFIRMED
+          if (!isOrderAlreadyConfirmed) {
+            const historyId = `osh_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+            await client.query(
+              `INSERT INTO order_status_history (
+                 id, order_id, old_status, new_status, changed_by, notes, created_at
+               ) VALUES ($1, $2, $3, 'CONFIRMED', 'system:phonepe-verify-system', $4, NOW())`,
+              [
+                historyId,
+                currentOrder.id,
+                currentOrderStatus,
+                `PhonePe verified payment: ${apiJson.data.transactionId || merchantTransactionId}`,
+              ]
+            );
+          }
+
+          // 7. Append order.confirmed outbox event ONLY if order was not already CONFIRMED
+          if (!isOrderAlreadyConfirmed) {
+            await appendOutboxEvent(client, {
+              aggregateType: 'order',
+              aggregateId: currentOrder.id,
+              eventType: 'order.confirmed',
+              payload: {
+                orderId: currentOrder.id,
+                orderNumber: currentOrder.order_number,
+                previousStatus: currentOrderStatus,
+                newStatus: 'CONFIRMED',
+                actorId: 'phonepe-verify-system',
+                actorRole: 'system',
+                metadata: {
+                  paymentMethod: 'phonepe',
+                  merchantTransactionId,
+                  gatewayPaymentId: apiJson.data.transactionId || '',
+                  amount: currentOrder.total_amount,
+                },
+                updatedAt: new Date().toISOString(),
+              },
+            });
+          }
         });
-        await setDoc(
-          paymentRef,
-          { status: 'failed', failureReason: `Amount mismatch: expected ${expectedAmountInPaise} paise, got ${apiJson.data.amount} paise` },
-          { merge: true }
-        );
-        return corsResponse({ success: true, data: { verified: false, status: 'AMOUNT_MISMATCH' } });
       }
 
-      // ── 3. IDEMPOTENT DB UPDATE ──────────────────────────────────
-      if (isPaid) {
-        if (orderData.paymentStatus !== 'paid') {
-          await updateDoc(orderRef, {
-            paymentStatus: 'paid',
-            orderStatus: 'CONFIRMED',
-            updatedAt: new Date().toISOString(),
-            paymentDetails: {
-              transactionId: apiJson.data.transactionId || merchantTransactionId,
-              method: 'phonepe',
-              amount: orderData.total,
-              paidAt: new Date().toISOString(),
-              phonepeResponseCode: phonepeStatus
-            }
-          });
+      // ── 5. SECONDARY FIRESTORE PROJECTION SYNC & PICKING TASK ───────
+      // Executed strictly after PostgreSQL reconciliation completes successfully.
+      try {
+        if (orderRef && orderSnap.exists()) {
+          const currentOrderData = orderSnap.data();
+          if (currentOrderData.paymentStatus !== 'paid' || currentOrderData.orderStatus !== 'CONFIRMED') {
+            await updateDoc(orderRef, {
+              paymentStatus: 'paid',
+              orderStatus: 'CONFIRMED',
+              updatedAt: new Date().toISOString(),
+              paymentDetails: {
+                transactionId: apiJson.data.transactionId || merchantTransactionId,
+                method: 'phonepe',
+                amount: pgOrder ? Number(pgOrder.total_amount) : currentOrderData.total,
+                paidAt: new Date().toISOString(),
+                phonepeResponseCode: phonepeStatus
+              }
+            });
+          }
 
           await setDoc(
             paymentRef,
@@ -205,21 +374,22 @@ export async function POST(request: Request) {
               status: 'completed',
               paidAt: new Date().toISOString(),
               gatewayPaymentId: apiJson.data.transactionId || '',
-              amount: orderData.total
+              amount: pgOrder ? Number(pgOrder.total_amount) : currentOrderData.total
             },
             { merge: true }
           );
 
-          // Send order to Picker Queue
-          await ensurePickingTaskForOrder(resolvedOrderId, orderData as any);
+          await ensurePickingTaskForOrder(resolvedOrderId, currentOrderData as any);
         }
-      } else if (['PAYMENT_ERROR', 'TIMED_OUT', 'PAYMENT_DECLINED'].includes(phonepeStatus)) {
-        await setDoc(
-          paymentRef,
-          { status: 'failed', failureReason: apiJson.message || 'Payment failed on PhonePe gateway' },
-          { merge: true }
-        );
+      } catch (fsErr: any) {
+        console.warn('[PhonePe Verify] Firestore projection sync warning:', fsErr.message);
       }
+    } else if (['PAYMENT_ERROR', 'TIMED_OUT', 'PAYMENT_DECLINED'].includes(phonepeStatus)) {
+      await setDoc(
+        paymentRef,
+        { status: 'failed', failureReason: apiJson.message || 'Payment failed on PhonePe gateway' },
+        { merge: true }
+      );
     }
 
     return corsResponse({

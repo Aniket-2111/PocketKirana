@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withRole } from '@/lib/withRole';
 
-export async function POST(request: Request) {
+export const POST = withRole(['admin', 'picker'], async (request: NextRequest, _context, _auth) => {
   try {
     const body = await request.json();
     const { productId, physicalStock, reservedStock = 0, lowStockThreshold = 5 } = body;
@@ -33,4 +34,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

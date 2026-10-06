@@ -1,32 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Product, ProductSection } from '@/types';
-import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { normalizeProductSections, sanitizeVisibleSectionsForCustomer } from '@/lib/productSectionUtils';
 import { logAuditEvent } from '@/lib/auditLogger';
 import { queryPostgres } from '@/lib/postgres';
+import { publishProductChange, deleteCatalogProduct, getCatalogVersion } from '@/lib/catalogSync';
+import { INITIAL_PRODUCTS } from '@/lib/mockData';
 
-// In-memory runtime cache / store for dynamic updates
 declare global {
   // eslint-disable-next-line no-var
   var _pkProductCache: Map<string, Product> | undefined;
+  // eslint-disable-next-line no-var
+  var _pkProductNegativeCache: Map<string, number> | undefined;
+}
+
+function isNegativelyCached(id: string): boolean {
+  if (!globalThis._pkProductNegativeCache) return false;
+  const expiry = globalThis._pkProductNegativeCache.get(id);
+  if (!expiry) return false;
+  if (Date.now() > expiry) {
+    globalThis._pkProductNegativeCache.delete(id);
+    return false;
+  }
+  return true;
+}
+
+function setNegativeCache(id: string, ttlMs = 30000): void {
+  if (!globalThis._pkProductNegativeCache) {
+    globalThis._pkProductNegativeCache = new Map<string, number>();
+  }
+  // Bounded size to prevent memory bloat under unique fake ID floods
+  if (globalThis._pkProductNegativeCache.size > 5000) {
+    const firstKey = globalThis._pkProductNegativeCache.keys().next().value;
+    if (firstKey) globalThis._pkProductNegativeCache.delete(firstKey);
+  }
+  globalThis._pkProductNegativeCache.set(id, Date.now() + ttlMs);
+}
+
+function clearProductNegativeCache(id?: string): void {
+  if (!globalThis._pkProductNegativeCache) return;
+  if (id) {
+    globalThis._pkProductNegativeCache.delete(id);
+  } else {
+    globalThis._pkProductNegativeCache.clear();
+  }
 }
 
 function getProductCache(): Map<string, Product> {
   if (!globalThis._pkProductCache) {
     globalThis._pkProductCache = new Map<string, Product>();
-    INITIAL_PRODUCTS.forEach((p) => {
+    INITIAL_PRODUCTS.forEach((p, idx) => {
       const normalizedSections = normalizeProductSections(p);
-      globalThis._pkProductCache!.set(p.id, {
+      const withVersion = {
         ...p,
+        version: p.version || 100 + idx,
+        catalogVersion: p.catalogVersion || 100,
         publishStatus: p.publishStatus || 'PUBLISHED',
         sections: normalizedSections,
-      });
+      };
+      globalThis._pkProductCache!.set(p.id, withVersion);
       if (p.slug) {
-        globalThis._pkProductCache!.set(p.slug, {
-          ...p,
-          publishStatus: p.publishStatus || 'PUBLISHED',
-          sections: normalizedSections,
-        });
+        globalThis._pkProductCache!.set(p.slug, withVersion);
       }
     });
   }
@@ -44,6 +77,23 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+
+    // Reject malformed or excessively long identifiers early
+    if (!id || id.length > 128) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    // Fast-path: Check short negative cache (prevents repeated 404 flood to DB)
+    if (isNegativelyCached(id)) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found' },
+        { status: 404, headers: { 'x-cache': 'negative-hit' } }
+      );
+    }
+
     const cache = getProductCache();
     const role = req.headers.get('x-pk-role') || 'customer';
     const isAdmin = role === 'admin' || role === 'store_manager';
@@ -54,7 +104,7 @@ export async function GET(
       const res = await queryPostgres(
         `SELECT id, name, slug, description, category_id as "categoryId", brand_id as "brandId",
                 selling_price as "sellingPrice", mrp, unit, status, publish_status as "publishStatus",
-                thumbnail, images, sections
+                thumbnail, images, sections, version
          FROM products WHERE id = $1 OR slug = $1 LIMIT 1`,
         [id]
       );
@@ -74,6 +124,7 @@ export async function GET(
     }
 
     if (!product) {
+      setNegativeCache(id, 30000);
       return NextResponse.json(
         { success: false, error: 'Product not found' },
         { status: 404 }
@@ -107,8 +158,12 @@ export async function GET(
       });
     }
 
+    const { catalogVersion } = await getCatalogVersion();
+
     const payload = {
       ...product,
+      version: product.version || 100,
+      catalogVersion,
       sections: returnedSections,
       images: imageList,
       publishStatus,
@@ -122,6 +177,7 @@ export async function GET(
       {
         headers: {
           'Cache-Control': isAdmin ? 'no-cache, no-store' : 'public, s-maxage=30, stale-while-revalidate=60',
+          'X-Catalog-Version': String(catalogVersion),
         },
       }
     );
@@ -136,6 +192,7 @@ export async function GET(
 /**
  * PUT /api/v1/products/:id
  * Authorized Admin endpoint to update product details, dynamic sections, and attributes.
+ * Commits change, increments version, logs outbox event, and syncs Firestore read collection.
  */
 export async function PUT(
   req: NextRequest,
@@ -163,7 +220,7 @@ export async function PUT(
     }
 
     const cache = getProductCache();
-    const existing = cache.get(id) || { id, name: body.name || 'Product', slug: body.slug || id } as Product;
+    const existing = cache.get(id) || ({ id, name: body.name || 'Product', slug: body.slug || id } as Product);
 
     // Validate and clean sections
     let validatedSections: ProductSection[] = [];
@@ -191,60 +248,16 @@ export async function PUT(
       validatedSections = normalizeProductSections({ ...existing, ...body });
     }
 
-    const updatedProduct: Product = {
-      ...existing,
+    const updatePayload: Partial<Product> = {
       ...body,
-      id,
       sections: validatedSections,
       publishStatus: body.publishStatus || existing.publishStatus || 'PUBLISHED',
     };
 
-    // Update in-memory cache
-    cache.set(id, updatedProduct);
-    if (updatedProduct.slug) {
-      cache.set(updatedProduct.slug, updatedProduct);
-    }
-
-    // Sync to PostgreSQL if DB table is present
-    try {
-      await queryPostgres(
-        `INSERT INTO products (id, name, slug, description, category_id, brand_id, selling_price, mrp, unit, status, publish_status, thumbnail, images, sections, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
-         ON CONFLICT (id) DO UPDATE SET
-           name = EXCLUDED.name,
-           slug = EXCLUDED.slug,
-           description = EXCLUDED.description,
-           category_id = EXCLUDED.category_id,
-           brand_id = EXCLUDED.brand_id,
-           selling_price = EXCLUDED.selling_price,
-           mrp = EXCLUDED.mrp,
-           unit = EXCLUDED.unit,
-           status = EXCLUDED.status,
-           publish_status = EXCLUDED.publish_status,
-           thumbnail = EXCLUDED.thumbnail,
-           images = EXCLUDED.images,
-           sections = EXCLUDED.sections,
-           updated_at = NOW()`,
-        [
-          id,
-          updatedProduct.name,
-          updatedProduct.slug || id,
-          updatedProduct.description || '',
-          updatedProduct.categoryId || 'cat-veg',
-          updatedProduct.brandId || null,
-          updatedProduct.sellingPrice || 0,
-          updatedProduct.mrp || 0,
-          updatedProduct.unit || '1 kg',
-          updatedProduct.status || 'active',
-          updatedProduct.publishStatus || 'PUBLISHED',
-          updatedProduct.thumbnail || '',
-          JSON.stringify(updatedProduct.images || []),
-          JSON.stringify(validatedSections),
-        ]
-      );
-    } catch (_) {
-      // Non-fatal PostgreSQL fallback
-    }
+    const publishResult = await publishProductChange(id, updatePayload, {
+      adminUid,
+      adminRole: role,
+    });
 
     // Record Audit Log
     await logAuditEvent({
@@ -254,17 +267,21 @@ export async function PUT(
       entityType: 'PRODUCT',
       entityId: id,
       details: {
-        productName: updatedProduct.name,
+        productName: publishResult.product.name,
         sectionCount: validatedSections.length,
-        publishStatus: updatedProduct.publishStatus,
+        publishStatus: publishResult.product.publishStatus,
+        version: publishResult.version,
+        catalogVersion: publishResult.catalogVersion,
         modifiedAt: new Date().toISOString(),
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Product information and dynamic sections updated successfully.',
-      data: updatedProduct,
+      message: 'Product information and catalog synchronized successfully.',
+      version: publishResult.version,
+      catalogVersion: publishResult.catalogVersion,
+      data: publishResult.product,
     });
   } catch (err: any) {
     return NextResponse.json(
@@ -276,7 +293,7 @@ export async function PUT(
 
 /**
  * DELETE /api/v1/products/:id
- * Authorized Admin endpoint to delete a product.
+ * Authorized Admin endpoint to delete a product and record outbox event.
  */
 export async function DELETE(
   req: NextRequest,
@@ -294,15 +311,7 @@ export async function DELETE(
     }
 
     const { id } = await context.params;
-    const cache = getProductCache();
-    const existing = cache.get(id);
-
-    cache.delete(id);
-    if (existing?.slug) cache.delete(existing.slug);
-
-    try {
-      await queryPostgres(`DELETE FROM products WHERE id = $1`, [id]);
-    } catch (_) {}
+    const deleteResult = await deleteCatalogProduct(id, { adminUid, adminRole: role });
 
     await logAuditEvent({
       userId: adminUid,
@@ -310,12 +319,13 @@ export async function DELETE(
       action: 'PRODUCT_DELETE',
       entityType: 'PRODUCT',
       entityId: id,
-      details: { productName: existing?.name },
+      details: { catalogVersion: deleteResult.catalogVersion },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Product deleted successfully.',
+      message: 'Product deleted and catalog updated successfully.',
+      catalogVersion: deleteResult.catalogVersion,
     });
   } catch (err: any) {
     return NextResponse.json(

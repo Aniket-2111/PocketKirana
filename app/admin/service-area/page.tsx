@@ -5,21 +5,18 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { useAppStore } from '@/lib/store';
-import { Store, ServiceRequest } from '@/types';
-import { INITIAL_STORES } from '@/lib/mockData';
+import { ServiceRequest } from '@/types';
 import { showToast } from '@/components/ui/Toast';
 import {
-  fetchShopsFS,
-  saveShopConfigFS,
   fetchServiceRequestsFS,
-  updateServiceRequestStatusFS
+  updateServiceRequestStatusFS,
 } from '@/lib/firebaseServices';
-import { setStoresState, updateStoreConfig, resolveLocationFromCoords } from '@/lib/locationServices';
 
 const InteractiveMapCanvas = dynamic(
   () => import('@/components/common/InteractiveMapCanvas').then((m) => m.InteractiveMapCanvas),
-  { ssr: false, loading: () => <div className="w-full h-[340px] bg-slate-100 rounded-xl animate-pulse" /> }
+  { ssr: false, loading: () => <div className="w-full h-[340px] bg-slate-900 rounded-xl animate-pulse" /> }
 );
+
 import {
   MapPin,
   Save,
@@ -37,117 +34,151 @@ import {
   Clock,
   DollarSign,
   Lock,
-  LockOpen,
-  ShieldCheck
+  ShieldCheck,
+  Database,
+  Gift,
+  RefreshCw,
+  Plus,
+  X,
 } from 'lucide-react';
+import { StoreAdminTeamPanel } from '@/components/admin/StoreAdminTeamPanel';
+
+interface AuthorizedStoreItem {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+  deliveryRadiusKm?: number;
+  deliveryFee?: number;
+}
 
 export default function AdminServiceAreaPage() {
-  const { auditLogs, addAuditLog } = useAppStore();
+  const { addAuditLog } = useAppStore();
 
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeStore, setActiveStore] = useState<Store>(INITIAL_STORES[0]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Form State
-  const [storeName, setStoreName] = useState(INITIAL_STORES[0].name);
-  const [storeAddress, setStoreAddress] = useState(INITIAL_STORES[0].address);
-  const [lat, setLat] = useState<number>(INITIAL_STORES[0].latitude);
-  const [lng, setLng] = useState<number>(INITIAL_STORES[0].longitude);
-  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(INITIAL_STORES[0].deliveryRadiusKm || 3.0);
-  const [minOrder, setMinOrder] = useState<number>(INITIAL_STORES[0].minimumOrderValue || 199);
-  const [deliveryFee, setDeliveryFee] = useState<number>(INITIAL_STORES[0].deliveryFee || 15);
-  const [openingTime, setOpeningTime] = useState<string>(INITIAL_STORES[0].openingTime || '06:00');
-  const [closingTime, setClosingTime] = useState<string>(INITIAL_STORES[0].closingTime || '23:00');
+  // Multi-Store Selection State (Canonical PostgreSQL Authority)
+  const [authorizedStores, setAuthorizedStores] = useState<AuthorizedStoreItem[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('store_primary');
+  const [selectedStoreCode, setSelectedStoreCode] = useState<string>('STORE-001');
+
+  // Form State (Canonical PostgreSQL Authority)
+  const [storeName, setStoreName] = useState<string>('');
+  const [storeAddress, setStoreAddress] = useState<string>('');
+  const [lat, setLat] = useState<number>(19.0224536);
+  const [lng, setLng] = useState<number>(73.3210018);
+  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState<number>(3.0);
+  const [deliveryFee, setDeliveryFee] = useState<number>(29);
+  const [freeDeliveryEnabled, setFreeDeliveryEnabled] = useState<boolean>(true);
+  const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState<number>(499);
+  const [openingTime, setOpeningTime] = useState<string>('06:00');
+  const [closingTime, setClosingTime] = useState<string>('23:00');
   const [serviceStatus, setServiceStatus] = useState<'active' | 'inactive' | 'maintenance'>('active');
 
-  // Lock toggle — ON by default to prevent accidental location changes
-  const [isLocationLocked, setIsLocationLocked] = useState(true);
-
-  // Service Requests state
+  // Service Requests state (transitional customer waitlist inquiries)
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
+
+  // 1. Load canonical store operational settings from PostgreSQL API
+  async function loadData(targetStoreId?: string) {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const url = targetStoreId
+        ? `/api/admin/store/operations?storeId=${encodeURIComponent(targetStoreId)}`
+        : '/api/admin/store/operations';
+      const res = await fetch(url);
+      const json = await res.json();
+
+      if (res.ok && json.success && json.data) {
+        const data = json.data;
+        const currentStoreId = data.storeId || targetStoreId || 'store_primary';
+        setSelectedStoreId(currentStoreId);
+        setSelectedStoreCode(data.storeCode || data.code || 'STORE-001');
+
+        if (Array.isArray(data.authorizedStores) && data.authorizedStores.length > 0) {
+          setAuthorizedStores(data.authorizedStores);
+        }
+
+        setStoreName(data.storeName || '');
+        setStoreAddress(data.address || '');
+        setLat(typeof data.latitude === 'number' ? data.latitude : parseFloat(data.latitude) || 19.0224536);
+        setLng(typeof data.longitude === 'number' ? data.longitude : parseFloat(data.longitude) || 73.3210018);
+
+        // Ensure radius strictly conforms to canonical 3.0, 4.0, or 5.0
+        const rad = Number(data.deliveryRadiusKm);
+        setDeliveryRadiusKm([3.0, 4.0, 5.0].includes(rad) ? rad : 3.0);
+        setDeliveryFee(typeof data.deliveryFee === 'number' ? data.deliveryFee : 29);
+        setFreeDeliveryEnabled(data.freeDeliveryEnabled !== false);
+        setFreeDeliveryThreshold(typeof data.freeDeliveryThreshold === 'number' ? data.freeDeliveryThreshold : 499);
+        setOpeningTime(data.openingTime ? String(data.openingTime).substring(0, 5) : '06:00');
+        setClosingTime(data.closingTime ? String(data.closingTime).substring(0, 5) : '23:00');
+        setServiceStatus(data.status === 'OPEN' || data.status === 'HIGH_DEMAND' ? 'active' : 'inactive');
+      } else {
+        const err = json.error || 'Failed to load canonical store operations from PostgreSQL authority.';
+        setErrorMessage(err);
+        showToast(err, 'error');
+      }
+
+      // Load waitlist inquiries from Firestore (advisory projection)
+      const reqs = await fetchServiceRequestsFS().catch(() => []);
+      setServiceRequests(reqs);
+    } catch (err: any) {
+      const errText = err?.message || 'Network error connecting to canonical store operations API.';
+      setErrorMessage(errText);
+      console.warn('Error loading admin service area:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  // Load from Firestore
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const shops = await fetchShopsFS();
-        if (shops && shops.length > 0) {
-          const shop = shops[0];
-          setActiveStore(shop);
-          setStoreName(shop.name);
-          setStoreAddress(shop.address);
-          setLat(shop.latitude);
-          setLng(shop.longitude);
-          setDeliveryRadiusKm(shop.deliveryRadiusKm || 3.0);
-          setMinOrder(shop.minimumOrderValue || 199);
-          setDeliveryFee(shop.deliveryFee || 15);
-          setOpeningTime(shop.openingTime || '06:00');
-          setClosingTime(shop.closingTime || '23:00');
-          setServiceStatus(shop.status);
-          setStoresState(shops);
-        }
-
-        const reqs = await fetchServiceRequestsFS();
-        setServiceRequests(reqs);
-      } catch (err) {
-        console.warn('Error loading admin service area:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadData();
   }, []);
 
-  // When lat/lng changes from map — blocked when location is locked
-  const handlePositionChange = async (newLat: number, newLng: number) => {
-    if (isLocationLocked) return; // guard: locked = no position change
-    setLat(newLat);
-    setLng(newLng);
-    try {
-      const geo = await resolveLocationFromCoords(newLat, newLng);
-      if (geo && geo.displayName) {
-        setStoreAddress(geo.displayName);
-      }
-    } catch (e) {
-      console.warn('Geocoding error:', e);
-    }
+  const handleStoreSelect = (newStoreId: string) => {
+    if (newStoreId === selectedStoreId || loading) return;
+    loadData(newStoreId);
   };
 
+  // 2. Save handler writing to canonical PostgreSQL API
   const handleSaveServiceArea = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setSaving(true);
 
-    const updatedStore: Store = {
-      ...activeStore,
+    const payload = {
+      storeId: selectedStoreId,
       name: storeName,
       address: storeAddress,
-      latitude: lat,
-      longitude: lng,
-      deliveryRadiusKm: Number(deliveryRadiusKm),
-      minimumOrderValue: Number(minOrder),
-      deliveryFee: Number(deliveryFee),
+      status: serviceStatus === 'active' ? 'OPEN' : 'CLOSED',
       openingTime,
       closingTime,
-      status: serviceStatus,
+      deliveryRadiusKm: Number(deliveryRadiusKm),
+      deliveryFee: Number(deliveryFee),
+      freeDeliveryEnabled: Boolean(freeDeliveryEnabled),
+      freeDeliveryThreshold: Number(freeDeliveryThreshold),
     };
 
     try {
-      updateStoreConfig(updatedStore.id, updatedStore);
-      setActiveStore(updatedStore);
+      const res = await fetch('/api/admin/store/operations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-      await saveShopConfigFS(updatedStore);
+      const data = await res.json();
 
-      addAuditLog('UPDATE_SERVICE_AREA', 'Store', updatedStore.id);
-      showToast(`Store settings & ${deliveryRadiusKm} KM service area saved!`, 'success');
-    } catch (err) {
-      showToast('Failed to save service area settings', 'error');
+      if (res.ok && data.success) {
+        addAuditLog('UPDATE_SERVICE_AREA', 'Store', selectedStoreId);
+        showToast(`Store settings & ${deliveryRadiusKm} KM service area saved to PostgreSQL!`, 'success');
+      } else {
+        showToast(data.error || 'Failed to save service area settings', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Network error saving service area settings', 'error');
     } finally {
       setSaving(false);
     }
@@ -157,6 +188,96 @@ export default function AdminServiceAreaPage() {
     await updateServiceRequestStatusFS(id, status);
     setServiceRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
     showToast(`Request status marked as ${status.toUpperCase()}`, 'success');
+  };
+
+  // 3. Main Admin Store Registration State & Handler
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [regName, setRegName] = useState('');
+  const [regCode, setRegCode] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regAddress, setRegAddress] = useState('');
+  const [regCity, setRegCity] = useState('Neral');
+  const [regState, setRegState] = useState('Maharashtra');
+  const [regPincode, setRegPincode] = useState('410101');
+  const [regLat, setRegLat] = useState('19.0224536');
+  const [regLng, setRegLng] = useState('73.3210018');
+  const [regRadius, setRegRadius] = useState<number>(3.0);
+  const [regFee, setRegFee] = useState<number>(29);
+  const [regFreeEnabled, setRegFreeEnabled] = useState(true);
+  const [regFreeThreshold, setRegFreeThreshold] = useState<number>(499);
+  const [regOpening, setRegOpening] = useState('06:00');
+  const [regClosing, setRegClosing] = useState('23:00');
+  const [registering, setRegistering] = useState(false);
+  const [regError, setRegError] = useState<string | null>(null);
+
+  const handleRegisterStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (registering) return;
+    setRegistering(true);
+    setRegError(null);
+
+    if (!regName.trim()) {
+      setRegError('Store name is required.');
+      setRegistering(false);
+      return;
+    }
+    if (!regCode.trim()) {
+      setRegError('Store code is required.');
+      setRegistering(false);
+      return;
+    }
+    const lat = parseFloat(regLat);
+    const lng = parseFloat(regLng);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setRegError('Valid GPS coordinates (latitude between -90 and 90, longitude between -180 and 180) are required.');
+      setRegistering(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/store/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: regName.trim(),
+          code: regCode.trim().toUpperCase(),
+          phone: regPhone.trim() || undefined,
+          address: regAddress.trim() || undefined,
+          city: regCity.trim() || undefined,
+          state: regState.trim() || undefined,
+          pincode: regPincode.trim() || undefined,
+          latitude: lat,
+          longitude: lng,
+          deliveryRadiusKm: Number(regRadius),
+          deliveryFee: Number(regFee),
+          freeDeliveryEnabled: Boolean(regFreeEnabled),
+          freeDeliveryThreshold: Number(regFreeThreshold),
+          openingTime: regOpening.trim(),
+          closingTime: regClosing.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 201 && data.success) {
+        showToast(`Store '${data.store.name}' registered successfully! (Currently Inactive)`, 'success');
+        addAuditLog('STORE_REGISTERED', 'Store', data.store.id);
+        setShowRegisterModal(false);
+        // Reset form fields
+        setRegName('');
+        setRegCode('');
+        setRegPhone('');
+        setRegAddress('');
+        // Reload data and automatically focus new store
+        await loadData(data.store.id);
+      } else {
+        setRegError(data.error || 'Failed to register store.');
+      }
+    } catch (err: any) {
+      setRegError(err.message || 'Network error communicating with store registration API.');
+    } finally {
+      setRegistering(false);
+    }
   };
 
   if (!mounted) {
@@ -189,33 +310,27 @@ export default function AdminServiceAreaPage() {
               <div className="flex items-center gap-2">
                 <StoreIcon className="w-5 h-5 text-emerald-400" />
                 <h1 className="text-lg font-black tracking-tight text-white">Store, Location &amp; Service Area</h1>
+                <span className="flex items-center gap-1 text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  <Database className="w-3 h-3 text-emerald-400" /> Canonical PostgreSQL
+                </span>
               </div>
               <p className="text-xs text-slate-400 font-semibold">
-                Define shop details, GPS coordinates, and dynamic delivery radius boundary
+                Manage darkstore operational parameters, canonical delivery radius, and pricing
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Location Lock Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsLocationLocked((v) => !v)}
-              className={`flex items-center gap-2 font-black text-xs px-4 py-2.5 rounded-xl shadow-lg transition-all active:scale-95 cursor-pointer border ${
-                isLocationLocked
-                  ? 'bg-red-600/90 hover:bg-red-500 text-white border-red-500'
-                  : 'bg-amber-500 hover:bg-amber-400 text-slate-900 border-amber-400 animate-pulse'
-              }`}
-              title={isLocationLocked ? 'Click to unlock store location (allows map drag)' : 'Click to lock store location'}
-            >
-              {isLocationLocked ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />}
-              <span>{isLocationLocked ? 'Location Locked' : 'Location Unlocked'}</span>
-            </button>
+            {/* Coordinate Protection Indicator */}
+            <div className="flex items-center gap-1.5 font-bold text-xs px-3.5 py-2 rounded-xl border bg-slate-800/80 border-slate-700 text-slate-300">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Coordinates Protected</span>
+            </div>
 
             <button
               type="button"
               onClick={() => handleSaveServiceArea()}
-              disabled={saving}
+              disabled={saving || loading || !storeName}
               className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -227,7 +342,101 @@ export default function AdminServiceAreaPage() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
-        
+
+        {/* CANONICAL POSTGRESQL MULTI-STORE SELECTOR */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-800 flex items-center justify-center text-emerald-400">
+              <StoreIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                Active Darkstore (PostgreSQL Canonical)
+              </span>
+              {authorizedStores.length > 0 ? (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <select
+                    id="admin-store-select"
+                    value={selectedStoreId}
+                    onChange={(e) => handleStoreSelect(e.target.value)}
+                    disabled={loading || saving}
+                    className="bg-slate-950 border border-slate-700 text-white font-black text-sm rounded-xl px-3 py-1.5 focus:outline-none focus:border-emerald-500 cursor-pointer disabled:opacity-50"
+                  >
+                    {authorizedStores.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code}) — {s.isActive ? '🟢 Active' : '🔴 Disabled'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <span className="text-sm font-black text-slate-300">
+                  {loading ? 'Connecting to PostgreSQL...' : storeName || selectedStoreId}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <span className="bg-slate-800 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-xl">
+              Store ID: <span className="font-mono text-emerald-400">{selectedStoreId}</span>
+            </span>
+            <span className="bg-slate-800 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-xl">
+              Code: <span className="font-mono text-emerald-400">{selectedStoreCode}</span>
+            </span>
+            {loading && (
+              <span className="bg-amber-950/60 border border-amber-800/80 text-amber-300 px-3 py-1.5 rounded-xl flex items-center gap-1.5 animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Syncing...
+              </span>
+            )}
+            <button
+              type="button"
+              id="btn-register-new-store"
+              onClick={() => {
+                setRegError(null);
+                setShowRegisterModal(true);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer ml-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Register New Store</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ERROR STATE BANNER */}
+        {errorMessage && (
+          <div className="bg-red-950/80 border border-red-800 rounded-2xl p-4 text-red-200 flex items-center justify-between gap-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-red-300">Authority Connection Error</p>
+                <p className="text-xs font-semibold">{errorMessage}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadData(selectedStoreId)}
+              className="bg-red-900 hover:bg-red-800 text-white font-bold text-xs px-4 py-2 rounded-xl border border-red-700 transition-colors flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry</span>
+            </button>
+          </div>
+        )}
+
+        {/* INACTIVE STORE NOTICE BANNER */}
+        {serviceStatus === 'inactive' && !errorMessage && !loading && (
+          <div className="bg-amber-950/60 border border-amber-800 rounded-2xl p-4 text-amber-200 flex items-center gap-3 shadow-md">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-amber-300">Store Inactive Notice</p>
+              <p className="text-xs font-medium">This store is currently inactive and hidden from customer checkout. Activate it using the status control below when ready for live operations.</p>
+            </div>
+          </div>
+        )}
+
         {/* Quick Metrics Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
@@ -247,7 +456,7 @@ export default function AdminServiceAreaPage() {
           </div>
 
           <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Shop Location</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Protected GPS Hub</span>
             <span className="text-xs font-mono font-bold text-emerald-400 block mt-2 truncate">
               {typeof lat === 'number' ? lat.toFixed(5) : lat}, {typeof lng === 'number' ? lng.toFixed(5) : lng}
             </span>
@@ -267,21 +476,26 @@ export default function AdminServiceAreaPage() {
           
           {/* Left: Configuration Form (5 Cols) */}
           <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl">
-            <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
-              <StoreIcon className="w-5 h-5 text-emerald-400" />
-              <h3 className="font-black text-sm text-white">Store Location &amp; Service Radius</h3>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <StoreIcon className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-black text-sm text-white">Store Operational Parameters</h3>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 font-mono">
+                {selectedStoreId}
+              </span>
             </div>
 
             <form onSubmit={handleSaveServiceArea} className="space-y-4">
               {/* Store Name */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 block">Shop / Store Name *</label>
+                <label className="text-xs font-bold text-slate-300 block">Shop / Darkstore Name *</label>
                 <input
                   type="text"
                   required
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
-                  placeholder="e.g. PocketKirana Main Store"
+                  placeholder="e.g. PocketKirana Central Darkstore"
                   className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none"
                 />
               </div>
@@ -299,7 +513,7 @@ export default function AdminServiceAreaPage() {
                 />
               </div>
 
-              {/* Operating Hours & Order Rules */}
+              {/* Operating Hours */}
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300 flex items-center gap-1">
@@ -307,6 +521,7 @@ export default function AdminServiceAreaPage() {
                   </label>
                   <input
                     type="time"
+                    required
                     value={openingTime}
                     onChange={(e) => setOpeningTime(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-white"
@@ -318,6 +533,7 @@ export default function AdminServiceAreaPage() {
                   </label>
                   <input
                     type="time"
+                    required
                     value={closingTime}
                     onChange={(e) => setClosingTime(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-white"
@@ -325,82 +541,133 @@ export default function AdminServiceAreaPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Min. Order (₹)</label>
-                  <input
-                    type="number"
-                    value={minOrder}
-                    onChange={(e) => setMinOrder(parseInt(e.target.value) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Delivery Fee (₹)</label>
-                  <input
-                    type="number"
-                    value={deliveryFee}
-                    onChange={(e) => setDeliveryFee(parseInt(e.target.value) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Coordinates Grid */}
+              {/* Pricing & Free Delivery Controls */}
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">Latitude *</label>
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                    <DollarSign className="w-3 h-3 text-emerald-400" /> Standard Delivery Fee (₹)
+                  </label>
                   <input
                     type="number"
-                    step="any"
+                    min={0}
+                    step={1}
                     required
-                    value={lat}
-                    onChange={(e) => setLat(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 focus:outline-none"
+                    value={deliveryFee}
+                    onChange={(e) => setDeliveryFee(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-white"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">Longitude *</label>
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                    <Gift className="w-3 h-3 text-emerald-400" /> Free Delivery Above (₹)
+                  </label>
                   <input
                     type="number"
-                    step="any"
+                    min={0}
+                    step={1}
                     required
-                    value={lng}
-                    onChange={(e) => setLng(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 focus:outline-none"
+                    value={freeDeliveryThreshold}
+                    onChange={(e) => setFreeDeliveryThreshold(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-xs text-white"
                   />
                 </div>
               </div>
 
-              {/* Delivery Radius Slider & Number Input */}
+              {/* Free Delivery Toggle & Minimum Order Status */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">Free Delivery Promo</label>
+                  <button
+                    type="button"
+                    onClick={() => setFreeDeliveryEnabled((prev) => !prev)}
+                    className={`w-full py-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                      freeDeliveryEnabled
+                        ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
+                        : 'bg-slate-950 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    {freeDeliveryEnabled ? '✅ Enabled' : '❌ Disabled'}
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">Min. Order Requirement</label>
+                  <div className="w-full py-2 px-3 rounded-xl text-xs font-bold border border-slate-800 bg-slate-950/60 text-slate-400 text-center">
+                    ₹0 (Retired in v2.6)
+                  </div>
+                </div>
+              </div>
+
+              {/* Canonical Delivery Radius Selector (CHECK 3.0, 4.0, 5.0) */}
               <div className="space-y-2 pt-2 border-t border-slate-800">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-300">Delivery / Service Radius (KM) *</label>
-                  <span className="text-sm font-black text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-2.5 py-0.5 rounded-lg">
-                    {deliveryRadiusKm} KM
+                  <label className="text-xs font-bold text-slate-300 block">
+                    Canonical Delivery Radius (PostgreSQL Constraint)
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-full">
+                    CHECK (3.0, 4.0, 5.0)
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={15}
-                  step={0.5}
-                  value={deliveryRadiusKm}
-                  onChange={(e) => setDeliveryRadiusKm(parseFloat(e.target.value))}
-                  className="w-full accent-emerald-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                  <span>1 KM (Ultra Local)</span>
-                  <span>3 KM (Standard)</span>
-                  <span>5 KM</span>
-                  <span>10 KM</span>
-                  <span>15 KM</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {[3.0, 4.0, 5.0].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setDeliveryRadiusKm(r)}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                        deliveryRadiusKm === r
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      {r.toFixed(1)} KM
+                    </button>
+                  ))}
                 </div>
+                <p className="text-[10px] text-slate-500">
+                  Fixed database constraint to ensure reliable 30-min express fulfillment.
+                </p>
+              </div>
+
+              {/* Protected Coordinates Grid (Read-Only) */}
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Protected GPS Coordinates</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-semibold">Fixed Store Hub</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 block font-mono">Latitude</span>
+                    <input
+                      type="text"
+                      readOnly
+                      value={typeof lat === 'number' ? lat.toFixed(7) : lat}
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 cursor-not-allowed opacity-90"
+                      title="Coordinates are permanent and protected. Contact developer operations to relocate store hub."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 block font-mono">Longitude</span>
+                    <input
+                      type="text"
+                      readOnly
+                      value={typeof lng === 'number' ? lng.toFixed(7) : lng}
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 cursor-not-allowed opacity-90"
+                      title="Coordinates are permanent and protected. Contact developer operations to relocate store hub."
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 flex items-center gap-1 pt-0.5">
+                  <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+                  Hub relocation requires short-lived developer authorization to prevent order disruption.
+                </p>
               </div>
 
               {/* Service Status */}
               <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                <label className="text-xs font-bold text-slate-300 block">Service Status</label>
+                <label className="text-xs font-bold text-slate-300 block">Service Status (PostgreSQL is_active)</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(['active', 'inactive', 'maintenance'] as const).map((st) => (
                     <button
@@ -423,11 +690,11 @@ export default function AdminServiceAreaPage() {
               <div className="pt-3">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || loading || !storeName}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-xs py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  <span>Save Location &amp; Update Service Area</span>
+                  <span>Save Operational Parameters to PostgreSQL</span>
                 </button>
               </div>
             </form>
@@ -446,47 +713,24 @@ export default function AdminServiceAreaPage() {
                   </h3>
                 </div>
 
-                {/* Lock / Unlock map button — right of map header */}
-                <button
-                  type="button"
-                  onClick={() => setIsLocationLocked((v) => !v)}
-                  className={`flex items-center gap-1.5 font-black text-[11px] px-3 py-1.5 rounded-lg transition-all active:scale-95 cursor-pointer border ${
-                    isLocationLocked
-                      ? 'bg-red-700/80 hover:bg-red-600 text-white border-red-600'
-                      : 'bg-amber-500/90 hover:bg-amber-400 text-slate-900 border-amber-400'
-                  }`}
-                  title={isLocationLocked ? 'Unlock to drag store pin' : 'Lock location to prevent accidental moves'}
-                >
-                  {isLocationLocked ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
-                  <span>{isLocationLocked ? '🔒 Locked' : '🔓 Unlocked — drag to move'}</span>
-                </button>
+                <div className="flex items-center gap-1.5 font-bold text-[11px] px-3 py-1.5 rounded-lg border bg-slate-800/80 border-slate-700 text-slate-300">
+                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Fixed Store Hub</span>
+                </div>
               </div>
 
-              {/* Warning banner when unlocked */}
-              {!isLocationLocked && (
-                <div className="flex items-center gap-2 bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-bold px-3 py-2 rounded-xl">
-                  <LockOpen className="w-3.5 h-3.5 shrink-0" />
-                  <span>Location unlocked — drag the map or click to reposition the store. Lock again after moving.</span>
-                </div>
-              )}
-
               {/* Google Maps Canvas with Radius Circle */}
-              <div className={`h-[400px] rounded-2xl overflow-hidden relative transition-all ${
-                isLocationLocked
-                  ? 'border-2 border-red-600/50'
-                  : 'border-2 border-amber-400/70'
-              }`}>
+              <div className="h-[400px] rounded-2xl overflow-hidden relative border-2 border-emerald-600/40">
                 <InteractiveMapCanvas
                   lat={lat}
                   lng={lng}
-                  onPositionChange={handlePositionChange}
+                  onPositionChange={() => {}}
                   isServiceable={serviceStatus === 'active'}
                   radiusKm={deliveryRadiusKm}
                   showStoreCircle={true}
                   isAdminView={true}
-                  locked={isLocationLocked}
-                  onToggleLock={() => setIsLocationLocked((v) => !v)}
-                  hintText={isLocationLocked ? 'Location locked — click Unlock to move the pin' : `Drag map to reposition ${storeName}`}
+                  locked={true}
+                  hintText="Darkstore location coordinates are fixed and protected"
                 />
               </div>
 
@@ -504,7 +748,7 @@ export default function AdminServiceAreaPage() {
                   <div className="w-3 h-3 rounded-full bg-amber-400 shrink-0" />
                   <div>
                     <p className="text-xs font-black text-slate-200">Outside Circle (&gt; {deliveryRadiusKm} KM)</p>
-                    <p className="text-[10px] text-slate-400">Coming Soon • Notify Me Prompt</p>
+                    <p className="text-[10px] text-slate-400">Out of Service Area • Notify Me</p>
                   </div>
                 </div>
               </div>
@@ -515,79 +759,72 @@ export default function AdminServiceAreaPage() {
         {/* Customer Demand & Service Requests Table */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
-            <div className="flex items-center gap-2.5">
-              <BellRing className="w-5 h-5 text-amber-400" />
-              <div>
-                <h3 className="font-black text-sm text-white">Out-of-Area Customer Service Requests ("Notify Me")</h3>
-                <p className="text-xs text-slate-400">
-                  Customers who requested delivery in unserviceable zones. Expand your radius to convert them!
-                </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-amber-400" />
+                <h3 className="font-black text-base text-white">Unserviceable Customer Demand</h3>
               </div>
+              <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                Potential customers outside active radius who requested expansion
+              </p>
             </div>
-            <span className="text-xs font-bold bg-amber-950/60 text-amber-300 border border-amber-800/50 px-3 py-1 rounded-xl">
-              {serviceRequests.length} Total Inquiries
-            </span>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-300 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
+                Total Requests: <strong className="text-amber-400">{serviceRequests.length}</strong>
+              </span>
+            </div>
           </div>
 
           {serviceRequests.length === 0 ? (
-            <div className="text-center py-10 text-slate-500 space-y-2">
-              <Users className="w-10 h-10 mx-auto text-slate-700" />
-              <p className="text-xs font-bold">No out-of-area requests yet</p>
-              <p className="text-[11px] text-slate-600">
-                When customers outside your radius click "Notify Me When Available", their details will appear here.
-              </p>
+            <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl">
+              <BellRing className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-400">No pending expansion requests</p>
+              <p className="text-xs text-slate-600">Requests from outside current delivery boundaries will appear here</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="text-slate-400 uppercase text-[10px] font-black border-b border-slate-800">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-950/60 uppercase text-[10px] font-black tracking-wider text-slate-400 border-b border-slate-800">
                   <tr>
-                    <th className="pb-3 px-3">Customer</th>
-                    <th className="pb-3 px-3">Address &amp; Pincode</th>
-                    <th className="pb-3 px-3">Coordinates</th>
-                    <th className="pb-3 px-3">Requested Date</th>
-                    <th className="pb-3 px-3">Status</th>
-                    <th className="pb-3 px-3 text-right">Action</th>
+                    <th className="py-3 px-4">Customer Phone</th>
+                    <th className="py-3 px-4">Pincode</th>
+                    <th className="py-3 px-4">Distance from Hub</th>
+                    <th className="py-3 px-4">Requested At</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-medium">
+                <tbody className="divide-y divide-slate-800/60">
                   {serviceRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3 px-3">
-                        <p className="font-bold text-white">{req.name}</p>
-                        <p className="text-[11px] text-slate-400">{req.phone}</p>
+                    <tr key={req.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-4 font-mono font-bold text-white">{req.phone}</td>
+                      <td className="py-3 px-4 font-mono">{req.pincode}</td>
+                      <td className="py-3 px-4 font-bold text-amber-300">
+                        {(req as any).distanceKm ? `${(req as any).distanceKm.toFixed(1)} KM` : 'N/A'}
                       </td>
-                      <td className="py-3 px-3 max-w-[200px]">
-                        <p className="truncate text-slate-300">{req.address}</p>
-                        <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">
-                          PIN: {req.pincode}
-                        </span>
+                      <td className="py-3 px-4 text-slate-400">
+                        {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : 'Recent'}
                       </td>
-                      <td className="py-3 px-3 font-mono text-[11px] text-slate-400">
-                        {req.latitude.toFixed(4)}, {req.longitude.toFixed(4)}
-                      </td>
-                      <td className="py-3 px-3 text-slate-400 text-[11px]">
-                        {new Date(req.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-3">
+                      <td className="py-3 px-4">
                         <span
-                          className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
                             req.status === 'converted'
-                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                               : req.status === 'notified'
-                              ? 'bg-blue-950 text-blue-400 border border-blue-800'
-                              : 'bg-amber-950 text-amber-400 border border-amber-800'
+                              ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                              : 'bg-amber-950 text-amber-300 border border-amber-800'
                           }`}
                         >
                           {req.status}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right space-x-1.5">
+                      <td className="py-3 px-4 text-right space-x-2">
                         {req.status === 'waiting' && (
                           <button
                             type="button"
                             onClick={() => handleUpdateReqStatus(req.id, 'notified')}
-                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg"
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-bold border border-slate-700"
                           >
                             Mark Notified
                           </button>
@@ -596,7 +833,7 @@ export default function AdminServiceAreaPage() {
                           <button
                             type="button"
                             onClick={() => handleUpdateReqStatus(req.id, 'converted')}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg"
+                            className="bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 px-2.5 py-1 rounded-lg text-[11px] font-bold border border-emerald-700"
                           >
                             Convert
                           </button>
@@ -609,6 +846,288 @@ export default function AdminServiceAreaPage() {
             </div>
           )}
         </div>
+
+        {/* Store Admin Team Panel */}
+        <StoreAdminTeamPanel
+          userRole="admin"
+          selectedStoreId={selectedStoreId}
+          selectedStoreCode={selectedStoreCode}
+          availableStores={authorizedStores}
+        />
+
+        {/* REGISTER NEW STORE MODAL */}
+        {showRegisterModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl my-8 text-slate-100 max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-800 flex items-center justify-center text-emerald-400">
+                    <StoreIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white">Register New Canonical Store</h2>
+                    <p className="text-xs text-slate-400 font-semibold">
+                      Provisions an authoritative store &amp; primary warehouse in PostgreSQL (Inactive by default)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterModal(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Error Banner */}
+              {regError && (
+                <div className="bg-red-950/80 border border-red-800 rounded-xl p-3 text-red-200 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>{regError}</span>
+                </div>
+              )}
+
+              {/* Registration Form */}
+              <form onSubmit={handleRegisterStore} className="space-y-4">
+                {/* Store Identity */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Store Name <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="reg-store-name"
+                      required
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      placeholder="e.g. PocketKirana Neral West Darkstore"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Store Code <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="reg-store-code"
+                      required
+                      value={regCode}
+                      onChange={(e) => setRegCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. PK-NERAL-02"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white uppercase font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* GPS Coordinates */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4" /> GPS Hub Location (Protected upon creation)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                        Latitude (-90 to 90) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="reg-store-lat"
+                        required
+                        value={regLat}
+                        onChange={(e) => setRegLat(e.target.value)}
+                        placeholder="19.0224536"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                        Longitude (-180 to 180) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="reg-store-lng"
+                        required
+                        value={regLng}
+                        onChange={(e) => setRegLng(e.target.value)}
+                        placeholder="73.3210018"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address & Contact */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Street Address</label>
+                    <input
+                      type="text"
+                      id="reg-store-address"
+                      value={regAddress}
+                      onChange={(e) => setRegAddress(e.target.value)}
+                      placeholder="e.g. Shop No. 4, Market Road, Near Station"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Contact Phone</label>
+                    <input
+                      type="text"
+                      id="reg-store-phone"
+                      value={regPhone}
+                      onChange={(e) => setRegPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">City</label>
+                    <input
+                      type="text"
+                      id="reg-store-city"
+                      value={regCity}
+                      onChange={(e) => setRegCity(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">State</label>
+                    <input
+                      type="text"
+                      id="reg-store-state"
+                      value={regState}
+                      onChange={(e) => setRegState(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Pincode</label>
+                    <input
+                      type="text"
+                      id="reg-store-pincode"
+                      value={regPincode}
+                      onChange={(e) => setRegPincode(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Operations & Delivery Configuration */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Delivery Radius <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      id="reg-store-radius"
+                      value={regRadius}
+                      onChange={(e) => setRegRadius(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value={3.0}>3.0 KM (Standard)</option>
+                      <option value={4.0}>4.0 KM (Extended)</option>
+                      <option value={5.0}>5.0 KM (Maximum)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Base Delivery Fee (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      id="reg-store-fee"
+                      value={regFee}
+                      onChange={(e) => setRegFee(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Free Delivery Above (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      id="reg-store-threshold"
+                      value={regFreeThreshold}
+                      onChange={(e) => setRegFreeThreshold(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Operating Hours */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Opening Time (HH:mm)</label>
+                    <input
+                      type="text"
+                      id="reg-store-opening"
+                      value={regOpening}
+                      onChange={(e) => setRegOpening(e.target.value)}
+                      placeholder="06:00"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Closing Time (HH:mm)</label>
+                    <input
+                      type="text"
+                      id="reg-store-closing"
+                      value={regClosing}
+                      onChange={(e) => setRegClosing(e.target.value)}
+                      placeholder="23:00"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Architectural Policy Notice */}
+                <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-[11px] text-slate-400 space-y-1">
+                  <p className="flex items-center gap-1.5 font-bold text-slate-300">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Architectural Safeguards:
+                  </p>
+                  <p>• Store is registered as <strong className="text-amber-400">INACTIVE</strong> by default; activate it when physical fulfillment is ready.</p>
+                  <p>• Minimum order value is permanently locked at <strong className="text-white">₹0.00</strong>.</p>
+                  <p>• Primary warehouse and audit log are created atomically within the same PostgreSQL transaction.</p>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterModal(false)}
+                    disabled={registering}
+                    className="px-4 py-2 rounded-xl text-slate-400 hover:text-white font-bold text-xs bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    id="btn-submit-register-store"
+                    disabled={registering}
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                  >
+                    {registering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>{registering ? 'Registering in PostgreSQL...' : 'Register Store in PostgreSQL'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

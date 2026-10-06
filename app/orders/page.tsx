@@ -8,6 +8,7 @@ import { RoleSwitcher } from '@/components/common/RoleSwitcher';
 import { CustomerLayout } from '@/components/layout/CustomerLayout';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ProductImageWithFallback } from '@/components/states/ProductImageWithFallback';
 import { Download, RotateCcw, Truck, ChevronRight, Loader2, Package } from 'lucide-react';
 import { showToast } from '@/components/ui/Toast';
 import type { Order } from '@/types';
@@ -195,13 +196,14 @@ export default function MyOrdersPage() {
                               return (
                                 <div
                                   key={itemIdx}
-                                  className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center overflow-hidden shadow-2xs"
+                                  className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shrink-0 shadow-xs flex items-center justify-center"
                                 >
-                                  {img ? (
-                                    <img src={img} alt="" className="w-full h-full object-contain" />
-                                  ) : (
-                                    <Package className="w-4 h-4 text-gray-400" />
-                                  )}
+                                  <ProductImageWithFallback
+                                    src={img}
+                                    alt=""
+                                    className="w-full h-full object-contain"
+                                    containerClassName="w-full h-full rounded-none"
+                                  />
                                 </div>
                               );
                             })

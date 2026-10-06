@@ -1,11 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/routeAuth';
 import { INITIAL_FESTIVAL_TEMPLATES } from '@/lib/festivalTemplates';
 import { validateFestivalTemplate } from '@/lib/festivalValidator';
 import { FestivalTemplate } from '@/types/festival';
 
 let inMemoryTemplates: FestivalTemplate[] = [...INITIAL_FESTIVAL_TEMPLATES];
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const url = new URL(req.url);
     const category = url.searchParams.get('category');
@@ -32,7 +36,10 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
+
   try {
     const body = await req.json();
     const validation = validateFestivalTemplate(body);
@@ -64,7 +71,7 @@ export async function POST(req: Request) {
       theme: body.theme,
       sections: body.sections,
       tags: body.tags || ['Custom'],
-      createdBy: body.createdBy || 'Admin',
+      createdBy: auth.name || auth.uid,  // use verified identity, not client-supplied
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

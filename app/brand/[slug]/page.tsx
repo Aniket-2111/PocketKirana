@@ -23,8 +23,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-import { INITIAL_BRANDS, INITIAL_PRODUCTS } from '@/lib/mockData';
-
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'name-asc' | 'rating-desc';
 
 export default function BrandLandingPage() {
@@ -45,11 +43,9 @@ export default function BrandLandingPage() {
     setMounted(true);
   }, []);
 
-  // Find the brand by slug (check store first, then INITIAL_BRANDS fallback)
+  // Find the brand by slug from authoritative store brands
   const brand = useMemo<Brand | undefined>(() => {
-    const fromStore = (brands || []).find((b) => b.slug === slug || b.id === slug);
-    if (fromStore) return fromStore;
-    return INITIAL_BRANDS.find((b) => b.slug === slug || b.id === slug);
+    return (brands || []).find((b) => b.slug === slug || b.id === slug);
   }, [brands, slug]);
 
   // Fetch live products for this brand from API
@@ -65,17 +61,15 @@ export default function BrandLandingPage() {
       .catch(() => {});
   }, [brand?.id]);
 
-  // Combined product pool (Store + API + INITIAL_PRODUCTS fallback)
+  // Combined product pool (Store + API)
   const allProductsPool = useMemo(() => {
     const map = new Map<string, Product>();
-    // 1. Add mock products first as base
-    INITIAL_PRODUCTS.forEach((p) => map.set(p.id, p));
-    // 2. Overlay store products
+    // 1. Overlay store products
     (products || []).forEach((p) => {
       const existing = map.get(p.id);
       map.set(p.id, { ...existing, ...p });
     });
-    // 3. Overlay API products
+    // 2. Overlay API products
     apiProducts.forEach((p) => {
       const existing = map.get(p.id);
       map.set(p.id, { ...existing, ...p });

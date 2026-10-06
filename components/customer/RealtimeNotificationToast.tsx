@@ -312,9 +312,9 @@ export function RealtimeNotificationToast() {
               {currentToast.body}
             </p>
             {currentToast.deepLink && (
-              <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 mt-2">
-                <span>View details</span>
-                <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-2 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-lg w-fit group-hover:bg-emerald-100 transition-colors">
+                <span>{(currentToast as any).ctaText || 'View Details'}</span>
+                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </div>
             )}
           </button>

@@ -7,6 +7,7 @@ import { useAppStore } from '@/lib/store';
 import {
   Home,
   Package,
+  Boxes,
   Scan,
   Archive,
   User,
@@ -169,6 +170,7 @@ export default function PickerShell({ children }: PickerShellProps) {
   const navItems = [
     { name: 'Home', href: '/home', icon: Home },
     { name: 'Orders', href: '/tasks', icon: Package },
+    { name: 'Inventory', href: '/inventory', icon: Boxes },
     { name: 'Profile', href: '/profile', icon: User },
   ];
 
@@ -194,8 +196,8 @@ export default function PickerShell({ children }: PickerShellProps) {
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <img
               src="/logo-icon.png"
-              alt="Pocket Kirana"
-              className="w-10 h-10 object-contain rounded-2xl bg-white p-1 border border-slate-200 shadow-sm"
+              alt="Pocket Kirana Picker"
+              className="w-11 h-11 object-cover rounded-2xl bg-white border border-slate-200 shadow-sm shrink-0"
             />
             <div>
               <h3 className="font-black text-sm tracking-tight text-slate-900 uppercase">PocketKirana</h3>
@@ -210,7 +212,7 @@ export default function PickerShell({ children }: PickerShellProps) {
             <Store className="w-5 h-5 text-emerald-600 shrink-0" />
             <div className="min-w-0">
               <span className="text-[10px] text-slate-400 font-black block uppercase tracking-wider">Assigned Store</span>
-              <strong className="text-slate-900 text-xs font-bold block truncate">{picker.storeName || 'MG Road Store'}</strong>
+              <strong className="text-slate-900 text-xs font-bold block truncate">{picker.storeName || 'PocketKirana Neral Hub'}</strong>
             </div>
           </div>
 
@@ -276,16 +278,23 @@ export default function PickerShell({ children }: PickerShellProps) {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-sm text-slate-900 tracking-tight">PocketKirana</span>
-                <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase tracking-wider">
-                  Picker
+            <div className="flex items-center gap-2">
+              <img
+                src="/logo-icon.png"
+                alt="Pocket Kirana Picker"
+                className="w-8 h-8 object-cover rounded-xl bg-white border border-slate-200 shadow-xs shrink-0"
+              />
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-black text-sm text-slate-900 tracking-tight">PocketKirana</span>
+                  <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase tracking-wider">
+                    Picker
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-bold block truncate max-w-[140px]">
+                  {picker.storeName || 'PocketKirana Neral Hub'}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500 font-bold block truncate max-w-[140px]">
-                {picker.storeName || 'MG Road Store'}
-              </span>
             </div>
           </div>
 
@@ -321,7 +330,7 @@ export default function PickerShell({ children }: PickerShellProps) {
 
       {/* ── MOBILE BOTTOM NAVIGATION BAR ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-xl">
-        <div className="grid grid-cols-3 h-16">
+        <div className="grid grid-cols-4 h-16">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;

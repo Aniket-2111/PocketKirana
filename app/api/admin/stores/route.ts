@@ -1,10 +1,25 @@
-import { NextResponse } from 'next/server';
-import { getStores } from '@/lib/locationServices';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
-  const stores = getStores();
-  return NextResponse.json({
-    success: true,
-    data: stores,
-  });
+/**
+ * RETIRED: The legacy in-memory /api/admin/stores endpoint has been retired.
+ * Store operational authority is managed via canonical /api/admin/store/operations backed by PostgreSQL.
+ */
+export async function GET(_req: NextRequest) {
+  return NextResponse.json(
+    {
+      error: 'GONE',
+      message: 'The legacy /api/admin/stores endpoint has been retired. Store configuration authority is consolidated under /api/admin/store/operations backed by PostgreSQL.',
+    },
+    { status: 410 }
+  );
+}
+
+export async function POST(_req: NextRequest) {
+  return NextResponse.json(
+    {
+      error: 'GONE',
+      message: 'The legacy /api/admin/stores endpoint has been retired. Store configuration authority is consolidated under /api/admin/store/operations backed by PostgreSQL.',
+    },
+    { status: 410 }
+  );
 }

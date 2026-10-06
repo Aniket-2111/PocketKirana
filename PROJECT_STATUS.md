@@ -1,20 +1,26 @@
 # Pocket Kirana — Project Status & Release Governance
 
-> **🟢 APPLICATION RELEASE CANDIDATE APPROVED — CODE FREEZE ACTIVE 🔒**  
-> **🟡 PHASE G PRODUCTION INFRASTRUCTURE — PENDING G1–G5 VERIFICATION**  
-> **🔴 LIVE CUSTOMER TRAFFIC — NOT YET ENABLED**  
+> **🟢 CUSTOMER UI/UX — FROZEN 🔒**  
+> **🟢 CORE CHECKOUT INTEGRATION — RESOLVED IN CODE**  
+> **🟢 DELIVERY OTP STORAGE — RESOLVED IN CODE**  
+> **🟡 AUTHENTICATION — DEVICE E2E PENDING**  
+> **🔴 VPS/DATABASE — SERVER VERIFICATION REQUIRED**  
+> **🔴 PHONEPE — SANDBOX E2E REQUIRED**  
+> **🟡 FULFILLMENT — REAL ORDER TEST REQUIRED**  
+> **🟡 ORDER TRACKING — DEVICE E2E REQUIRED**  
+> **🔴 LIVE CUSTOMER TRAFFIC — NOT APPROVED**  
+
+*See [FUNCTIONAL_QA_BASELINE.md](file:///d:/pocketkirana/FUNCTIONAL_QA_BASELINE.md) for detailed verification checklists.*
 
 ---
 
 ## 1. Verified Release Candidate Snapshot
 
-- **Production Build:** 🟢 **81/81 Pages Compiled** (Next.js 15.5 App Router)
-- **TypeScript / Linter:** 🟢 **0 Errors / 0 Warnings** (`tsc --noEmit`)
-- **Automated Invariant Suite:** 🟢 **25/25 Tests Passing** (`npm test`)
-- **Payment Verification:**
-  - PhonePe: 🟢 Verified (SHA256 `x-verify` + exact amount in paise + idempotent ACK)
-  - Razorpay: 🟢 Verified (HMAC SHA256 + fail-closed production check)
-  - Cash on Delivery: 🟢 Verified (Doorstep settlement lock + delivery OTP)
+- **Customer UI/UX:** 🟢 **FROZEN** (Realme RMX5000 physical-device QA passed)
+- **Production Build:** 🟢 **Next.js 15.5 App Router + Customer App**
+- **TypeScript / Linter:** 🟢 **0 Errors** (`tsc --noEmit` clean on both main and customer apps)
+- **Checkout Integration:** 🟢 **PostgreSQL Transaction + Immediate Firestore Mirror + COD Trigger**
+- **Delivery Verification:** 🟢 **`orders.delivery_otp` persistent in PostgreSQL, Firestore, and client**
 
 ---
 

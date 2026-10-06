@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPostgresPool } from '@/lib/postgres';
 import { requireRole } from '@/lib/routeAuth';
+import { timingSafeOtpCompare } from '@/lib/cryptoUtils';
 import { randomUUID } from 'crypto';
 
 // Base delivery fee — in production, pull from delivery_zones or store config
@@ -73,7 +74,8 @@ export async function POST(
         return NextResponse.json({ error: 'No customer OTP generated for this assignment' }, { status: 400 });
       }
 
-      if (assignment.delivery_otp.trim() !== otp.trim()) {
+      // PK-SEC-08: Use constant-time comparison to prevent timing side-channel
+      if (!timingSafeOtpCompare(assignment.delivery_otp.trim(), otp.trim())) {
         return NextResponse.json({ error: 'Invalid customer OTP' }, { status: 400 });
       }
     }

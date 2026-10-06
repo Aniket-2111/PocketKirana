@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { INITIAL_ORDERS } from '@/lib/mockData';
+import { generateSecureOtp } from '@/lib/cryptoUtils';
+import { getPostgresPool } from '@/lib/postgres';
 
 export async function OPTIONS() {
   const res = NextResponse.json({ status: 'ok' });
@@ -52,13 +54,28 @@ export async function POST(
       return response;
     }
 
-    // 3. Generate fresh 4-digit OTP
-    const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    // 3. Generate fresh 4-digit OTP using crypto.randomInt
+    const newOtp = generateSecureOtp(4);
     const generatedAt = new Date().toISOString();
     const expiresAt = new Date(now + 15 * 60 * 1000).toISOString();
 
     let orderNumber = orderId;
     let customerPhone = '9999999999';
+
+    // 4. Update Authoritative PostgreSQL record first
+    try {
+      const pool = getPostgresPool();
+      if (pool) {
+        await pool.query(
+          `UPDATE orders 
+           SET delivery_otp = $1, updated_at = NOW() 
+           WHERE id = $2 OR order_number = $2`,
+          [newOtp, orderId]
+        );
+      }
+    } catch (pgErr: any) {
+      console.warn('[Resend OTP PostgreSQL Warning]', pgErr.message);
+    }
 
     if (isFirebaseConfigured() && db) {
       const orderRef = doc(db, 'orders', orderId);
@@ -87,7 +104,7 @@ export async function POST(
           timestamp: generatedAt,
         });
       }
-    } else {
+    } else if (process.env.NODE_ENV !== 'production') {
       const order = INITIAL_ORDERS.find((o) => o.id === orderId || o.orderNumber === orderId);
       if (order) {
         order.deliveryOtp = newOtp;

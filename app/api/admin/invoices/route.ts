@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRouteAuth } from '@/lib/routeAuth';
-import { INITIAL_ORDERS } from '@/lib/mockData';
+import { requireRole } from '@/lib/routeAuth';
 import {
   createOrGetInvoiceSnapshot,
   DEFAULT_INVOICE_TEMPLATE,
@@ -10,24 +9,12 @@ import {
 // Global cache of finalized invoices
 const adminInvoicesStore: InvoiceSnapshot[] = [];
 
-// Populate from initial mock data if empty
-if (adminInvoicesStore.length === 0) {
-  INITIAL_ORDERS.forEach((ord: any) => {
-    try {
-      const inv = createOrGetInvoiceSnapshot(ord, DEFAULT_INVOICE_TEMPLATE, adminInvoicesStore);
-      adminInvoicesStore.push(inv);
-    } catch (_) {}
-  });
-}
-
 export async function GET(req: NextRequest) {
+  const auth = requireRole(req, ['admin']);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
+  }
   try {
-    const auth = getRouteAuth(req);
-    // Role check: Admin only (allow dev-user in local dev)
-    if (auth && auth.role !== 'admin' && auth.uid !== 'dev-user') {
-      return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
-    }
-
     const { searchParams } = new URL(req.url);
     const search = (searchParams.get('search') || '').toLowerCase().trim();
     const status = (searchParams.get('status') || '').toLowerCase().trim();

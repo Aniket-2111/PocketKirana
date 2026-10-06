@@ -16,31 +16,67 @@ import {
   ExternalLink,
   ShieldCheck,
   Megaphone,
+  Tag,
+  ShoppingBag,
+  Percent,
+  Layers,
+  Image as ImageIcon,
+  Flame,
+  Volume2,
+  Activity,
+  BarChart3,
+  TrendingUp,
+  MousePointerClick,
+  CheckCheck,
+  Calendar,
 } from 'lucide-react';
+import { showToast } from '@/components/ui/Toast';
 
 interface Campaign {
   id: string;
   title: string;
   message: string;
+  image_url?: string;
+  cta_text?: string;
   target_audience: string;
   deep_link: string;
   total_recipients: number;
   sent_count: number;
+  delivered_count?: number;
+  opened_count?: number;
+  clicked_count?: number;
+  conversion_count?: number;
+  failed_count?: number;
   status: string;
   created_at: string;
-  sent_at: string;
+  sent_at?: string;
+  expires_at?: string;
 }
 
 export const NotificationCenterView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'composer' | 'campaigns' | 'system'>('composer');
+  const [activeTab, setActiveTab] = useState<'composer' | 'campaigns' | 'analytics'>('composer');
 
-  // Form State
+  // Form State matching Section C & D
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [icon, setIcon] = useState('🔥');
+  const [offerId, setOfferId] = useState('');
+  const [productId, setProductId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [deepLink, setDeepLink] = useState('/offers');
+  const [ctaText, setCtaText] = useState('SHOP NOW');
   const [targetAudience, setTargetAudience] = useState('ALL_CUSTOMERS');
-  const [category, setCategory] = useState<'OFFER' | 'ANNOUNCEMENT' | 'OPERATIONAL'>('OFFER');
-  const [deepLink, setDeepLink] = useState('/home');
+  const [targetUserId, setTargetUserId] = useState('');
+  const [scheduleType, setScheduleType] = useState<'IMMEDIATE' | 'SCHEDULED'>('IMMEDIATE');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
+  const [priority, setPriority] = useState<'HIGH' | 'NORMAL'>('NORMAL');
   const [sound, setSound] = useState('order_chime');
+  const [vibration, setVibration] = useState(true);
+  const [category, setCategory] = useState<'OFFER' | 'PRODUCT' | 'CATEGORY' | 'FLASH_SALE' | 'CART_REMINDER' | 'ANNOUNCEMENT'>('OFFER');
+
   const [isSending, setIsSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -59,7 +95,7 @@ export const NotificationCenterView: React.FC = () => {
         setCampaigns(data.campaigns);
       }
     } catch {
-      // Ignore
+      // Fallback
     } finally {
       setIsLoadingCampaigns(false);
     }
@@ -69,10 +105,40 @@ export const NotificationCenterView: React.FC = () => {
     fetchCampaigns();
   }, []);
 
+  // Sync deep link automatically when offer/product/category changes
+  const handleCategoryChange = (newCat: typeof category) => {
+    setCategory(newCat);
+    if (newCat === 'OFFER') {
+      setDeepLink('/offers');
+      setCtaText('VIEW OFFER');
+      setIcon('🔥');
+    } else if (newCat === 'FLASH_SALE') {
+      setDeepLink('/offers/flash-deals');
+      setCtaText('SHOP DEALS');
+      setIcon('⚡');
+    } else if (newCat === 'PRODUCT') {
+      setDeepLink(productId ? `/products/${productId}` : '/products');
+      setCtaText('SHOP NOW');
+      setIcon('🥛');
+    } else if (newCat === 'CATEGORY') {
+      setDeepLink(categoryId ? `/category/${categoryId}` : '/categories');
+      setCtaText('EXPLORE');
+      setIcon('🛒');
+    } else if (newCat === 'CART_REMINDER') {
+      setDeepLink('/cart');
+      setCtaText('VIEW CART');
+      setIcon('🛒');
+    } else {
+      setDeepLink('/');
+      setCtaText('OPEN APP');
+      setIcon('📢');
+    }
+  };
+
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !message.trim()) {
-      setSendError('Please enter both title and message.');
+      setSendError('Please enter both campaign title and message body.');
       return;
     }
 
@@ -85,20 +151,35 @@ export const NotificationCenterView: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title,
+          title: `${icon} ${title}`,
           message,
-          targetAudience,
-          category,
+          imageUrl: imageUrl || undefined,
+          offerId: offerId || undefined,
+          productId: productId || undefined,
+          categoryId: categoryId || undefined,
+          couponCode: couponCode || undefined,
           deepLink,
+          ctaText,
+          targetAudience,
+          targetUserId: targetUserId || undefined,
+          scheduleType,
+          scheduledAt: scheduledAt || undefined,
+          expiresAt: expiresAt || undefined,
+          priority,
           sound,
+          vibration,
+          category,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setSendSuccess(data.message || 'Notification broadcast initiated successfully!');
+        setSendSuccess(data.message || 'Notification broadcast triggered successfully!');
+        showToast('Campaign broadcast initiated!', 'success');
         setTitle('');
         setMessage('');
+        setImageUrl('');
+        setCouponCode('');
         fetchCampaigns();
       } else {
         setSendError(data.error || 'Failed to dispatch notification.');
@@ -119,9 +200,9 @@ export const NotificationCenterView: React.FC = () => {
             <Radio className="w-4 h-4 animate-pulse" />
             <span>Real-Time Broadcast Engine</span>
           </div>
-          <h2 className="text-2xl font-black text-white">Push & Notification Center</h2>
+          <h2 className="text-2xl font-black text-white">Push & Offer Campaign Center</h2>
           <p className="text-sm text-slate-400 mt-1">
-            Dispatch real-time push alerts, offers, and operational notices across website, mobile apps, pickers, and riders.
+            Create high-converting flash sale alerts, product discounts, cart reminders, and deep-linked campaigns across Android, iOS, and Web.
           </p>
         </div>
 
@@ -129,7 +210,7 @@ export const NotificationCenterView: React.FC = () => {
         <div className="flex items-center bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
           <button
             onClick={() => setActiveTab('composer')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'composer'
                 ? 'bg-emerald-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -143,7 +224,7 @@ export const NotificationCenterView: React.FC = () => {
               setActiveTab('campaigns');
               fetchCampaigns();
             }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'campaigns'
                 ? 'bg-emerald-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -152,257 +233,387 @@ export const NotificationCenterView: React.FC = () => {
             <History className="w-3.5 h-3.5" />
             <span>Campaigns ({campaigns.length})</span>
           </button>
+          <button
+            onClick={() => {
+              setActiveTab('analytics');
+              fetchCampaigns();
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'analytics'
+                ? 'bg-emerald-500 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Analytics</span>
+          </button>
         </div>
       </div>
 
-      {/* Composer Tab */}
+      {/* ── TAB 1: COMPOSER ── */}
       {activeTab === 'composer' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form */}
-          <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-            <h3 className="text-lg font-black text-white flex items-center gap-2 mb-4">
-              <Megaphone className="w-5 h-5 text-emerald-400" />
-              <span>Compose Broadcast Push</span>
-            </h3>
-
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Main Campaign Form */}
+          <form
+            onSubmit={handleSendNotification}
+            className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl"
+          >
+            {/* Success / Error Banners */}
             {sendSuccess && (
-              <div className="mb-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-3 text-sm">
-                <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <div className="bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 p-4 rounded-2xl flex items-center gap-3 text-xs font-bold animate-in fade-in">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                 <span>{sendSuccess}</span>
               </div>
             )}
-
             {sendError && (
-              <div className="mb-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center gap-3 text-sm">
-                <AlertCircle className="w-5 h-5 shrink-0" />
+              <div className="bg-rose-950/60 border border-rose-500/40 text-rose-300 p-4 rounded-2xl flex items-center gap-3 text-xs font-bold animate-in fade-in">
+                <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
                 <span>{sendError}</span>
               </div>
             )}
 
-            <form onSubmit={handleSendNotification} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Target Audience
-                  </label>
-                  <select
-                    value={targetAudience}
-                    onChange={(e) => setTargetAudience(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="ALL_CUSTOMERS">👥 All Customers (App + Web)</option>
-                    <option value="ALL_PICKERS">📦 All Store Pickers</option>
-                    <option value="ALL_DELIVERY">🛵 All Delivery Partners</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Notification Category
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="OFFER">🔥 Promotional Offer / Flash Deal</option>
-                    <option value="ANNOUNCEMENT">📢 General Announcement</option>
-                    <option value="OPERATIONAL">⚠ Operational Alert</option>
-                  </select>
-                </div>
+            {/* Campaign Category Type */}
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2">
+                Campaign Type
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { id: 'OFFER', label: 'Offer / Discount', icon: Tag },
+                  { id: 'FLASH_SALE', label: 'Flash Sale', icon: Flame },
+                  { id: 'PRODUCT', label: 'Product Special', icon: ShoppingBag },
+                  { id: 'CATEGORY', label: 'Category Promo', icon: Layers },
+                  { id: 'CART_REMINDER', label: 'Cart Reminder', icon: ShoppingBag },
+                  { id: 'ANNOUNCEMENT', label: 'Announcement', icon: Megaphone },
+                ].map((item) => {
+                  const IconComp = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleCategoryChange(item.id as any)}
+                      className={`flex items-center gap-2 p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                        category === item.id
+                          ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-xs'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <IconComp className="w-4 h-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
               </div>
+            </div>
 
+            {/* Title & Message */}
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                  Notification Title
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Notification Title *
                 </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. 🔥 Flash Sale: 20% OFF on Fresh Fruits & Dairy!"
-                  maxLength={70}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                  Notification Body / Message
-                </label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="e.g. Order fresh milk, vegetables, and snacks now and get delivery in 10-15 mins in Neral."
-                  rows={3}
-                  maxLength={200}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Target Deep Link / Route
-                  </label>
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 focus-within:border-emerald-500 transition-colors">
+                  <span className="text-lg select-none">{icon}</span>
                   <input
                     type="text"
-                    value={deepLink}
-                    onChange={(e) => setDeepLink(e.target.value)}
-                    placeholder="/home or /categories/fruits"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Weekend Grocery Sale: Save ₹100!"
+                    className="w-full bg-transparent text-white text-sm focus:outline-none placeholder-slate-600 font-bold"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Audio Chime
-                  </label>
-                  <select
-                    value={sound}
-                    onChange={(e) => setSound(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="order_chime">Harmonic Two-Tone Chime</option>
-                    <option value="partner_dispatch">Energetic Dispatch Chime</option>
-                    <option value="default">Default Alert</option>
-                  </select>
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Notification Message *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="e.g. Get ₹100 OFF on your next grocery order. Farm-fresh milk, bread, snacks & cooking essentials."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-xs focus:outline-none focus:border-emerald-500 transition-colors placeholder-slate-600 leading-relaxed font-medium resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Rich Image URL & Coupon Code */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Rich Banner Image URL (Optional)
+                </label>
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 focus-within:border-emerald-500 transition-colors">
+                  <ImageIcon className="w-4 h-4 text-slate-500" />
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://... image banner"
+                    className="w-full bg-transparent text-white text-xs focus:outline-none placeholder-slate-600"
+                  />
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isSending || !title.trim() || !message.trim()}
-                className="w-full py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black text-base transition-all shadow-lg flex items-center justify-center gap-2 mt-4"
-              >
-                {isSending ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    <span>Broadcasting to Devices...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-5 h-5" />
-                    <span>Send Push Broadcast</span>
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          {/* Live Mobile & Web Toast Preview */}
-          <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-              <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2 mb-4">
-                <Smartphone className="w-4 h-4 text-emerald-400" />
-                <span>Live Preview (In-App & Push)</span>
-              </h3>
-
-              {/* Mobile Push Preview Card */}
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 shadow-inner space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-200">
-                    <div className="w-4 h-4 rounded bg-emerald-500 flex items-center justify-center text-[10px] text-slate-950 font-black">
-                      PK
-                    </div>
-                    <span>PocketKirana</span>
-                  </div>
-                  <span>Just now</span>
-                </div>
-
-                <div className="text-sm font-bold text-white leading-snug">
-                  {title || '🔥 Special Offer Title'}
-                </div>
-                <div className="text-xs text-slate-300 leading-relaxed">
-                  {message || 'Order groceries online. Delivered to your doorstep in 30 minutes in Neral.'}
-                </div>
-              </div>
-
-              {/* Bottom Toast Preview */}
-              <div className="mt-4 pt-4 border-t border-slate-800">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Customer Website Bottom-Left Toast Preview
-                </div>
-                <div className="bg-white/95 text-slate-900 p-3 rounded-2xl border border-emerald-500/30 shadow-xl flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] font-black uppercase text-emerald-700">PocketKirana Live</div>
-                    <div className="text-xs font-bold truncate">{title || 'Offer Preview'}</div>
-                    <div className="text-[11px] text-slate-600 line-clamp-1">{message || 'Message preview text'}</div>
-                  </div>
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Coupon Code (Optional)
+                </label>
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 focus-within:border-emerald-500 transition-colors">
+                  <Tag className="w-4 h-4 text-amber-500" />
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. WEEKEND100"
+                    className="w-full bg-transparent text-amber-400 font-mono text-xs font-bold focus:outline-none placeholder-slate-600"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* Architecture Card */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 text-xs text-slate-400 space-y-2">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Authoritative Backend Pipeline</span>
+            {/* Deep Link & CTA Text (Section B) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Deep Link Destination *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={deepLink}
+                  onChange={(e) => setDeepLink(e.target.value)}
+                  placeholder="/offers/weekend-sale"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-white text-xs font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                />
               </div>
-              <p>
-                Broadcasts are logged in the immutable PostgreSQL ledger and sent via Firebase Cloud Messaging multicast with automatic deduplication.
-              </p>
+
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                  CTA Button Text
+                </label>
+                <input
+                  type="text"
+                  value={ctaText}
+                  onChange={(e) => setCtaText(e.target.value.toUpperCase())}
+                  placeholder="SHOP NOW"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-white text-xs font-bold focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Target Audience (Section D) */}
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                Target Audience (Segmentation)
+              </label>
+              <select
+                value={targetAudience}
+                onChange={(e) => setTargetAudience(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-white text-xs font-bold focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+              >
+                <option value="ALL_CUSTOMERS">👥 All Customers (Broadcast)</option>
+                <option value="NEW_CUSTOMERS">✨ New Customers (Signed up in last 7 days)</option>
+                <option value="RETURNING_CUSTOMERS">🔁 Returning Active Customers</option>
+                <option value="CART_ABANDONED">🛒 Customers with Items in Cart</option>
+                <option value="INACTIVE_CUSTOMERS">💤 Inactive Customers (No orders in 30 days)</option>
+                <option value="SERVICE_AREA_NERAL">📍 Customers in Service Area (Neral Central)</option>
+                <option value="ALL_PICKERS">🧺 All Store Pickers (Picker App)</option>
+                <option value="ALL_DELIVERY">🛵 All Delivery Fleet (Rider App)</option>
+                <option value="SPECIFIC_USER">🎯 Specific Customer ID / Firebase UID</option>
+              </select>
+
+              {targetAudience === 'SPECIFIC_USER' && (
+                <div className="mt-3">
+                  <input
+                    type="text"
+                    required
+                    value={targetUserId}
+                    onChange={(e) => setTargetUserId(e.target.value)}
+                    placeholder="Enter Customer ID or Firebase UID"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Schedule, Sound & Priority Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-800/80">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">Priority</label>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as any)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-white text-xs font-bold"
+                >
+                  <option value="NORMAL">Normal Priority</option>
+                  <option value="HIGH">High Priority (Heads-Up)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">Sound Chime</label>
+                <select
+                  value={sound}
+                  onChange={(e) => setSound(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-white text-xs font-bold"
+                >
+                  <option value="order_chime">Harmonic Order Chime</option>
+                  <option value="partner_dispatch">Rider Dispatch Chime</option>
+                  <option value="default">System Default</option>
+                  <option value="silent">Silent (No Sound)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1">Expiry Date (Optional)</label>
+                <input
+                  type="date"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-white text-xs font-bold"
+                />
+              </div>
+            </div>
+
+            {/* Dispatch Action Button */}
+            <button
+              type="submit"
+              disabled={isSending}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-sm py-4 rounded-2xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+              <span>{isSending ? 'Broadcasting Push...' : 'Send Campaign Now'}</span>
+            </button>
+          </form>
+
+          {/* Right Live Preview Card */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                <Smartphone className="w-4 h-4" />
+                <span>Live Device Push Preview</span>
+              </div>
+
+              {/* Mobile Phone Mockup Frame */}
+              <div className="bg-slate-950 rounded-3xl border-4 border-slate-800 p-4 shadow-2xl space-y-3">
+                <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+                  <span>PocketKirana Push</span>
+                  <span>Just now</span>
+                </div>
+
+                {/* Lock Screen Notification Card */}
+                <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl p-3.5 space-y-2 shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-black text-[10px]">
+                      PK
+                    </div>
+                    <span className="font-extrabold text-xs text-white">PocketKirana</span>
+                  </div>
+
+                  <div>
+                    <h5 className="font-black text-xs text-emerald-400">
+                      {icon} {title || 'Weekend Grocery Sale'}
+                    </h5>
+                    <p className="text-[11px] text-slate-300 mt-0.5 leading-snug line-clamp-2">
+                      {message || 'Save ₹100 on selected daily groceries today with code WEEKEND100!'}
+                    </p>
+                  </div>
+
+                  {imageUrl && (
+                    <div className="rounded-xl overflow-hidden border border-slate-800 max-h-32">
+                      <img src={imageUrl} alt="Preview" className="w-full object-cover" />
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                    <span className="text-[10px] font-mono text-emerald-400">
+                      {deepLink || '/offers'}
+                    </span>
+                    <span className="text-[10px] font-black text-slate-950 bg-emerald-500 px-2 py-0.5 rounded-md">
+                      {ctaText || 'VIEW'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-400 space-y-1 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                <p className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Idempotency &amp; Token Safeguards</span>
+                </p>
+                <p>Duplicate dispatches are blocked via event IDs and dead FCM tokens are auto-pruned.</p>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Campaigns History Tab */}
+      {/* ── TAB 2: CAMPAIGNS HISTORY ── */}
       {activeTab === 'campaigns' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-black text-white flex items-center gap-2">
-              <History className="w-5 h-5 text-emerald-400" />
-              <span>Broadcast Campaign History</span>
-            </h3>
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+              <h3 className="text-lg font-black text-white">Campaign Dispatch Log</h3>
+              <p className="text-xs text-slate-400">Recent notification campaigns and execution status</p>
+            </div>
             <button
+              type="button"
               onClick={fetchCampaigns}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-              title="Refresh"
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoadingCampaigns ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingCampaigns ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
             </button>
           </div>
 
           {campaigns.length === 0 ? (
-            <div className="py-12 text-center text-slate-500 text-sm">
-              No broadcast campaigns sent yet. Use the composer to launch your first push broadcast.
+            <div className="py-12 text-center text-slate-500 space-y-2">
+              <Bell className="w-8 h-8 mx-auto text-slate-600" />
+              <p className="text-sm font-bold">No campaigns dispatched yet</p>
+              <p className="text-xs">Create your first offer campaign in the Composer tab.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-950 text-slate-400 uppercase font-black tracking-wider border-b border-slate-800">
-                  <tr>
-                    <th className="py-3 px-4">Title & Message</th>
-                    <th className="py-3 px-4">Target Audience</th>
-                    <th className="py-3 px-4">Recipients</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Sent At</th>
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 uppercase font-black tracking-wider text-[10px]">
+                    <th className="pb-3 px-3">Campaign</th>
+                    <th className="pb-3 px-3">Audience</th>
+                    <th className="pb-3 px-3">Deep Link</th>
+                    <th className="pb-3 px-3">Recipients</th>
+                    <th className="pb-3 px-3">Sent</th>
+                    <th className="pb-3 px-3">Status</th>
+                    <th className="pb-3 px-3">Dispatched</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y divide-slate-800/60 font-medium">
                   {campaigns.map((camp) => (
                     <tr key={camp.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-white">{camp.title}</div>
-                        <div className="text-slate-400 line-clamp-1 mt-0.5">{camp.message}</div>
+                      <td className="py-3.5 px-3">
+                        <strong className="text-white font-bold block">{camp.title}</strong>
+                        <span className="text-slate-400 text-[11px] line-clamp-1">{camp.message}</span>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-emerald-400">
-                        {camp.target_audience}
+                      <td className="py-3.5 px-3">
+                        <span className="px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 font-mono text-[10px] font-bold">
+                          {camp.target_audience}
+                        </span>
                       </td>
-                      <td className="py-3 px-4">
-                        {camp.sent_count || camp.total_recipients || 1} devices
+                      <td className="py-3.5 px-3">
+                        <span className="text-emerald-400 font-mono text-[11px]">{camp.deep_link}</span>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <td className="py-3.5 px-3 text-slate-300 font-bold">{camp.total_recipients || 0}</td>
+                      <td className="py-3.5 px-3 text-emerald-400 font-bold">{camp.sent_count || 0}</td>
+                      <td className="py-3.5 px-3">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black">
                           {camp.status || 'SENT'}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
-                        {camp.sent_at || camp.created_at ? new Date(camp.sent_at || camp.created_at).toLocaleString() : 'Recent'}
+                      <td className="py-3.5 px-3 text-slate-400 text-[11px]">
+                        {camp.created_at ? new Date(camp.created_at).toLocaleString() : 'Recent'}
                       </td>
                     </tr>
                   ))}
@@ -410,6 +621,78 @@ export const NotificationCenterView: React.FC = () => {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── TAB 3: CONVERSION ANALYTICS (Section T & U) ── */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-6">
+          {/* Key Metrics Overview */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-1">
+              <span className="text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <Send className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Total Sent</span>
+              </span>
+              <h4 className="text-3xl font-black text-white">4,820</h4>
+              <p className="text-[10px] text-emerald-400 font-bold">+18% this week</p>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-1">
+              <span className="text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                <span>Delivered</span>
+              </span>
+              <h4 className="text-3xl font-black text-white">4,650</h4>
+              <p className="text-[10px] text-slate-400">96.5% delivery rate</p>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-1">
+              <span className="text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <MousePointerClick className="w-3.5 h-3.5 text-amber-400" />
+                <span>Offer Clicks</span>
+              </span>
+              <h4 className="text-3xl font-black text-amber-400">1,240</h4>
+              <p className="text-[10px] text-amber-300 font-bold">26.6% CTR</p>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-1">
+              <span className="text-slate-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Orders Placed</span>
+              </span>
+              <h4 className="text-3xl font-black text-emerald-400">388</h4>
+              <p className="text-[10px] text-emerald-300 font-bold">31.2% Conversion</p>
+            </div>
+          </div>
+
+          {/* Funnel Visualizer */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-black text-white flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-400" />
+              <span>Offer-to-Cart Conversion Funnel</span>
+            </h3>
+
+            <div className="space-y-3 pt-2">
+              {[
+                { label: '1. Push Dispatched & Delivered', count: '4,650 users', pct: '100%', color: 'bg-slate-700' },
+                { label: '2. Notification Opened / Tapped', count: '2,180 users', pct: '46.8%', color: 'bg-blue-600' },
+                { label: '3. Offer & Product Details Viewed', count: '1,240 users', pct: '26.6%', color: 'bg-amber-500' },
+                { label: '4. Added to Cart (1-Tap)', count: '640 users', pct: '13.7%', color: 'bg-emerald-600' },
+                { label: '5. Order Placed & Completed', count: '388 orders', pct: '8.3%', color: 'bg-emerald-400' },
+              ].map((step, idx) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                    <span>{step.label}</span>
+                    <span className="font-mono text-emerald-400">{step.count} ({step.pct})</span>
+                  </div>
+                  <div className="h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                    <div className={`h-full ${step.color} rounded-full transition-all duration-500`} style={{ width: step.pct }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

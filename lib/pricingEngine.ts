@@ -5,6 +5,7 @@
  * Evaluates base prices, active promotions, tiered cart coupons, and customer segmentation
  * to calculate the single authoritative price breakdown for cart, checkout, and invoicing.
  */
+import { FREE_DELIVERY_THRESHOLD } from './freeDelivery';
 
 export type PromotionType = 'PERCENTAGE' | 'FLAT' | 'BUY_X_GET_Y' | 'TIERED_CART' | 'CATEGORY_DISCOUNT';
 export type CustomerSegment = 'ALL' | 'NEW_CUSTOMER' | 'RETURNING' | 'VIP';
@@ -258,9 +259,9 @@ export function calculateAuthoritativeCartPrice(
     }
   }
 
-  // 3. Delivery Charge Rules (Free delivery over ₹499)
+  // 3. Delivery Charge Rules (Free delivery over FREE_DELIVERY_THRESHOLD ₹500)
   const taxableAmount = Math.max(0, cartValueAfterProductDiscount - couponDiscountTotal);
-  const deliveryCharge = taxableAmount >= 499 || cartItems.length === 0 ? 0 : 29;
+  const deliveryCharge = taxableAmount >= FREE_DELIVERY_THRESHOLD || cartItems.length === 0 ? 0 : 29;
   const taxAmount = Math.round(taxableAmount * 0.05); // 5% GST
   const grandTotal = Math.max(0, taxableAmount + deliveryCharge + taxAmount);
 

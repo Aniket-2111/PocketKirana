@@ -83,13 +83,16 @@ export interface CompleteDeliveryResult {
 // ══════════════════════════════════════════
 
 /**
- * Place a new order with server-side validation.
- * This is the ONLY way orders should be created.
+ * @deprecated NON-AUTHORITATIVE / DECOMMISSIONED.
+ * Do NOT use for customer order creation.
+ * Canonical customer order creation is strictly handled by POST /api/checkout.
+ *
+ * Legacy Firebase Cloud Function order placement wrapper.
  */
 export async function callPlaceOrder(params: {
   cartItems: Array<{ productId: string; quantity: number }>;
   addressId: string;
-  paymentMethod: 'cod' | 'razorpay' | 'phonepe' | 'upi' | 'card';
+  paymentMethod: 'cod' | 'phonepe' | 'upi' | 'card';
   couponCode?: string;
   storeId?: string;
 }): Promise<PlaceOrderResult> {
@@ -145,6 +148,8 @@ export async function callCancelOrder(params: {
 // ══════════════════════════════════════════
 
 /**
+ * @deprecated NON-AUTHORITATIVE.
+ * Replaced by GET /api/serviceability/check.
  * Server-side delivery zone check (Haversine in Cloud Function).
  */
 export async function callValidateDeliveryZone(
@@ -401,6 +406,14 @@ async function callPlaceOrderFallback(params: {
   couponCode?: string;
   storeId?: string;
 }): Promise<PlaceOrderResult> {
+  const isProduction =
+    process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+  if (isProduction) {
+    throw new Error(
+      'Client order placement fallback is prohibited in production. Orders must be submitted authoritatively via /api/checkout or live Cloud Functions.'
+    );
+  }
+
   const { getFirebaseDb, getFirebaseAuth } = await import('./firebase');
   const db = getFirebaseDb();
   const auth = getFirebaseAuth();

@@ -20,8 +20,7 @@ The rule is implemented in two small config modules and one middleware:
 
 ```
 lib/phonepeConfig.ts      getPhonePeConfig() → null | {merchantId, saltKey, ...}
-lib/razorpayConfig.ts     getRazorpayConfig() → null | {keyId, keySecret}
-                          isSimulationMode() / isRazorpaySimulationMode()
+                          isSimulationMode()
 middleware.ts             Edge session verification (RS256), strips inbound
                           x-pk-* headers, injects only verified identity
 ```
