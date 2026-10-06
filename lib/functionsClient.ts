@@ -83,8 +83,11 @@ export interface CompleteDeliveryResult {
 // ══════════════════════════════════════════
 
 /**
- * Place a new order with server-side validation.
- * This is the ONLY way orders should be created.
+ * @deprecated NON-AUTHORITATIVE / DECOMMISSIONED.
+ * Do NOT use for customer order creation.
+ * Canonical customer order creation is strictly handled by POST /api/checkout.
+ *
+ * Legacy Firebase Cloud Function order placement wrapper.
  */
 export async function callPlaceOrder(params: {
   cartItems: Array<{ productId: string; quantity: number }>;
@@ -145,6 +148,8 @@ export async function callCancelOrder(params: {
 // ══════════════════════════════════════════
 
 /**
+ * @deprecated NON-AUTHORITATIVE.
+ * Replaced by GET /api/serviceability/check.
  * Server-side delivery zone check (Haversine in Cloud Function).
  */
 export async function callValidateDeliveryZone(

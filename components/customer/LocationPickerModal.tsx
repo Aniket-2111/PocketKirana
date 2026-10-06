@@ -13,12 +13,8 @@ import { Address } from '@/types';
 import {
   resolveLocationFromCoords,
   searchLocationsAutocomplete,
-  checkZoneServiceability,
-  setStoresState,
   GeocodedLocation,
-  ZoneServiceability
 } from '@/lib/locationServices';
-import { fetchShopsFS } from '@/lib/firebaseServices';
 import { showToast } from '@/components/ui/Toast';
 
 // Dynamic import with ssr:false prevents Leaflet from running during
@@ -65,7 +61,26 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
   const [lat, setLat] = useState<number>(defaultAddr?.latitude || 19.033);
   const [lng, setLng] = useState<number>(defaultAddr?.longitude || 73.317);
   const [geocoded, setGeocoded] = useState<GeocodedLocation | null>(null);
-  const [zoneInfo, setZoneInfo] = useState<ZoneServiceability | null>(null);
+
+  // Canonical serviceability result for the map-pin position (new address panel)
+  const [zoneInfo, setZoneInfo] = useState<{
+    serviceable: boolean;
+    distanceKm: number;
+    maximumDistanceKm: number;
+    storeName: string;
+    storeLatitude: number;
+    storeLongitude: number;
+    deliveryFee: number;
+    message: string;
+    estimatedDeliveryMinutes?: number;
+    storeId?: string;
+  } | null>(null);
+
+  // Canonical serviceability results per saved address id
+  const [savedAddrZones, setSavedAddrZones] = useState<
+    Record<string, { serviceable: boolean; distanceKm: number; maximumDistanceKm: number; loading: boolean }>
+  >({});
+
   const [loadingGeocode, setLoadingGeocode] = useState(false);
 
   // Search State
@@ -129,31 +144,59 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
     }
   }, [isOpen, editingAddress]);
 
-  // ─── Load live store config from Firestore when modal opens
-  // Syncs STORES_STATE so checkZoneServiceability uses admin-configured
-  // lat/lng and radius instead of the hardcoded INITIAL_STORES fallback.
-  const [storeConfigLoaded, setStoreConfigLoaded] = useState(false);
-
+  // ─── Load canonical serviceability for each saved address when the modal opens
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || addresses.length === 0) return;
     let cancelled = false;
-    async function loadStoreConfig() {
-      try {
-        const shops = await fetchShopsFS();
-        if (!cancelled && shops && shops.length > 0) {
-          setStoresState(shops);
+
+    // Mark all as loading initially
+    const initial: Record<string, { serviceable: boolean; distanceKm: number; maximumDistanceKm: number; loading: boolean }> = {};
+    for (const addr of addresses) {
+      initial[addr.id] = { serviceable: true, distanceKm: 0, maximumDistanceKm: 3, loading: true };
+    }
+    setSavedAddrZones(initial);
+
+    async function fetchZones() {
+      for (const addr of addresses) {
+        if (cancelled) return;
+        if (!addr.latitude || !addr.longitude) {
+          setSavedAddrZones((prev) => ({
+            ...prev,
+            [addr.id]: { serviceable: false, distanceKm: 0, maximumDistanceKm: 3, loading: false },
+          }));
+          continue;
         }
-      } catch (e) {
-        // Silently ignore — STORES_STATE may already be correct if admin page was visited
-      } finally {
-        if (!cancelled) setStoreConfigLoaded(true);
+        try {
+          const res = await fetch(
+            `/api/serviceability/check?lat=${addr.latitude}&lng=${addr.longitude}&storeId=store-001`
+          );
+          const data = await res.json();
+          if (!cancelled) {
+            setSavedAddrZones((prev) => ({
+              ...prev,
+              [addr.id]: {
+                serviceable: data.serviceable === true,
+                distanceKm: data.distanceKm ?? data.straightLineDistanceKm ?? 0,
+                maximumDistanceKm: data.maximumDistanceKm ?? 3,
+                loading: false,
+              },
+            }));
+          }
+        } catch {
+          if (!cancelled) {
+            setSavedAddrZones((prev) => ({
+              ...prev,
+              [addr.id]: { serviceable: true, distanceKm: 0, maximumDistanceKm: 3, loading: false },
+            }));
+          }
+        }
       }
     }
-    loadStoreConfig();
+    fetchZones();
     return () => { cancelled = true; };
-  }, [isOpen]);
+  }, [isOpen, addresses]);
 
-  // ─── Resolve coords → address + zone check
+  // ─── Resolve coords → address + canonical serviceability check
   // Auto-populates area, city, state, pincode from map/GPS geocoding.
   // House number, building name, and landmark remain empty for manual entry.
   useEffect(() => {
@@ -163,18 +206,42 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
 
     const timer = setTimeout(async () => {
       try {
-        const res = await resolveLocationFromCoords(lat, lng);
+        const [geocodeRes, serviceabilityRes] = await Promise.allSettled([
+          resolveLocationFromCoords(lat, lng),
+          fetch(`/api/serviceability/check?lat=${lat}&lng=${lng}&storeId=store-001`).then((r) => r.json()),
+        ]);
+
         if (!isCurrent) return;
-        setGeocoded(res);
-        setArea(res.suburb || res.road || res.addressLine || '');
-        setCity(res.city || '');
-        setState(res.state || '');
-        setPostalCode(res.pincode || '');
-        // Uses the live Firestore store config (admin lat/lng/radius)
-        const zone = checkZoneServiceability(lat, lng, res.pincode);
-        setZoneInfo(zone);
-      } catch (err) {
-        console.warn('Geocoding error:', err);
+
+        if (geocodeRes.status === 'fulfilled') {
+          const geo = geocodeRes.value;
+          setGeocoded(geo);
+          setArea(geo.suburb || geo.road || geo.addressLine || '');
+          setCity(geo.city || '');
+          setState(geo.state || '');
+          setPostalCode(geo.pincode || '');
+        } else {
+          console.warn('Geocoding error:', geocodeRes.reason);
+        }
+
+        if (serviceabilityRes.status === 'fulfilled') {
+          const data = serviceabilityRes.value;
+          setZoneInfo({
+            serviceable: data.serviceable === true,
+            distanceKm: data.distanceKm ?? data.straightLineDistanceKm ?? 0,
+            maximumDistanceKm: data.maximumDistanceKm ?? 3,
+            storeName: data.storeName ?? 'Store',
+            storeLatitude: data.storeLatitude ?? 19.0224536,
+            storeLongitude: data.storeLongitude ?? 73.3210018,
+            deliveryFee: data.deliveryFee ?? 0,
+            message: data.message ?? data.error ?? '',
+            storeId: data.storeId,
+          });
+        } else {
+          // If serviceability API fails, keep zoneInfo null — do not block UI
+          console.warn('Serviceability check failed for map pin:', serviceabilityRes.reason);
+          setZoneInfo(null);
+        }
       } finally {
         if (isCurrent) setLoadingGeocode(false);
       }
@@ -184,7 +251,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [lat, lng, mounted, isOpen, storeConfigLoaded]);
+  }, [lat, lng, mounted, isOpen]);
 
   // Autocomplete search
   useEffect(() => {
@@ -346,7 +413,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
     }
   };
 
-  const isServiceable = zoneInfo?.isServiceable !== false;
+  const isServiceable = zoneInfo === null || zoneInfo.serviceable === true;
 
   if (!isOpen || !mounted) return null;
 
@@ -451,14 +518,14 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                 lng={lng}
                 onPositionChange={handlePositionChange}
                 isServiceable={isServiceable}
-                etaText={zoneInfo ? `${zoneInfo.estimatedDeliveryMinutes}-${zoneInfo.estimatedDeliveryMinutes + 5} mins` : '15-20 mins'}
-                radiusKm={zoneInfo?.radiusKm || 3.0}
+                etaText="15-20 mins"
+                radiusKm={zoneInfo?.maximumDistanceKm ?? 3.0}
                 storeLat={zoneInfo?.storeLatitude ?? 19.0224536}
                 storeLng={zoneInfo?.storeLongitude ?? 73.3210018}
-                storeName="Maule Kirana (Neral Store)"
+                storeName={zoneInfo?.storeName ?? 'PocketKirana Store'}
                 showStoreCircle={true}
                 isAdminView={false}
-                hintText="Move map pin to check 3 KM delivery serviceability from Maule Kirana"
+                hintText={`Move map pin to check ${zoneInfo?.maximumDistanceKm ?? 3} KM delivery serviceability`}
               />
             </div>
 
@@ -480,13 +547,13 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                   <div className="flex items-center gap-2">
                     <div className={`w-2.5 h-2.5 rounded-full ${isServiceable ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
                     <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-[220px]">
-                      Maule Kirana • {zoneInfo.distanceKm} KM away
+                      {zoneInfo.storeName} • {zoneInfo.distanceKm.toFixed(2)} KM away
                     </p>
                   </div>
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
                     isServiceable ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
                   }`}>
-                    {isServiceable ? `✓ SERVICE AVAILABLE (≤ ${zoneInfo.radiusKm} KM)` : `OUT OF RANGE (> ${zoneInfo.radiusKm} KM)`}
+                    {isServiceable ? `✓ SERVICE AVAILABLE (≤ ${zoneInfo.maximumDistanceKm} KM)` : `OUT OF RANGE (> ${zoneInfo.maximumDistanceKm} KM)`}
                   </span>
                 </div>
               )}
@@ -518,27 +585,26 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                 ) : (
                   addresses.map((addr) => {
                     const isSelected = addr.id === activeAddressId;
-                    const addrZone = checkZoneServiceability(addr.latitude, addr.longitude);
-                    const addrServiceable = addrZone.isServiceable;
+                    // Canonical serviceability badge — informational only, never blocks selection
+                    const zone = savedAddrZones[addr.id];
+                    const zoneLoading = zone?.loading ?? true;
+                    const addrServiceable = zone?.serviceable ?? true;
+                    const maxKm = zone?.maximumDistanceKm ?? 3;
 
                     return (
                       <div
                         key={addr.id}
-                        onClick={() => addrServiceable && handleSelectSaved(addr)}
-                        className={`p-4 rounded-2xl border transition-all ${
-                          !addrServiceable
-                            ? 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40 opacity-80'
-                            : isSelected
+                        onClick={() => handleSelectSaved(addr)}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                          isSelected
                             ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-400/25 shadow-sm'
-                            : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-emerald-300 hover:shadow-sm cursor-pointer'
+                            : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-emerald-300 hover:shadow-sm'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                              !addrServiceable
-                                ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400'
-                                : isSelected
+                              isSelected
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
                             }`}>
@@ -563,40 +629,31 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                         </div>
 
                         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                          {addrServiceable ? (
+                          {/* Informational badge — does NOT block address selection */}
+                          {zoneLoading ? (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Checking delivery zone…</span>
+                            </div>
+                          ) : addrServiceable ? (
                             <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
                               <Zap className="w-3 h-3" />
-                              <span>✓ Within 3 KM Neral Delivery Zone</span>
+                              <span>✓ Within {maxKm} KM delivery zone</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-red-600 dark:text-red-400">
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                               <AlertCircle className="w-3 h-3" />
-                              <span>Outside 3 KM delivery zone ({addrZone.distanceKm} KM)</span>
+                              <span>Outside {maxKm} KM zone ({zone?.distanceKm?.toFixed(1)} KM) — verify at checkout</span>
                             </div>
                           )}
 
-                          {addrServiceable ? (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); handleSelectSaved(addr); }}
-                              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg transition-all active:scale-95"
-                            >
-                              Deliver here
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLat(addr.latitude);
-                                setLng(addr.longitude);
-                                setPanel('new');
-                              }}
-                              className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold text-[11px] px-3 py-1.5 rounded-lg transition-all"
-                            >
-                              Change Pin
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleSelectSaved(addr); }}
+                            className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg transition-all active:scale-95"
+                          >
+                            Deliver here
+                          </button>
                         </div>
                       </div>
                     );
@@ -629,7 +686,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                           You&apos;re outside our delivery area
                         </h4>
                         <p className="text-xs font-semibold text-red-700 dark:text-red-300 mt-0.5 leading-relaxed">
-                          PocketKirana currently delivers within 3 KM of our Neral store (Maule Kirana).
+                          PocketKirana currently delivers within {zoneInfo?.maximumDistanceKm ?? 3} KM of {zoneInfo?.storeName ?? 'our store'}.
                         </p>
                       </div>
                     </div>
@@ -638,13 +695,13 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                       <div>
                         <span className="text-[10px] uppercase font-bold text-slate-500 block">Your Distance</span>
                         <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">
-                          {zoneInfo?.distanceKm} KM
+                          {zoneInfo?.distanceKm?.toFixed(2)} KM
                         </span>
                       </div>
                       <div>
                         <span className="text-[10px] uppercase font-bold text-slate-500 block">Max Delivery Radius</span>
                         <span className="font-mono font-black text-slate-800 dark:text-slate-200 text-sm">
-                          3.0 KM
+                          {zoneInfo?.maximumDistanceKm ?? 3} KM
                         </span>
                       </div>
                     </div>
@@ -797,12 +854,12 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({ isOpen
                           : 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 cursor-not-allowed opacity-60'
                       }`}
                     >
-                      <span>{isServiceable ? 'Save & Deliver to this Location' : 'Location Outside 3 KM Delivery Range'}</span>
+                      <span>{isServiceable ? 'Save & Deliver to this Location' : `Location Outside ${zoneInfo?.maximumDistanceKm ?? 3} KM Delivery Range`}</span>
                       <ChevronRight className="w-4 h-4" />
                     </button>
                     {!isServiceable && (
                       <p className="text-[11px] text-center text-red-600 dark:text-red-400 font-bold mt-2">
-                        Orders cannot be delivered to locations outside the 3 KM Neral delivery zone.
+                        Outside delivery range ({zoneInfo?.distanceKm?.toFixed(1)} KM from {zoneInfo?.storeName ?? 'store'}). You can save the address but delivery availability will be verified at checkout.
                       </p>
                     )}
                   </div>

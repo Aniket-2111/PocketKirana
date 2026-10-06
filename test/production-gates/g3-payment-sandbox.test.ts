@@ -33,7 +33,18 @@ vi.mock('../../lib/phonepeConfig', () => ({
 vi.mock('../../lib/postgres', () => ({
   getPostgresPool: vi.fn(() => ({
     connect: vi.fn().mockResolvedValue({
-      query: vi.fn().mockResolvedValue({ rowCount: 0, rows: [] }),
+      query: vi.fn().mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM orders')) {
+          return {
+            rowCount: 1,
+            rows: [{ id: 'ord_sandbox_1', order_number: 'PK-SANDBOX-101', customer_id: 'cust_1', total_amount: 500, payment_status: 'pending', order_status: 'PLACED' }],
+          };
+        }
+        if (sql.includes('UPDATE orders')) {
+          return { rowCount: 1, rows: [] };
+        }
+        return { rowCount: 0, rows: [] };
+      }),
       release: vi.fn(),
     }),
   })),

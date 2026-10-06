@@ -596,8 +596,9 @@ export interface ZoneServiceability {
   zoneName: string;
   distanceKm: number; // Straight-line distance
   straightLineDistanceKm: number;
-  roadDistanceKm: number;
+  roadDistanceKm?: number;
   radiusKm: number;
+  maximumDistanceKm?: number;
   remainingKm: number;
   estimatedDeliveryMinutes: number;
   deliveryFee: number;
@@ -612,13 +613,21 @@ export interface ZoneServiceability {
   unserviceableReason?: string;
 }
 
-// In-memory store repository state initialized from INITIAL_STORES
+/**
+ * @deprecated NON-AUTHORITATIVE: In-memory store repository state initialized from INITIAL_STORES.
+ * Authoritative store configuration is persisted in PostgreSQL `stores` and evaluated
+ * by `evaluateServerServiceability` in `lib/serverServiceability.ts`.
+ */
 let STORES_STATE: Store[] = [...INITIAL_STORES];
 
 export function getStores(): Store[] {
   return STORES_STATE;
 }
 
+/**
+ * @deprecated NON-AUTHORITATIVE: Customer web and mobile checkouts no longer synchronize
+ * Firestore shops into in-memory STORES_STATE. Do not use for checkout serviceability.
+ */
 export function setStoresState(stores: Store[]): void {
   if (stores && stores.length > 0) {
     STORES_STATE = stores;
@@ -629,35 +638,13 @@ export function getStoreById(storeId: string): Store | undefined {
   return STORES_STATE.find((s) => s.id === storeId);
 }
 
-export function updateStoreConfig(storeId: string, updates: Partial<Store>): Store | null {
-  const idx = STORES_STATE.findIndex((s) => s.id === storeId);
-  if (idx === -1) {
-    // If not in state, add it
-    const newStore: Store = {
-      id: storeId,
-      ownerId: 'usr-admin-1',
-      name: 'PocketKirana Store',
-      phone: '+91 8698893348',
-      email: 'admin@pocketkirana.com',
-      gstNumber: '27AABCP1234F1Z5',
-      address: 'Station Road, Neral',
-      latitude: 19.033,
-      longitude: 73.317,
-      openingTime: '06:00',
-      closingTime: '23:00',
-      deliveryRadiusKm: 3.0,
-      status: 'active',
-      ...updates,
-    };
-    STORES_STATE.push(newStore);
-    return newStore;
-  }
-
-  STORES_STATE[idx] = {
-    ...STORES_STATE[idx],
-    ...updates,
-  };
-  return STORES_STATE[idx];
+/**
+ * @deprecated RETIRED: Store operational settings are managed exclusively via PostgreSQL
+ * `stores` and `app/api/admin/store/operations`. In-memory store mutation is disabled.
+ */
+export function updateStoreConfig(_storeId: string, _updates: Partial<Store>): Store | null {
+  console.warn('[DEPRECATED] updateStoreConfig called on retired in-memory store state.');
+  return null;
 }
 
 /**
@@ -689,6 +676,11 @@ export function isStoreCurrentlyOpen(openingTime?: string, closingTime?: string)
 
 /**
  * Blinkit-Style 3-Layer Hyperlocal Serviceability Engine
+ * @deprecated NON-AUTHORITATIVE: Replaced by canonical `evaluateServerServiceability()`
+ * in `lib/serverServiceability.ts` and `GET /api/serviceability/check`.
+ * Both checkout flows and advisory location onboarding (`locationFlowService`) use
+ * canonical `GET /api/serviceability/check`.
+ * Do NOT use for checkout or business-rule enforcement.
  */
 export function checkZoneServiceability(
   lat: number,
@@ -865,6 +857,11 @@ export function initiateMaskedCallSession(
 const ZONE_CACHE = new Map<string, { result: ZoneServiceability; ts: number }>();
 const ZONE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+/**
+ * @deprecated NON-AUTHORITATIVE.
+ * Replaced by GET /api/serviceability/check.
+ * Do not use for production serviceability decisions.
+ */
 export async function validateDeliveryZoneServerSide(
   latitude: number,
   longitude: number

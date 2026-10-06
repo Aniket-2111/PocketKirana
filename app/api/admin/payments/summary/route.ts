@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/routeAuth';
-import { db, isFirebaseConfigured } from '@/lib/firebase';
-import { getDocs, collection } from 'firebase/firestore';
-import { INITIAL_ORDERS } from '@/lib/mockData';
+import { getPostgresPool } from '@/lib/postgres';
 import { handleCorsPreflight } from '@/lib/cors';
 
 export async function OPTIONS(req: NextRequest) {
@@ -14,63 +12,36 @@ export async function GET(req: NextRequest) {
   if (!auth) {
     return NextResponse.json({ error: 'Unauthorized: Admin role required.' }, { status: 403 });
   }
+
   try {
-    let totalCollection = 47100;
-    let onlineCollection = 25450;
-    let codCashCollection = 12800;
-    let codUpiCollection = 8250;
-    let pendingCod = 3450;
-    let pendingSettlement = 2700;
-    let refunds = 600;
-    let netCollection = totalCollection - refunds;
+    const pool = getPostgresPool();
 
-    if (isFirebaseConfigured() && db) {
-      let calcTotal = 0;
-      let calcOnline = 0;
-      let calcCash = 0;
-      let calcUpi = 0;
-      let calcPendingCod = 0;
-      let calcSettled = 0;
+    const [ordersRes, refundsRes] = await Promise.all([
+      pool.query(`
+        SELECT
+          COALESCE(SUM(total_amount) FILTER (WHERE payment_status IN ('PAID', 'paid', 'completed')), 0) as total_collection,
+          COALESCE(SUM(total_amount) FILTER (WHERE payment_status IN ('PAID', 'paid', 'completed') AND (payment_method ILIKE '%online%' OR payment_method ILIKE '%phonepe%' OR payment_method ILIKE '%card%')), 0) as online_collection,
+          COALESCE(SUM(total_amount) FILTER (WHERE payment_status IN ('PAID', 'paid', 'completed') AND payment_method ILIKE '%cash%'), 0) as cod_cash_collection,
+          COALESCE(SUM(total_amount) FILTER (WHERE payment_status IN ('PAID', 'paid', 'completed') AND payment_method ILIKE '%upi%'), 0) as cod_upi_collection,
+          COALESCE(SUM(total_amount) FILTER (WHERE payment_status NOT IN ('PAID', 'paid', 'completed') AND payment_method ILIKE '%cod%'), 0) as pending_cod
+        FROM orders
+      `),
+      pool.query(`
+        SELECT COALESCE(SUM(amount), 0) as refunds 
+        FROM refunds 
+        WHERE status IN ('COMPLETED', 'SUCCESS', 'completed', 'success')
+      `),
+    ]);
 
-      const orderSnap = await getDocs(collection(db, 'orders'));
-      orderSnap.forEach((d) => {
-        const order = d.data();
-        const amt = order.total || order.grandTotal || 0;
-        const pStatus = (order.paymentStatus || '').toLowerCase();
-        const pMethod = (order.paymentMethod || '').toLowerCase();
-
-        if (pStatus === 'paid' || pStatus === 'completed') {
-          calcTotal += amt;
-          if (pMethod === 'online' || pMethod === 'phonepe' || pMethod === 'card') {
-            calcOnline += amt;
-          } else if (pMethod.includes('cash')) {
-            calcCash += amt;
-          } else if (pMethod.includes('upi')) {
-            calcUpi += amt;
-          } else {
-            calcOnline += amt;
-          }
-        } else if (pMethod.includes('cod')) {
-          calcPendingCod += amt;
-        }
-      });
-
-      const setSnap = await getDocs(collection(db, 'settlements'));
-      setSnap.forEach((d) => {
-        const data = d.data();
-        calcSettled += data.amount || 0;
-      });
-
-      if (calcTotal > 0) {
-        totalCollection = calcTotal;
-        onlineCollection = calcOnline;
-        codCashCollection = calcCash;
-        codUpiCollection = calcUpi;
-        pendingCod = calcPendingCod;
-        pendingSettlement = Math.max(0, calcCash - calcSettled);
-        netCollection = totalCollection - refunds;
-      }
-    }
+    const oRow = ordersRes.rows[0] || {};
+    const totalCollection = Math.round(parseFloat(oRow.total_collection || '0') * 100) / 100;
+    const onlineCollection = Math.round(parseFloat(oRow.online_collection || '0') * 100) / 100;
+    const codCashCollection = Math.round(parseFloat(oRow.cod_cash_collection || '0') * 100) / 100;
+    const codUpiCollection = Math.round(parseFloat(oRow.cod_upi_collection || '0') * 100) / 100;
+    const pendingCod = Math.round(parseFloat(oRow.pending_cod || '0') * 100) / 100;
+    const refunds = Math.round(parseFloat(refundsRes.rows[0]?.refunds || '0') * 100) / 100;
+    const pendingSettlement = codCashCollection;
+    const netCollection = Math.max(0, totalCollection - refunds);
 
     return NextResponse.json({
       success: true,
@@ -88,7 +59,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error('[Admin Payments Summary Error]', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch payment summary' },
+      { success: false, error: 'Failed to fetch payment summary from database' },
       { status: 500 }
     );
   }

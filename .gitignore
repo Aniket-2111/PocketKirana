@@ -77,3 +77,10 @@ physical_*.png
 
 # Scratch test files
 scratch/
+
+# PostgreSQL local binaries & data
+pgsql/
+pgdata/
+pg18_bin/
+backups/
+

@@ -90,7 +90,6 @@ import { DeliveryExceptionsAdminView } from '@/components/admin/DeliveryExceptio
 import { ReturnsManagementAdminView } from '@/components/admin/ReturnsManagementAdminView';
 import { CustomerIssuesAdminView } from '@/components/admin/CustomerIssuesAdminView';
 import { Order } from '@/types';
-import { INITIAL_ORDERS } from '@/lib/mockData';
 
 function AdminDashboardContent() {
   const searchParams = useSearchParams();
@@ -187,21 +186,13 @@ function AdminDashboardContent() {
     }
     const orderIdParam = searchParams.get('orderId');
     if (orderIdParam) {
-      const match =
-        orders.find(
-          (o) =>
-            o.id === orderIdParam ||
-            o.orderNumber === orderIdParam ||
-            o.id.toLowerCase() === orderIdParam.toLowerCase() ||
-            o.orderNumber.toLowerCase() === orderIdParam.toLowerCase()
-        ) ||
-        INITIAL_ORDERS.find(
-          (o) =>
-            o.id === orderIdParam ||
-            o.orderNumber === orderIdParam ||
-            o.id.toLowerCase() === orderIdParam.toLowerCase() ||
-            o.orderNumber.toLowerCase() === orderIdParam.toLowerCase()
-        );
+      const match = orders.find(
+        (o) =>
+          o.id === orderIdParam ||
+          o.orderNumber === orderIdParam ||
+          o.id.toLowerCase() === orderIdParam.toLowerCase() ||
+          o.orderNumber.toLowerCase() === orderIdParam.toLowerCase()
+      );
       if (match) {
         setSelectedOrderModal(match);
       }
@@ -817,9 +808,9 @@ function AdminDashboardContent() {
                   </div>
 
                   <div className="flex items-baseline justify-between flex-wrap gap-x-2 gap-y-1 pt-1">
-                    <span className="text-2xl font-black text-slate-900">₹{totalGMV > 0 ? totalGMV.toLocaleString() : '82,650'}</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                      <TrendingUp className="w-3 h-3" /> +11%
+                    <span className="text-2xl font-black text-slate-900">₹{totalGMV.toLocaleString()}</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                      Live
                     </span>
                   </div>
                 </div>
@@ -837,9 +828,9 @@ function AdminDashboardContent() {
                   </div>
 
                   <div className="flex items-baseline justify-between pt-1">
-                    <span className="text-2xl font-black text-slate-900">{orders.length > 0 ? orders.length : '1,645'}</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                      <TrendingUp className="w-3 h-3" /> +11%
+                    <span className="text-2xl font-black text-slate-900">{orders.length}</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                      Live
                     </span>
                   </div>
                 </div>
@@ -918,7 +909,7 @@ function AdminDashboardContent() {
                       <div className="space-y-1">
                         <h4 className="font-bold text-slate-900 text-xs truncate">{prod.name}</h4>
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 font-medium">752 Pcs</span>
+                          <span className="text-slate-500 font-medium">{prod.unit || '1 Unit'}</span>
                           <span className="font-black text-slate-900">₹{prod.sellingPrice}</span>
                         </div>
                       </div>

@@ -149,22 +149,6 @@ export default function CheckoutPage() {
       const targetAddressId = selectedAddressId || addresses.find((a) => a.isDefault)?.id || addresses[0]?.id || 'addr-default';
       const selectedAddr = addresses.find((a) => a.id === targetAddressId) || addresses[0];
 
-      if (selectedAddr && typeof selectedAddr.latitude === 'number' && typeof selectedAddr.longitude === 'number') {
-        const { calculateDistanceKm } = await import('@/lib/locationServices');
-        const dist = calculateDistanceKm(19.0224536, 73.3210018, selectedAddr.latitude, selectedAddr.longitude);
-        const isNeralPincode = selectedAddr.postalCode === '410101' || 
-          (selectedAddr.city && selectedAddr.city.toLowerCase().includes('neral')) ||
-          (selectedAddr.addressLine1 && selectedAddr.addressLine1.toLowerCase().includes('neral'));
-
-        if (dist > 4.5 && !isNeralPincode) {
-          showToast(`Outside delivery area: Selected address is ${dist.toFixed(1)} KM from Maule Kirana in Neral (Max radius: 4.5 KM)`, 'error');
-          setBtnState('idle');
-          isSubmittingRef.current = false;
-          setFrozenSnapshot(null);
-          return;
-        }
-      }
-
       // ── CANONICAL API CHECKOUT (PostgreSQL + Firestore mirror + picker trigger) ──
       // Calls POST /api/checkout which validates stock, calculates authoritative totals,
       // issues sequential order number, and persists to PostgreSQL & Firestore mirror.
@@ -212,21 +196,25 @@ export default function CheckoutPage() {
           credentials: 'include',
         });
 
-        if (apiResponse.ok) {
-          const apiData = await apiResponse.json();
-          if (apiData?.success && apiData?.data?.orderId) {
-            serverOrderId = apiData.data.orderId;
-            serverOrderNumber = apiData.data.orderNumber;
-            serverTotal = apiData.data.total;
-            serverDeliveryOtp = apiData.data.deliveryOtp;
-          } else if (apiData?.error) {
-            // Server rejected (out of stock, inactive item, serviceability) — surface to user
-            showToast(apiData.error, 'error');
-            setBtnState('idle');
-            isSubmittingRef.current = false;
-            setFrozenSnapshot(null);
-            return;
-          }
+        const apiData = await apiResponse.json().catch(() => null);
+        if (apiResponse.ok && apiData?.success && apiData?.data?.orderId) {
+          serverOrderId = apiData.data.orderId;
+          serverOrderNumber = apiData.data.orderNumber;
+          serverTotal = apiData.data.total;
+          serverDeliveryOtp = apiData.data.deliveryOtp;
+        } else if (apiData?.error) {
+          // Server rejected (out of stock, inactive item, serviceability) — surface to user
+          showToast(apiData.error, 'error');
+          setBtnState('idle');
+          isSubmittingRef.current = false;
+          setFrozenSnapshot(null);
+          return;
+        } else if (!apiResponse.ok) {
+          showToast('Failed to place order. Please try again.', 'error');
+          setBtnState('idle');
+          isSubmittingRef.current = false;
+          setFrozenSnapshot(null);
+          return;
         }
       } catch (apiErr) {
         // Network error — proceed with local generation (offline resilience)

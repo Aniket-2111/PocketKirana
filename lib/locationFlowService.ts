@@ -13,7 +13,6 @@
 
 import { locationManager, LocationCoordinates } from './locationManager';
 import {
-  checkZoneServiceability,
   resolveLocationFromCoords,
   ZoneServiceability,
   GeocodedLocation,
@@ -146,7 +145,7 @@ class LocationFlowService {
             selectedLocation: parsed,
             status: 'SERVICEABILITY_CHECKING',
           });
-          this.evaluateServiceability(parsed.latitude, parsed.longitude, parsed.pincode);
+          await this.evaluateServiceability(parsed.latitude, parsed.longitude, parsed.pincode);
           return;
         }
       } catch (_) {}
@@ -287,13 +286,18 @@ class LocationFlowService {
       selectedLocation: locData,
     });
 
-    this.evaluateServiceability(lat, lon, pincode);
+    await this.evaluateServiceability(lat, lon, pincode);
   }
 
   /**
-   * Synchronously and authoritatively evaluates serviceability against existing backend engine
+   * Evaluates serviceability against the canonical backend API (GET /api/serviceability/check).
+   * Advisory only: does NOT determine final checkout validity or block order placement.
    */
-  public evaluateServiceability(lat: number, lon: number, pincode?: string): ZoneServiceability {
+  public async evaluateServiceability(
+    lat: number,
+    lon: number,
+    pincode?: string
+  ): Promise<ZoneServiceability | null> {
     try {
       // Check offline status first to prevent false unserviceable determination
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -302,12 +306,82 @@ class LocationFlowService {
           isNetworkError: true,
           error: "Couldn't check delivery availability. Please try again.",
         });
-        throw new Error('OFFLINE');
+        return null;
       }
 
-      const serviceability = checkZoneServiceability(lat, lon, pincode);
+      const query = new URLSearchParams({
+        lat: String(lat),
+        lng: String(lon),
+        storeId: 'store-001',
+      });
+      const endpoint = `/api/serviceability/check?${query.toString()}`;
+      let targetUrl = endpoint;
+      try {
+        new URL(endpoint);
+      } catch {
+        const base =
+          typeof window !== 'undefined' &&
+          window.location?.origin &&
+          window.location.origin !== 'null' &&
+          window.location.origin !== 'about:blank'
+            ? window.location.origin
+            : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+        targetUrl = new URL(endpoint, base).toString();
+      }
 
-      if (serviceability.isServiceable) {
+      const res = await fetch(targetUrl, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!res.ok && res.status >= 500) {
+        throw new Error(`API_ERROR_${res.status}`);
+      }
+
+      const data = await res.json().catch(() => null);
+      if (!data) {
+        throw new Error('INVALID_RESPONSE');
+      }
+
+      const isServiceable = Boolean(data.serviceable);
+      const distance =
+        typeof data.distanceKm === 'number'
+          ? data.distanceKm
+          : (typeof data.straightLineDistanceKm === 'number' ? data.straightLineDistanceKm : 0);
+
+      const radius =
+        typeof data.maximumDistanceKm === 'number'
+          ? data.maximumDistanceKm
+          : (typeof data.store?.deliveryRadiusKm === 'number' ? data.store.deliveryRadiusKm : 3.0);
+
+      const storeName = data.storeName || data.store?.name || 'Maule Kirana (Neral Hub)';
+      const storeId = data.storeId || data.store?.id || 'store-001';
+
+      if (isServiceable) {
+        const serviceability: ZoneServiceability = {
+          isServiceable: true,
+          zoneId: `ZONE_${storeId}`,
+          zoneName: `${storeName} — Hyperlocal Express`,
+          distanceKm: distance,
+          straightLineDistanceKm: distance,
+          roadDistanceKm: distance,
+          radiusKm: radius,
+          maximumDistanceKm: radius,
+          remainingKm: Number(Math.max(0, radius - distance).toFixed(1)),
+          estimatedDeliveryMinutes: Math.max(10, Math.round(10 + distance * 3)),
+          deliveryFee: typeof data.deliveryFee === 'number' ? data.deliveryFee : 0,
+          storeId,
+          storeName,
+          storeLatitude: data.storeLatitude ?? data.store?.latitude,
+          storeLongitude: data.storeLongitude ?? data.store?.longitude,
+          storeOperatingHours: '06:00 - 23:00',
+          isStoreOpen: true,
+          layer1Passed: true,
+          layer2Passed: true,
+          layer3Passed: true,
+          message: data.message || '✓ PocketKirana delivers to your location',
+        };
+
         this.setState({
           serviceability,
           status: 'SERVICEABLE',
@@ -316,10 +390,46 @@ class LocationFlowService {
           error: null,
           isNetworkError: false,
         });
+
+        return serviceability;
       } else {
         // Distinguish Store Closed from Outside Delivery Area
-        const isStoreClosed = !serviceability.layer3Passed && !serviceability.isStoreOpen;
+        const isStoreClosed = data.code === 'STORE_CLOSED';
         const newStatus: LocationFlowStatus = isStoreClosed ? 'STORE_CLOSED' : 'UNSERVICEABLE';
+
+        let unserviceableReason = data.message || data.error || 'Outside Delivery Area';
+        if (data.code === 'OUT_OF_SERVICE_AREA' || data.code === 'OUT_OF_RANGE') {
+          unserviceableReason = `Outside Delivery Radius (${distance} KM vs max ${radius} KM radius)`;
+        } else if (data.code === 'STORE_CLOSED') {
+          unserviceableReason = `Store Closed (${storeName})`;
+        } else if (data.code === 'STORE_INACTIVE') {
+          unserviceableReason = `Store Offline (${storeName} delivery service currently paused)`;
+        }
+
+        const serviceability: ZoneServiceability = {
+          isServiceable: false,
+          zoneId: `ZONE_${storeId}`,
+          zoneName: `${storeName} — Outside Delivery Zone`,
+          distanceKm: distance,
+          straightLineDistanceKm: distance,
+          roadDistanceKm: distance,
+          radiusKm: radius,
+          maximumDistanceKm: radius,
+          remainingKm: 0,
+          estimatedDeliveryMinutes: 0,
+          deliveryFee: 0,
+          storeId,
+          storeName,
+          storeLatitude: data.storeLatitude ?? data.store?.latitude,
+          storeLongitude: data.storeLongitude ?? data.store?.longitude,
+          storeOperatingHours: '06:00 - 23:00',
+          isStoreOpen: !isStoreClosed,
+          layer1Passed: false,
+          layer2Passed: false,
+          layer3Passed: !isStoreClosed,
+          message: unserviceableReason,
+          unserviceableReason,
+        };
 
         this.setState({
           serviceability,
@@ -329,20 +439,17 @@ class LocationFlowService {
           error: null,
           isNetworkError: false,
         });
-      }
 
-      return serviceability;
-    } catch (err: any) {
-      if (err?.message === 'OFFLINE') {
-        const fallback = checkZoneServiceability(lat, lon, pincode);
-        return fallback;
+        return serviceability;
       }
+    } catch (err: any) {
+      console.warn('[LocationFlowService] Canonical serviceability API note:', err?.message || err);
       this.setState({
         status: 'SERVICEABILITY_NETWORK_ERROR',
         isNetworkError: true,
         error: "Couldn't check delivery availability. Please try again.",
       });
-      return checkZoneServiceability(lat, lon, pincode);
+      return null;
     }
   }
 

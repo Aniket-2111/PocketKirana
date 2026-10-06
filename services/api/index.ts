@@ -145,18 +145,6 @@ export const checkoutApi = {
       body: JSON.stringify({ cartItems, couponCode }),
     });
   },
-
-  async placeOrder(payload: {
-    addressId: string;
-    cartItems: CartItem[];
-    paymentMethod: string;
-    couponCode?: string;
-  }): Promise<ApiResponse<Order>> {
-    return request('/api/checkout/place-order', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  },
 };
 
 // ----------------------------------------------------

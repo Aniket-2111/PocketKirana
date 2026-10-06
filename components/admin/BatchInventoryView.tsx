@@ -23,6 +23,10 @@ export function BatchInventoryView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
 
+  // Store Selection State
+  const [stores, setStores] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('store_primary');
+
   // Inward Modal
   const [showInwardModal, setShowInwardModal] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState(products[0]?.id || '');
@@ -35,14 +39,40 @@ export function BatchInventoryView() {
   const [notes, setNotes] = useState('');
   const [isInwarding, setIsInwarding] = useState(false);
 
+  // Fetch authorized stores for store-centric inventory management
   useEffect(() => {
-    loadBatches();
-  }, [statusFilter]);
+    async function fetchStores() {
+      try {
+        const res = await fetch('/api/admin/store/operations');
+        if (res.ok) {
+          const json = await res.json();
+          const list = json?.data?.authorizedStores || [];
+          if (list.length > 0) {
+            setStores(list);
+            setSelectedStoreId((prev) => (list.some((s: any) => s.id === prev) ? prev : list[0].id));
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load stores for batch inventory', e);
+      }
+    }
+    fetchStores();
+  }, []);
+
+  useEffect(() => {
+    if (selectedStoreId) {
+      loadBatches();
+    }
+  }, [statusFilter, selectedStoreId]);
 
   async function loadBatches() {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/inventory/batches?status=${statusFilter}`);
+      const queryParams = new URLSearchParams();
+      if (statusFilter) queryParams.set('status', statusFilter);
+      if (selectedStoreId) queryParams.set('store_id', selectedStoreId);
+
+      const res = await fetch(`/api/inventory/batches?${queryParams.toString()}`);
       if (res.ok) {
         const json = await res.json();
         setBatches(json.data || []);
@@ -62,6 +92,11 @@ export function BatchInventoryView() {
       return;
     }
 
+    if (!selectedStoreId) {
+      showToast('Please select a target store for this batch', 'error');
+      return;
+    }
+
     setIsInwarding(true);
 
     try {
@@ -70,7 +105,7 @@ export function BatchInventoryView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          warehouse_id: 'wh_store-1',
+          store_id: selectedStoreId,
           variant_id: selectedProductId,
           batch_number: batchNumber || `B-${Date.now().toString().slice(-6)}`,
           manufacture_date: mfgDate || null,
@@ -153,6 +188,24 @@ export function BatchInventoryView() {
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
         </div>
 
+        {/* Store Selector */}
+        {stores.length > 0 && (
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <span className="text-slate-500">Store:</span>
+            <select
+              value={selectedStoreId}
+              onChange={(e) => setSelectedStoreId(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl py-1.5 px-3 focus:bg-white focus:outline-none"
+            >
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 text-xs font-bold">
           <span className="text-slate-500">Status:</span>
           {(['ACTIVE', 'ALL', 'CONSUMED', 'EXPIRED'] as const).map((st) => (
@@ -180,7 +233,7 @@ export function BatchInventoryView() {
                 <th className="py-3 px-4">Product & SKU</th>
                 <th className="py-3 px-4">Batch Number</th>
                 <th className="py-3 px-4">Expiry Date</th>
-                <th className="py-3 px-4">Warehouse</th>
+                <th className="py-3 px-4">Store</th>
                 <th className="py-3 px-4 text-right">Available</th>
                 <th className="py-3 px-4 text-right">Reserved</th>
                 <th className="py-3 px-4 text-center">FEFO Priority</th>
@@ -220,7 +273,7 @@ export function BatchInventoryView() {
                         <span className="text-slate-400 italic">No Expiry (Perennial)</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-600">{b.warehouse_name || 'Main Warehouse'}</td>
+                    <td className="py-3.5 px-4 text-slate-600">{b.store_name || b.warehouse_name || 'Central Store'}</td>
                     <td className="py-3.5 px-4 text-right font-black text-slate-900 text-sm">
                       {b.available_qty || 0}
                     </td>
@@ -255,6 +308,23 @@ export function BatchInventoryView() {
             </div>
 
             <form onSubmit={handleInwardBatch} className="space-y-3.5 text-xs">
+              {stores.length > 0 && (
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Target Store</label>
+                  <select
+                    value={selectedStoreId}
+                    onChange={(e) => setSelectedStoreId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-medium"
+                  >
+                    {stores.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Select Product</label>
                 <select

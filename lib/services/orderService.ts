@@ -54,6 +54,16 @@ const CANONICAL_TRANSITIONS: Record<CanonicalOrderStatus, CanonicalOrderStatus[]
   CANCELLED: [], // Terminal state
 };
 
+export const CANONICAL_PAYMENT_STATUSES = [
+  'pending',
+  'paid',
+  'completed',
+  'failed',
+  'refunded',
+] as const;
+
+export type CanonicalPaymentStatus = (typeof CANONICAL_PAYMENT_STATUSES)[number];
+
 export interface OrderTransitionRequest {
   orderId: string;
   targetStatus: CanonicalOrderStatus;
@@ -63,6 +73,7 @@ export interface OrderTransitionRequest {
   isAdminOverride?: boolean;
   metadata?: Record<string, any>;
   eventId?: string;
+  paymentStatus?: CanonicalPaymentStatus;
 }
 
 export interface OrderTransitionResult {
@@ -74,6 +85,7 @@ export interface OrderTransitionResult {
   deliveryOtp?: string;
   timestamp: string;
   idempotent: boolean;
+  paymentStatus?: string;
 }
 
 export class OrderService {
@@ -106,10 +118,17 @@ export class OrderService {
       isAdminOverride = false,
       metadata = {},
       eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+      paymentStatus,
     } = req;
 
     if (isAdminOverride && !reason) {
       throw new Error('Admin override requires a mandatory justification reason.');
+    }
+
+    if (paymentStatus && !CANONICAL_PAYMENT_STATUSES.includes(paymentStatus as any)) {
+      throw new Error(
+        `Invalid payment status: ${paymentStatus}. Allowed canonical values are: ${CANONICAL_PAYMENT_STATUSES.join(', ')}`
+      );
     }
 
     return await withTransaction(async (client: PoolClient) => {
@@ -130,8 +149,11 @@ export class OrderService {
       const currentStatus = (order.order_status?.toUpperCase() || 'PLACED') as CanonicalOrderStatus;
       const orderNumber = order.order_number;
 
-      // Idempotency check: if order is already in target status, return success
-      if (currentStatus === targetStatus) {
+      // Idempotency check: if order is already in target status AND payment status matches (or was omitted)
+      const isStatusMatch = currentStatus === targetStatus;
+      const isPaymentMatch = !paymentStatus || paymentStatus === order.payment_status;
+
+      if (isStatusMatch && isPaymentMatch) {
         return {
           success: true,
           orderId: order.id,
@@ -141,6 +163,7 @@ export class OrderService {
           deliveryOtp: order.delivery_otp,
           timestamp: new Date().toISOString(),
           idempotent: true,
+          paymentStatus: order.payment_status,
         };
       }
 
@@ -161,13 +184,14 @@ export class OrderService {
       await client.query(
         `UPDATE orders
          SET order_status = $1,
-             delivery_otp = COALESCE($2, delivery_otp),
+             payment_status = COALESCE($2, payment_status),
+             delivery_otp = COALESCE($3, delivery_otp),
              updated_at = CURRENT_TIMESTAMP,
              confirmed_at = CASE WHEN $1 = 'CONFIRMED' AND confirmed_at IS NULL THEN CURRENT_TIMESTAMP ELSE confirmed_at END,
              delivered_at = CASE WHEN $1 = 'DELIVERED' THEN CURRENT_TIMESTAMP ELSE delivered_at END,
              cancelled_at = CASE WHEN $1 = 'CANCELLED' THEN CURRENT_TIMESTAMP ELSE cancelled_at END
-         WHERE id = $3`,
-        [targetStatus, deliveryOtp, order.id]
+         WHERE id = $4`,
+        [targetStatus, paymentStatus || null, deliveryOtp, order.id]
       );
 
       // 5. Append to order_status_history
@@ -273,6 +297,7 @@ export class OrderService {
         deliveryOtp,
         timestamp: new Date().toISOString(),
         idempotent: false,
+        paymentStatus: paymentStatus || order.payment_status,
       };
     });
   }

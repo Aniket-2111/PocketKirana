@@ -61,6 +61,8 @@ export function getRouteAuth(req: NextRequest): RouteAuthContext | null {
   return null;
 }
 
+import { getPostgresPool } from './postgres';
+
 /**
  * Require any authenticated user regardless of role.
  */
@@ -79,4 +81,77 @@ export function requireRole(
   if (!auth) return null;
   if (!allowedRoles.includes(auth.role)) return null;
   return auth;
+}
+
+export interface StoreAccessResult {
+  authorized: boolean;
+  error?: string;
+  statusCode?: number;
+}
+
+/**
+ * Server-side RBAC validation verifying whether an administrator has permission
+ * to view or modify operational settings for the target store:
+ *  - Main Admin ('admin'): Global administrative authority across all darkstores.
+ *  - Store Admin ('store_admin' / 'store_manager'): Restricted strictly to stores assigned in admin_store_assignments.
+ *  - Other / Unauthorized: Rejected with 401 or 403.
+ */
+export async function verifyStoreAccess(
+  auth: RouteAuthContext | null,
+  storeId: string
+): Promise<StoreAccessResult> {
+  if (!auth) {
+    return {
+      authorized: false,
+      error: 'Unauthorized: Authentication required.',
+      statusCode: 401,
+    };
+  }
+
+  // 1. Main Admin has global authority over all darkstores
+  if (auth.role === 'admin') {
+    return { authorized: true };
+  }
+
+  // 2. Store Admin / Store Manager: scope-restricted to assigned stores
+  if (auth.role === 'store_admin' || auth.role === 'store_manager') {
+    try {
+      const pool = getPostgresPool();
+      const res = await pool.query(
+        `SELECT 1 FROM admin_store_assignments asa
+         LEFT JOIN admin_users au ON asa.admin_user_id = au.id
+         WHERE (asa.admin_user_id = $1 OR au.firebase_uid = $1)
+           AND (
+             asa.store_id = $2 OR 
+             asa.store_id = (SELECT id FROM stores WHERE id = $2 OR UPPER(code) = UPPER($2) LIMIT 1)
+           )
+         LIMIT 1`,
+        [auth.uid, storeId]
+      );
+
+      if (res.rows && res.rows.length > 0) {
+        return { authorized: true };
+      }
+
+      return {
+        authorized: false,
+        error: `Forbidden: Store Administrator '${auth.uid}' is not assigned to manage store '${storeId}'.`,
+        statusCode: 403,
+      };
+    } catch (err: any) {
+      console.error('[verifyStoreAccess Error]', err.message);
+      return {
+        authorized: false,
+        error: 'Database authorization verification failed.',
+        statusCode: 500,
+      };
+    }
+  }
+
+  // 3. Any other role (customer, delivery_partner, picker)
+  return {
+    authorized: false,
+    error: 'Forbidden: Insufficient privileges for store operations.',
+    statusCode: 403,
+  };
 }

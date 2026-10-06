@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
 import { NextRequest } from 'next/server';
 import { POST as checkoutHandler } from '../app/api/checkout/route';
@@ -80,6 +80,7 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
     vi.clearAllMocks();
     mockQuery.mockReset();
     clearStoreCache();
+    vi.setSystemTime(new Date('2026-10-04T12:00:00+05:30'));
 
     const cache = new Map<string, any>();
     cache.set('prod_1', {
@@ -101,6 +102,10 @@ describe('Phase 18 — Full E2E Lifecycle & Failure Injections', () => {
       publishStatus: 'PUBLISHED',
     });
     globalThis._pkProductCache = cache;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('18D & 18E: Golden-Path End-to-End Lifecycle', () => {

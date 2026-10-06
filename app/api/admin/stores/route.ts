@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireRole } from '@/lib/routeAuth';
-import { getStores } from '@/lib/locationServices';
 
-export async function GET(req: NextRequest) {
-  // PK-SEC-09: Dark store configs live under /api/admin/ — require admin role
-  const auth = requireRole(req, ['admin']);
-  if (!auth) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+/**
+ * RETIRED: The legacy in-memory /api/admin/stores endpoint has been retired.
+ * Store operational authority is managed via canonical /api/admin/store/operations backed by PostgreSQL.
+ */
+export async function GET(_req: NextRequest) {
+  return NextResponse.json(
+    {
+      error: 'GONE',
+      message: 'The legacy /api/admin/stores endpoint has been retired. Store configuration authority is consolidated under /api/admin/store/operations backed by PostgreSQL.',
+    },
+    { status: 410 }
+  );
+}
 
-  const stores = getStores();
-  return NextResponse.json({
-    success: true,
-    data: stores,
-  });
+export async function POST(_req: NextRequest) {
+  return NextResponse.json(
+    {
+      error: 'GONE',
+      message: 'The legacy /api/admin/stores endpoint has been retired. Store configuration authority is consolidated under /api/admin/store/operations backed by PostgreSQL.',
+    },
+    { status: 410 }
+  );
 }

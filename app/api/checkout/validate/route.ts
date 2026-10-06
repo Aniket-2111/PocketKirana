@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { calculateDistanceKm, getStores, setStoresState } from '@/lib/locationServices';
 import { fetchShopsFS } from '@/lib/firebaseServices';
 
+/**
+ * @deprecated Phase 2.7C.4 Audit finding: This endpoint is UNUSED and has no production callers.
+ * Canonical serviceability evaluation is provided by GET/POST /api/serviceability/check
+ * and preflight checkout gate is enforced directly by POST /api/checkout.
+ * Scheduled for decommissioning.
+ */
 export async function POST(request: Request) {
   try {
     const body = await request.json();

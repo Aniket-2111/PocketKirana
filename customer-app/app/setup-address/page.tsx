@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { validateDeliveryZoneServerSide } from '@/lib/locationServices';
 import {
   MapPin,
   Navigation,
@@ -109,7 +108,27 @@ export default function SetupAddressPage() {
 
       try {
         const [zoneResult, geoDisplay] = await Promise.all([
-          validateDeliveryZoneServerSide(latitude, longitude),
+          (async () => {
+            const res = await fetch(
+              `/api/serviceability/check?lat=${latitude}&lng=${longitude}&storeId=store-001`,
+              { signal: AbortSignal.timeout(5000) }
+            );
+            const data = await res.json().catch(() => null);
+            const isServiceable = Boolean(data?.serviceable);
+            const distanceKm =
+              typeof data?.distanceKm === 'number'
+                ? data.distanceKm
+                : (typeof data?.straightLineDistanceKm === 'number' ? data.straightLineDistanceKm : 0);
+            const maximumDistanceKm =
+              typeof data?.maximumDistanceKm === 'number' ? data.maximumDistanceKm : 3;
+
+            return {
+              isServiceable,
+              distanceKm,
+              maximumDistanceKm,
+              message: data?.message,
+            };
+          })(),
           (async () => {
             if (knownDisplay) return knownDisplay;
             try {
@@ -128,7 +147,8 @@ export default function SetupAddressPage() {
         await saveOrUpdateAddress(latitude, longitude, geoDisplay);
 
         if (!zoneResult.isServiceable) {
-          setStatusMessage('Location is outside our 3 KM delivery radius in Neral.');
+          const maxRadius = zoneResult.maximumDistanceKm || 3;
+          setStatusMessage(`Location is outside our ${maxRadius} KM delivery radius.`);
           setTimeout(() => {
             router.replace(`/not-serviceable?dist=${zoneResult.distanceKm}&lat=${latitude}&lon=${longitude}`);
           }, 300);

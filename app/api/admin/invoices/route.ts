@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/routeAuth';
-import { INITIAL_ORDERS } from '@/lib/mockData';
 import {
   createOrGetInvoiceSnapshot,
   DEFAULT_INVOICE_TEMPLATE,
@@ -9,16 +8,6 @@ import {
 
 // Global cache of finalized invoices
 const adminInvoicesStore: InvoiceSnapshot[] = [];
-
-// Populate from initial mock data if empty
-if (adminInvoicesStore.length === 0) {
-  INITIAL_ORDERS.forEach((ord: any) => {
-    try {
-      const inv = createOrGetInvoiceSnapshot(ord, DEFAULT_INVOICE_TEMPLATE, adminInvoicesStore);
-      adminInvoicesStore.push(inv);
-    } catch (_) {}
-  });
-}
 
 export async function GET(req: NextRequest) {
   const auth = requireRole(req, ['admin']);

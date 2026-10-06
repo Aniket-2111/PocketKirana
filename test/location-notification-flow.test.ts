@@ -5,7 +5,6 @@ import {
   SelectedLocationData,
 } from '../lib/locationFlowService';
 import { locationManager } from '../lib/locationManager';
-import { checkZoneServiceability } from '../lib/locationServices';
 import { requestFCMNotificationPermission } from '../lib/fcmClient';
 import { saveFcmToken } from '../lib/userService';
 
@@ -33,6 +32,69 @@ describe('Blinkit-Style Location & Notification Flow Test Matrix', () => {
         query: vi.fn().mockResolvedValue({ state: 'prompt' }),
       },
     });
+
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const urlStr = String(input);
+      if (urlStr.includes('/api/serviceability/check')) {
+        const url = new URL(urlStr, 'http://localhost:3000');
+        const lat = parseFloat(url.searchParams.get('lat') || '0');
+        const lng = parseFloat(url.searchParams.get('lng') || '0');
+
+        // Neral Hub coordinates: 19.0224536, 73.3210018
+        // Within Neral area (lat between 19.01 and 19.05, lng between 73.30 and 73.34)
+        const isNearNeral = Math.abs(lat - 19.0224536) < 0.05 && Math.abs(lng - 73.3210018) < 0.05;
+
+        if (isNearNeral) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              serviceable: true,
+              code: 'SERVICEABLE',
+              status: 'SERVICEABLE',
+              message: '✓ PocketKirana delivers to your location',
+              straightLineDistanceKm: 0.5,
+              distanceKm: 0.5,
+              deliveryFee: 0,
+              maximumDistanceKm: 4.5,
+              store: {
+                id: 'store-001',
+                name: 'Maule Kirana (Neral Hub)',
+                deliveryRadiusKm: 4.5,
+                isActive: true,
+              },
+            }),
+          } as Response);
+        } else {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              serviceable: false,
+              code: 'OUT_OF_SERVICE_AREA',
+              status: 'OUT_OF_RANGE',
+              error: 'Outside Delivery Radius (13.5 KM vs max 4.5 KM radius)',
+              message: 'Outside Delivery Radius (13.5 KM vs max 4.5 KM radius)',
+              straightLineDistanceKm: 13.5,
+              distanceKm: 13.5,
+              maximumDistanceKm: 4.5,
+              store: {
+                id: 'store-001',
+                name: 'Maule Kirana (Neral Hub)',
+                deliveryRadiusKm: 4.5,
+                isActive: true,
+              },
+            }),
+          } as Response);
+        }
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response);
+    }));
 
     locationFlowService.reset();
   });

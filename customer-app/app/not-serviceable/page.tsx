@@ -18,11 +18,15 @@ import { useAppStore } from '@/lib/store';
 function NotServiceableContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { currentUser, addresses } = useAppStore();
+  const { addresses } = useAppStore();
   const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
 
   const distParam = searchParams.get('dist');
-  const distanceKm = distParam ? parseFloat(distParam) : null;
+  const distanceKm = distParam && !isNaN(parseFloat(distParam)) ? parseFloat(distParam) : null;
+  const maxDistParam = searchParams.get('maxDist') || searchParams.get('radius');
+  const maxRadiusKm = maxDistParam && !isNaN(parseFloat(maxDistParam)) ? parseFloat(maxDistParam) : null;
+  const storeNameParam = searchParams.get('store') || searchParams.get('storeName');
+  const storeName = storeNameParam ? decodeURIComponent(storeNameParam) : null;
 
   return (
     <div className="min-h-screen bg-[#FFF8F0] dark:bg-slate-950 flex flex-col font-sans select-none pb-10 transition-colors">
@@ -62,7 +66,17 @@ function NotServiceableContent() {
               You&apos;re outside our delivery area
             </h2>
             <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 max-w-xs mx-auto leading-relaxed">
-              PocketKirana currently delivers within <span className="font-black text-[#004D21] dark:text-emerald-400">3 KM</span> of our Neral store.
+              {maxRadiusKm ? (
+                <>
+                  PocketKirana currently delivers within{' '}
+                  <span className="font-black text-[#004D21] dark:text-emerald-400">
+                    {maxRadiusKm.toFixed(1)} KM
+                  </span>{' '}
+                  of our store.
+                </>
+              ) : (
+                'This location is currently outside the delivery area for the selected store.'
+              )}
             </p>
           </div>
 
@@ -70,26 +84,30 @@ function NotServiceableContent() {
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
             <div className="flex items-center justify-between text-xs border-b border-slate-100 dark:border-slate-800 pb-2.5">
               <span className="font-bold text-slate-500 dark:text-slate-400">Service Center</span>
-              <span className="font-black text-slate-900 dark:text-white">Maule Kirana Shop (Neral)</span>
+              <span className="font-black text-slate-900 dark:text-white">
+                {storeName || 'Selected Store'}
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Your Distance</span>
                 <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">
-                  {distanceKm !== null ? `${distanceKm} KM` : 'Outside'}
+                  {distanceKm !== null ? `${distanceKm.toFixed(1)} KM` : 'Outside'}
                 </span>
               </div>
               <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Max Radius</span>
                 <span className="font-mono font-black text-[#004D21] dark:text-emerald-400 text-sm">
-                  3.0 KM
+                  {maxRadiusKm !== null ? `${maxRadiusKm.toFixed(1)} KM` : 'Area Limit'}
                 </span>
               </div>
             </div>
 
             <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-amber-50/70 dark:bg-amber-950/20 p-2.5 rounded-xl border border-amber-200/60 dark:border-amber-900/40 leading-snug">
-              📍 Orders and checkout are restricted to addresses within 3 KM of Maule Kirana.
+              {maxRadiusKm && storeName
+                ? `📍 Orders and checkout are restricted to addresses within ${maxRadiusKm.toFixed(1)} KM of ${storeName}.`
+                : '📍 Orders and checkout are restricted to addresses within the verified delivery area.'}
             </div>
           </div>
 
@@ -144,7 +162,7 @@ function NotServiceableContent() {
                 <div className="w-8 h-8 rounded-xl bg-[#E8F5E9] dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
                   <Info className="w-4 h-4 text-[#006E2F]" />
                 </div>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">About Maule Kirana · PocketKirana</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white">About PocketKirana</span>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </button>
@@ -161,7 +179,7 @@ function NotServiceableContent() {
             Back to Login
           </button>
           <div className="text-[11px] text-slate-400 dark:text-slate-500 font-bold">
-            Pocket Kirana · Neral Express Delivery (3 KM Zone)
+            Pocket Kirana · Express Delivery
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -13,8 +13,8 @@ import {
   Activity,
   Layers,
   Percent,
+  Loader2,
 } from 'lucide-react';
-import { useAppStore } from '@/lib/store';
 
 type MetricType = 'revenue' | 'orders' | 'profit';
 type TimeframeType = '7d' | '30d' | '90d';
@@ -30,59 +30,56 @@ interface DataPoint {
 }
 
 export function ModernSalesAnalyticsChart() {
-  const { orders } = useAppStore();
   const [metric, setMetric] = useState<MetricType>('revenue');
   const [timeframe, setTimeframe] = useState<TimeframeType>('30d');
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [data, setData] = useState<DataPoint[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Generate realistic, consistent daily data points based on timeframe
-  const data: DataPoint[] = useMemo(() => {
-    const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 14 : 20;
-    const now = new Date();
-    const result: DataPoint[] = [];
-
-    // Base seed numbers for realistic grocery darkstore curve
-    const baseRevenues = [
-      14200, 16800, 15400, 19200, 24500, 28900, 34200, 31800, 27600, 35400, 38900, 42100, 46800, 48135,
-      39000, 41200, 44500, 47800, 51200, 54600
-    ];
-
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i * (timeframe === '90d' ? 4 : timeframe === '30d' ? 2 : 1));
-      
-      const dayName = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      const shortDay = d.toLocaleDateString('en-IN', { day: 'numeric' });
-      const revIndex = (days - 1 - i) % baseRevenues.length;
-      const rev = baseRevenues[revIndex] + (Math.sin(i * 1.5) * 3200);
-      const exp = Math.round(rev * 0.42);
-      const prof = rev - exp;
-      const ords = Math.round(rev / 520);
-      const prevRev = Math.round(rev * 0.84);
-
-      result.push({
-        date: dayName,
-        shortDate: shortDay,
-        revenue: Math.round(rev),
-        orders: ords,
-        expenses: exp,
-        profit: prof,
-        prevRevenue: prevRev,
+  // Fetch real aggregated daily data points based on timeframe from PostgreSQL
+  useEffect(() => {
+    let isCancelled = false;
+    setIsLoading(true);
+    fetch(`/api/admin/analytics/chart?timeframe=${timeframe}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!isCancelled && json.success && Array.isArray(json.data)) {
+          setData(json.data);
+        }
+      })
+      .catch((err) => {
+        console.error('[ModernSalesAnalyticsChart Fetch Error]', err);
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       });
-    }
-
-    return result;
+    return () => {
+      isCancelled = true;
+    };
   }, [timeframe]);
 
-  // Aggregate Totals
+  // Aggregate Real Totals
   const totals = useMemo(() => {
     const totalRev = data.reduce((acc, d) => acc + d.revenue, 0);
     const totalExp = data.reduce((acc, d) => acc + d.expenses, 0);
     const totalProfit = totalRev - totalExp;
     const totalOrders = data.reduce((acc, d) => acc + d.orders, 0);
     const aov = totalOrders > 0 ? Math.round(totalRev / totalOrders) : 0;
-    const growth = '+18.4%';
+
+    const prevTotal = data.reduce((acc, d) => acc + d.prevRevenue, 0);
+    let growth = '0.0%';
+    if (prevTotal > 0) {
+      const diff = ((totalRev - prevTotal) / prevTotal) * 100;
+      growth = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`;
+    } else if (totalRev > 0) {
+      growth = '+100%';
+    }
+
+    const costPercent = totalRev > 0 ? ((totalExp / totalRev) * 100).toFixed(1) + '%' : '0.0%';
+    const profitMargin = totalRev > 0 ? ((totalProfit / totalRev) * 100).toFixed(1) + '%' : '0.0%';
 
     return {
       revenue: totalRev,
@@ -91,6 +88,8 @@ export function ModernSalesAnalyticsChart() {
       orders: totalOrders,
       aov,
       growth,
+      costPercent,
+      profitMargin,
     };
   }, [data]);
 
@@ -114,9 +113,13 @@ export function ModernSalesAnalyticsChart() {
   const chartHeight = height - paddingY * 2;
 
   const points = useMemo(() => {
+    if (data.length === 0) return [];
     return data.map((d, index) => {
-      const x = paddingX + (index / (data.length - 1)) * chartWidth;
-      const normalizedY = (getValue(d, metric) - minVal * 0.8) / ((maxVal * 1.1) - (minVal * 0.8));
+      const x = data.length > 1
+        ? paddingX + (index / (data.length - 1)) * chartWidth
+        : paddingX + chartWidth / 2;
+      const range = (maxVal * 1.1) - (minVal * 0.8) || 1;
+      const normalizedY = (getValue(d, metric) - minVal * 0.8) / range;
       const y = height - paddingY - normalizedY * chartHeight;
       return { x, y, dataPoint: d };
     });
@@ -153,10 +156,14 @@ export function ModernSalesAnalyticsChart() {
 
   // Previous Period Benchmark Spline
   const prevPoints = useMemo(() => {
+    if (data.length === 0) return [];
     return data.map((d, index) => {
-      const x = paddingX + (index / (data.length - 1)) * chartWidth;
+      const x = data.length > 1
+        ? paddingX + (index / (data.length - 1)) * chartWidth
+        : paddingX + chartWidth / 2;
       const val = metric === 'revenue' ? d.prevRevenue : d.orders * 0.85;
-      const normalizedY = (val - minVal * 0.8) / ((maxVal * 1.1) - (minVal * 0.8));
+      const range = (maxVal * 1.1) - (minVal * 0.8) || 1;
+      const normalizedY = (val - minVal * 0.8) / range;
       const y = height - paddingY - normalizedY * chartHeight;
       return { x, y };
     });
@@ -198,8 +205,9 @@ export function ModernSalesAnalyticsChart() {
             <div>
               <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
                 Sales &amp; Revenue Analytics
-                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-extrabold px-2 py-0.5 rounded-full border border-emerald-200/60">
-                  Live
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-extrabold px-2 py-0.5 rounded-full border border-emerald-200/60 flex items-center gap-1">
+                  {isLoading ? <Loader2 className="w-2.5 h-2.5 animate-spin text-emerald-600" /> : null}
+                  {isLoading ? 'Updating...' : 'Live (PostgreSQL)'}
                 </span>
               </h3>
               <p className="text-[11px] text-slate-500 font-medium">
@@ -301,7 +309,7 @@ export function ModernSalesAnalyticsChart() {
               ₹{totals.revenue.toLocaleString('en-IN')}
             </span>
             <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center">
-              +18.4%
+              {totals.growth}
             </span>
           </div>
         </div>
@@ -315,7 +323,7 @@ export function ModernSalesAnalyticsChart() {
               ₹{totals.expenses.toLocaleString('en-IN')}
             </span>
             <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
-              42.1%
+              {totals.costPercent}
             </span>
           </div>
         </div>
@@ -329,7 +337,7 @@ export function ModernSalesAnalyticsChart() {
               ₹{totals.profit.toLocaleString('en-IN')}
             </span>
             <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
-              57.9%
+              {totals.profitMargin}
             </span>
           </div>
         </div>

@@ -14,7 +14,7 @@
  * 3. Enforces HTTPS, standard headers, configurable timeouts, and graceful error mapping.
  */
 
-export const DEFAULT_PRODUCTION_API_URL = 'https://pocketkirana.in';
+export const DEFAULT_PRODUCTION_API_URL = 'https://pocketkirana.com';
 
 /**
  * Detects whether the current execution context is inside a Capacitor mobile shell
@@ -62,7 +62,7 @@ export function getApiBaseUrl(): string {
         return '';
       }
       // Sub-apps (customer-app on 3002, picker on 3001, delivery on 3003) connect to local Next.js backend on 3000
-      if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('pocketkirana.in')) {
+      if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('pocketkirana.')) {
         return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
       }
       return `http://${hostname}:3000`;
@@ -182,10 +182,10 @@ export async function apiFetch<T = any>(
         // Fallback also failed, re-throw original error
       }
     }
-    // 2. If target was pocketkirana.in and failed (e.g. offline or local development proxy), attempt localhost:3000 fallback
-    if (typeof window !== 'undefined' && fullUrl.includes('pocketkirana.in')) {
+    // 2. If target was pocketkirana.com / pocketkirana.in and failed (e.g. offline or local development proxy), attempt localhost:3000 fallback
+    if (typeof window !== 'undefined' && (fullUrl.includes('pocketkirana.com') || fullUrl.includes('pocketkirana.in'))) {
       try {
-        const fallbackUrl = fullUrl.replace('https://pocketkirana.in', `${window.location.protocol}//${window.location.hostname}:3000`);
+        const fallbackUrl = fullUrl.replace(/https:\/\/pocketkirana\.(com|in)/, `${window.location.protocol}//${window.location.hostname}:3000`);
         const fallbackRes = await fetch(fallbackUrl, {
           ...options,
           headers,

@@ -4,6 +4,7 @@ import { getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { INITIAL_ORDERS } from '@/lib/mockData';
 import { getRouteAuth } from '@/lib/routeAuth';
 import { handleCorsPreflight, setCorsHeaders } from '@/lib/cors';
+import { getPostgresPool } from '@/lib/postgres';
 
 export async function OPTIONS(req: NextRequest) {
   return handleCorsPreflight(req);
@@ -41,23 +42,48 @@ export async function POST(
     let currentPaymentMethod = 'cod';
     let currentCollectionStatus = 'PENDING';
 
+    // Try PostgreSQL lookup first
+    try {
+      const pool = getPostgresPool();
+      const pgRes = await pool.query(
+        `SELECT id, order_number, customer_id, total_amount, payment_status, payment_method, delivery_partner_id
+         FROM orders 
+         WHERE id = $1 OR order_number = $1 
+         LIMIT 1`,
+        [orderId]
+      );
+
+      if (pgRes.rows.length > 0) {
+        const row = pgRes.rows[0];
+        expectedAmount = Number(row.total_amount) || expectedAmount;
+        orderNumber = row.order_number || row.id;
+        assignedPartnerId = row.delivery_partner_id || assignedPartnerId;
+        currentPaymentStatus = (row.payment_status || 'pending').toLowerCase();
+        currentPaymentMethod = (row.payment_method || 'cod').toLowerCase();
+      }
+    } catch (pgErr) {
+      // Non-fatal if PG not reachable in mock mode
+    }
+
     if (isFirebaseConfigured() && db) {
       const orderRef = doc(db, 'orders', orderId);
       const orderSnap = await getDoc(orderRef);
-      if (!orderSnap.exists()) {
+      if (!orderSnap.exists() && currentPaymentStatus === 'pending' && orderNumber === orderId) {
         return NextResponse.json(
           { success: false, error: 'Order not found.' },
           { status: 404 }
         );
       }
 
-      const orderData = orderSnap.data();
-      expectedAmount = Number(orderData.total ?? orderData.grandTotal ?? expectedAmount);
-      orderNumber = orderData.orderNumber || orderId;
-      assignedPartnerId = orderData.partnerId || '';
-      currentPaymentStatus = (orderData.paymentStatus || 'pending').toLowerCase();
-      currentPaymentMethod = (orderData.paymentMethod || 'cod').toLowerCase();
-      currentCollectionStatus = orderData.collectionStatus || (currentPaymentStatus === 'paid' ? 'COLLECTED' : 'PENDING');
+      if (orderSnap.exists()) {
+        const orderData = orderSnap.data();
+        expectedAmount = Number(orderData.total ?? orderData.grandTotal ?? expectedAmount);
+        orderNumber = orderData.orderNumber || orderId;
+        assignedPartnerId = orderData.partnerId || assignedPartnerId;
+        currentPaymentStatus = (orderData.paymentStatus || currentPaymentStatus).toLowerCase();
+        currentPaymentMethod = (orderData.paymentMethod || currentPaymentMethod).toLowerCase();
+        currentCollectionStatus = orderData.collectionStatus || (currentPaymentStatus === 'paid' ? 'COLLECTED' : 'PENDING');
+      }
 
       // 2. Partner Assignment Verification
       if (auth.role !== 'admin' && assignedPartnerId && assignedPartnerId !== auth.uid) {
@@ -97,51 +123,56 @@ export async function POST(
           paymentStatus: 'PAID',
           paymentMethod: 'COD_CASH',
           amountCollected: expectedAmount,
-          collectedByPartnerId: orderData.cashCollectedBy || auth.uid,
+          collectedByPartnerId: auth.uid,
           alreadyCollected: true,
         });
       }
 
-      // 6. Atomically update order to PAID via cash
-      await updateDoc(orderRef, {
-        paymentStatus: 'paid',
-        paymentMethod: 'cod_cash',
-        collectionStatus: 'COLLECTED',
-        collectionMethod: 'CASH',
-        cashCollectedAt: new Date().toISOString(),
-        cashCollectedBy: auth.uid,
-        updatedAt: new Date().toISOString(),
-      });
+      // 6. Atomically update order to PAID via cash in Firestore if available
+      if (orderSnap.exists()) {
+        await updateDoc(orderRef, {
+          paymentStatus: 'paid',
+          paymentMethod: 'cod_cash',
+          collectionStatus: 'COLLECTED',
+          collectionMethod: 'CASH',
+          cashCollectedAt: new Date().toISOString(),
+          cashCollectedBy: auth.uid,
+          updatedAt: new Date().toISOString(),
+        });
 
-      // 7. Record in payments collection
-      const paymentTxnId = `CASH_COLLECT_${orderNumber}_${Date.now().toString().slice(-6)}`;
-      await setDoc(
-        doc(db, 'payments', `pay_pk_${paymentTxnId}`),
-        {
-          paymentId: `pay_pk_${paymentTxnId}`,
-          orderId,
-          orderNumber,
-          amount: expectedAmount,
-          currency: 'INR',
-          method: 'cash',
-          status: 'completed',
-          gateway: 'cod_cash',
-          collectedByPartnerId: auth.uid,
-          paidAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+        const paymentTxnId = `CASH_COLLECT_${orderNumber}_${Date.now().toString().slice(-6)}`;
+        await setDoc(
+          doc(db, 'payments', `pay_pk_${paymentTxnId}`),
+          {
+            paymentId: `pay_pk_${paymentTxnId}`,
+            orderId,
+            orderNumber,
+            amount: expectedAmount,
+            currency: 'INR',
+            method: 'cash',
+            status: 'completed',
+            gateway: 'cod_cash',
+            collectedByPartnerId: auth.uid,
+            paidAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      }
     } else {
       const order = INITIAL_ORDERS.find((o) => o.id === orderId || o.orderNumber === orderId);
-      if (!order) {
+      if (!order && currentPaymentStatus === 'pending' && orderNumber === orderId) {
         return NextResponse.json({ success: false, error: 'Order not found.' }, { status: 404 });
       }
 
-      expectedAmount = Number(order.total || amountCollected || 450);
-      orderNumber = order.orderNumber || orderId;
-      assignedPartnerId = order.partnerId || '';
-      currentPaymentMethod = (order.paymentMethod || 'cod').toLowerCase();
+      if (order) {
+        expectedAmount = Number(order.total || amountCollected || expectedAmount);
+        orderNumber = order.orderNumber || orderId;
+        assignedPartnerId = order.partnerId || assignedPartnerId;
+        currentPaymentMethod = (order.paymentMethod || currentPaymentMethod).toLowerCase();
+        order.paymentStatus = 'paid' as any;
+        order.paymentMethod = 'cod' as any;
+      }
 
       // Partner Assignment Verification
       if (auth.role !== 'admin' && assignedPartnerId && assignedPartnerId !== auth.uid) {
@@ -161,9 +192,37 @@ export async function POST(
           );
         }
       }
+    }
 
-      order.paymentStatus = 'paid' as any;
-      order.paymentMethod = 'cod' as any;
+    // 7. Authoritatively update PostgreSQL (Sole Transactional Source of Truth)
+    try {
+      const pool = getPostgresPool();
+      await pool.query(
+        `UPDATE orders
+         SET payment_status = 'paid',
+             payment_method = 'cod_cash',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 OR order_number = $1`,
+        [orderId]
+      );
+
+      const paymentTxnId = `CASH_COLLECT_${orderNumber}_${Date.now().toString().slice(-6)}`;
+      await pool.query(
+        `INSERT INTO payments (
+           id, order_id, firebase_uid, payment_method, amount, currency,
+           status, gateway, gateway_order_id, created_at, updated_at
+         ) VALUES ($1, $2, $3, 'cod_cash', $4, 'INR', 'completed', 'cod_cash', $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         ON CONFLICT (id) DO UPDATE SET status = 'completed', updated_at = CURRENT_TIMESTAMP`,
+        [
+          `pay_pk_${paymentTxnId}`,
+          orderId,
+          auth.uid,
+          expectedAmount,
+          paymentTxnId,
+        ]
+      );
+    } catch (pgErr: any) {
+      console.warn('[Delivery Collect Cash PG Warning]', pgErr.message);
     }
 
     const response = NextResponse.json({

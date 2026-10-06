@@ -27,6 +27,7 @@ export default function UnserviceableAreaModal({ state }: Props) {
   const isStoreClosed = state.status === 'STORE_CLOSED';
   const isNetworkErr = state.isNetworkError || state.status === 'SERVICEABILITY_NETWORK_ERROR';
   const distanceKm = state.serviceability?.straightLineDistanceKm ?? null;
+  const maxRadiusKm = state.serviceability?.radiusKm ?? state.serviceability?.maximumDistanceKm ?? null;
   const storeName = state.serviceability?.storeName || 'Maule Kirana (Neral Hub)';
   const operatingHours = state.serviceability?.storeOperatingHours || '06:00 - 23:00';
   const currentAddress = state.selectedLocation?.addressLine || 'Selected Location';
@@ -108,7 +109,7 @@ export default function UnserviceableAreaModal({ state }: Props) {
               <div>
                 <span className="text-[9px] uppercase font-bold text-slate-400 block">Delivery Zone</span>
                 <span className="font-mono font-black text-[#006E2F] dark:text-emerald-400 text-xs">
-                  Max 3.0 KM
+                  {maxRadiusKm !== null ? `Max ${maxRadiusKm} KM` : 'Service Area'}
                 </span>
               </div>
             </div>

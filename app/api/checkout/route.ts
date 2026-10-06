@@ -20,8 +20,9 @@ import { getPostgresPool } from '@/lib/postgres';
 import { getRouteAuth } from '@/lib/routeAuth';
 import { appendOutboxEvent } from '@/lib/db/outbox';
 import { getFefoRecommendation, recordInventoryEvent } from '@/lib/fefo';
+import { getPrimaryWarehouseIdForStore } from '@/lib/storeOperationsService';
 import { validateServerPricing } from '@/lib/catalogSync';
-import { evaluateServerServiceability } from '@/lib/serverServiceability';
+import { evaluateServerServiceability, resolveDeliveryFee } from '@/lib/serverServiceability';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { ensurePickingTaskForOrder } from '@/lib/firebaseServices';
@@ -162,6 +163,14 @@ export async function POST(req: NextRequest) {
     const resolvedStore = serviceabilityDecision.store!;
     const canonicalStoreId = resolvedStore.id;
 
+    // Resolve store's primary internal inventory location (warehouse)
+    let primaryWarehouseId: string | null = null;
+    try {
+      primaryWarehouseId = await getPrimaryWarehouseIdForStore(canonicalStoreId, client);
+    } catch (whErr: any) {
+      console.warn(`[checkout] Could not resolve primary warehouse for store ${canonicalStoreId}:`, whErr.message);
+    }
+
     // 3. START POSTGRESQL TRANSACTION
     client = await pool.connect();
     await client.query('BEGIN');
@@ -231,23 +240,25 @@ export async function POST(req: NextRequest) {
             [qty, inv.id]
           );
 
-          // Attempt FEFO batch balance allocation
-          try {
-            const fefoRes = await getFefoRecommendation(vId, canonicalStoreId, qty, client);
-            if (fefoRes.allocations.length > 0) {
-              for (const alloc of fefoRes.allocations) {
-                await client.query(
-                  `UPDATE inventory_balances
-                   SET reserved_qty = reserved_qty + $1,
-                       available_qty = available_qty - $1,
-                       updated_at = NOW()
-                   WHERE variant_id = $2 AND batch_id = $3`,
-                  [alloc.pickQty, vId, alloc.batchId]
-                );
+          // Attempt FEFO batch balance allocation using resolved primary warehouse
+          if (primaryWarehouseId) {
+            try {
+              const fefoRes = await getFefoRecommendation(vId, primaryWarehouseId, qty, client);
+              if (fefoRes.allocations.length > 0) {
+                for (const alloc of fefoRes.allocations) {
+                  await client.query(
+                    `UPDATE inventory_balances
+                     SET reserved_qty = reserved_qty + $1,
+                         available_qty = available_qty - $1,
+                         updated_at = NOW()
+                     WHERE warehouse_id = $1 AND variant_id = $2 AND batch_id = $3`,
+                    [primaryWarehouseId, vId, alloc.batchId]
+                  );
+                }
               }
+            } catch {
+              // Balances table fallback
             }
-          } catch {
-            // Balances table fallback
           }
 
           // Insert stock_reservations
@@ -261,6 +272,7 @@ export async function POST(req: NextRequest) {
           // Record immutable audit ledger event
           try {
             await recordInventoryEvent(client, {
+              warehouseId: primaryWarehouseId || undefined,
               variantId: vId,
               eventType: 'RESERVED',
               quantity: qty,
@@ -295,7 +307,7 @@ export async function POST(req: NextRequest) {
     }
 
     const discount = couponCode ? 50 : 0;
-    const deliveryFee = subtotal >= resolvedStore.freeDeliveryThreshold ? 0 : resolvedStore.deliveryFee;
+    const deliveryFee = resolveDeliveryFee(resolvedStore, subtotal);
     const tax = Math.round((subtotal - discount) * 0.05);
     const total = Math.max(0, subtotal - discount + deliveryFee + tax);
 

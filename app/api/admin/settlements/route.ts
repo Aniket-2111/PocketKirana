@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/routeAuth';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { getDocs, collection, doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
-import { INITIAL_ORDERS } from '@/lib/mockData';
 import { handleCorsPreflight } from '@/lib/cors';
 
 export async function OPTIONS(req: NextRequest) {
@@ -17,31 +16,6 @@ export async function GET(req: NextRequest) {
   try {
     const ledgers: Record<string, any> = {};
     const settlements: any[] = [];
-
-    // Fallback seed data
-    ledgers['partner-1'] = {
-      partnerId: 'partner-1',
-      partnerName: 'Sunil Kumar',
-      phone: '+91 98765 43210',
-      totalCashCollected: 8500,
-      totalUpiCollected: 4200,
-      totalCollected: 12700,
-      totalSettled: 10000,
-      pendingSettlement: 2700,
-      lastSettledAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    };
-
-    ledgers['partner-2'] = {
-      partnerId: 'partner-2',
-      partnerName: 'Rahul Shinde',
-      phone: '+91 98765 43211',
-      totalCashCollected: 4300,
-      totalUpiCollected: 2100,
-      totalCollected: 6400,
-      totalSettled: 4300,
-      pendingSettlement: 2100,
-      lastSettledAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-    };
 
     if (isFirebaseConfigured() && db) {
       // Read codCollections and settlements from Firestore

@@ -128,6 +128,42 @@ vi.mock('../lib/firebaseServices', () => ({
   ensurePickingTaskForOrder: vi.fn(async () => {}),
 }));
 
+vi.mock('../lib/postgres', () => {
+  const queryFn = vi.fn().mockImplementation(async (sql: string, params?: any[]) => {
+    if (sql.includes('FROM orders')) {
+      return {
+        rowCount: 1,
+        rows: [
+          {
+            id: 'ord_online_test_101',
+            order_number: 'PK-101',
+            customer_id: 'usr-cust-1',
+            total_amount: 512,
+            payment_status: 'pending',
+            order_status: 'PLACED',
+          },
+        ],
+      };
+    }
+    if (sql.includes('UPDATE orders')) {
+      return { rowCount: 1, rows: [] };
+    }
+    return { rowCount: 0, rows: [] };
+  });
+
+  return {
+    queryPostgres: queryFn,
+    withTransaction: vi.fn(async (cb: any) => cb({ query: queryFn, release: vi.fn() })),
+    getPostgresPool: vi.fn(() => ({
+      connect: vi.fn().mockResolvedValue({
+        query: queryFn,
+        release: vi.fn(),
+      }),
+      query: queryFn,
+    })),
+  };
+});
+
 describe('PART A: Customer APK PhonePe Business Online Payments', () => {
   function signPhonePePayload(base64Payload: string, endpoint = '/pg/v1/pay'): string {
     const hash = crypto
@@ -303,13 +339,41 @@ describe('PART A: Customer APK PhonePe Business Online Payments', () => {
 
   it('3B. Status Recovery Endpoint: retrieves authoritative payment status for mobile app restart', async () => {
     const { db } = await import('../lib/firebase');
+    const { getPostgresPool } = await import('../lib/postgres');
+    const pool = getPostgresPool();
+    const client = await pool.connect();
+    (client.query as any).mockClear?.();
+
     const txnId = 'TXN_PK_PK-101_STATUS_REC_1';
     (db as any)._payments.set(`pay_pk_${txnId}`, {
       paymentId: `pay_pk_${txnId}`,
       orderId: 'ord_online_test_101',
       customerId: 'usr-cust-1',
       amount: 512,
-      status: 'completed',
+      status: 'pending',
+    });
+
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(async (url: any) => {
+      if (String(url).includes('/pg/v1/status/')) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            code: 'PAYMENT_SUCCESS',
+            message: 'Payment Successful',
+            data: {
+              merchantId: TEST_MERCHANT_ID,
+              merchantTransactionId: txnId,
+              transactionId: 'T_STATUS_REC_SUCCESS_88',
+              amount: 51200,
+              state: 'COMPLETED',
+              responseCode: 'SUCCESS',
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      return originalFetch(url);
     });
 
     const req = new Request(`http://localhost:3000/api/payments/phonepe/status?merchantTransactionId=${txnId}&orderId=ord_online_test_101`, {
@@ -323,6 +387,22 @@ describe('PART A: Customer APK PhonePe Business Online Payments', () => {
     expect(json.success).toBe(true);
     expect(json.data.orderId).toBe('ord_online_test_101');
     expect(json.data.verified).toBe(true);
+    expect(json.data.paymentStatus).toBe('paid');
+    expect(json.data.orderStatus).toBe('CONFIRMED');
+
+    // Canonical PostgreSQL verification: ensure PostgreSQL UPDATE orders and payment queries were executed
+    const calls = (client.query as any).mock.calls;
+    const updateOrderCall = calls.find((c: any[]) => typeof c[0] === 'string' && c[0].includes('UPDATE orders'));
+    expect(updateOrderCall).toBeDefined();
+    expect(updateOrderCall[0]).toContain("payment_status = 'paid'");
+    expect(updateOrderCall[0]).toContain("order_status = 'CONFIRMED'");
+    expect(updateOrderCall[1]).toEqual(['ord_online_test_101']);
+
+    const paymentTxCall = calls.find((c: any[]) => typeof c[0] === 'string' && c[0].includes('INSERT INTO payment_transactions'));
+    expect(paymentTxCall).toBeDefined();
+    expect(paymentTxCall[0]).toContain('STATUS_RECOVERY');
+
+    global.fetch = originalFetch;
   });
 
   it('3C. Verify Endpoint: queries PhonePe status API and confirms order idempotently', async () => {

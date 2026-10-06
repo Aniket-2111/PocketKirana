@@ -30,7 +30,7 @@ function buildPaymentDoc(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { orderId } = body;
+    const { orderId, customerPhone: bodyPhone } = body;
 
     if (!orderId) {
       return corsResponse({ success: false, error: 'Order ID is required' }, { status: 400 });
@@ -69,9 +69,16 @@ export async function POST(request: Request) {
     try {
       const { queryPostgres } = await import('@/lib/postgres');
       const pgRes = await queryPostgres(
-        `SELECT id, order_number, customer_id, firebase_uid, total_amount, payment_status, customer_phone 
-         FROM orders 
-         WHERE id = $1 OR order_number = $1 
+        `SELECT 
+           o.id, 
+           o.order_number, 
+           o.firebase_uid, 
+           o.total_amount, 
+           o.payment_status,
+           oa.phone AS customer_phone
+         FROM orders o
+         LEFT JOIN order_addresses oa ON oa.order_id = o.id
+         WHERE o.id = $1 OR o.order_number = $1 
          LIMIT 1`,
         [orderId]
       );
@@ -80,10 +87,10 @@ export async function POST(request: Request) {
         orderData = {
           orderId: row.id || orderId,
           orderNumber: row.order_number || row.id || orderId,
-          customerId: row.customer_id || row.firebase_uid || '',
+          customerId: row.firebase_uid || row.customer_id || '',
           total: parseFloat(row.total_amount || 0),
           paymentStatus: row.payment_status || 'pending',
-          customerPhone: row.customer_phone,
+          customerPhone: row.customer_phone || bodyPhone || undefined,
         };
       }
     } catch (pgErr: any) {
@@ -101,7 +108,7 @@ export async function POST(request: Request) {
           customerId: snapData.customerId || '',
           total: snapData.total,
           paymentStatus: snapData.paymentStatus,
-          customerPhone: snapData.customerPhone,
+          customerPhone: snapData.customerPhone || bodyPhone || undefined,
         };
       }
     }

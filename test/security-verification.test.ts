@@ -41,7 +41,27 @@ vi.mock('../lib/phonepeConfig', () => ({
 vi.mock('../lib/postgres', () => ({
   getPostgresPool: vi.fn(() => ({
     connect: vi.fn().mockResolvedValue({
-      query: vi.fn().mockResolvedValue({ rowCount: 0, rows: [] }),
+      query: vi.fn().mockImplementation(async (sql: string, params?: any[]) => {
+        if (sql.includes('FROM orders')) {
+          return {
+            rowCount: 1,
+            rows: [
+              {
+                id: 'ord_real_500',
+                order_number: 'PK-500',
+                customer_id: 'cust_1',
+                total_amount: 500,
+                payment_status: 'pending',
+                order_status: 'PLACED',
+              },
+            ],
+          };
+        }
+        if (sql.includes('UPDATE orders')) {
+          return { rowCount: 1, rows: [] };
+        }
+        return { rowCount: 0, rows: [] };
+      }),
       release: vi.fn(),
     }),
   })),
@@ -312,16 +332,11 @@ describe('Phase 16 — Comprehensive Security Verification & Penetration Tests',
       const validHash = crypto.createHash('sha256').update(base64Response + saltKey).digest('hex');
       const validXVerify = `${validHash}###1`;
 
-      // Mock payment and order lookup
-      mockGetDoc
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ orderId: 'ord_real_500', customerId: 'cust_1', status: 'pending' }),
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ total: 500, paymentStatus: 'pending' }), // Real total ₹500 = 50000 paise
-        });
+      // Mock payment lookup
+      mockGetDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ orderId: 'ord_real_500', customerId: 'cust_1', status: 'pending' }),
+      });
 
       const req = new Request('http://localhost:3000/api/payments/phonepe/webhook', {
         method: 'POST',
